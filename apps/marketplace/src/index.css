@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-100 text-gray-900 font-sans antialiased;
+  }
+  * { box-sizing: border-box; }
+}
+
+@layer components {
+  /* ── Buttons ── */
+  .btn-cart {
+    @apply bg-amber-400 hover:bg-amber-500 text-gray-900 font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm shadow-sm active:scale-95 disabled:opacity-60;
+  }
+  .btn-buy {
+    @apply bg-[#F97316] hover:bg-[#EA580C] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm shadow-sm active:scale-95 disabled:opacity-60;
+  }
+  .btn-outline {
+    @apply border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-xl transition-colors text-sm;
+  }
+  .btn-ghost {
+    @apply text-gray-500 hover:text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors text-sm;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-200 shadow-[0_2px_8px_0_rgba(0,0,0,.08)];
+  }
+  .card-hover {
+    @apply card hover:shadow-[0_8px_28px_0_rgba(0,0,0,.14)] hover:-translate-y-0.5 transition-all duration-200;
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent bg-white transition-shadow;
+  }
+  .select {
+    @apply w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent bg-white;
+  }
+
+  /* ── Badges ── */
+  .badge-green  { @apply bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-brand  { @apply bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE] text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-amber  { @apply bg-amber-50  text-amber-700   border border-amber-200  text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+  .badge-red    { @apply bg-red-50    text-red-700     border border-red-200    text-xs font-semibold px-2.5 py-0.5 rounded-full; }
+
+  /* ── Skeleton shimmer ── */
+  .skeleton {
+    @apply rounded-xl bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200;
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite linear;
+  }
+
+  /* ── Price tag ── */
+  .price {
+    @apply text-[#B12704] font-bold;
+  }
+
+  /* ── Star rating ── */
+  .star-fill   { @apply text-amber-400 fill-amber-400; }
+  .star-empty  { @apply text-gray-200; }
+
+  /* ── Trust pill ── */
+  .trust-pill {
+    @apply flex items-center gap-2 text-xs font-semibold text-[#4338CA] bg-[#EEF2FF] px-3 py-1.5 rounded-full border border-[#E0E7FF];
+  }
+
+  /* ── Section title ── */
+  .section-title {
+    @apply text-xl font-bold text-gray-900;
+  }
+  .section-link {
+    @apply text-sm font-medium text-[#4F46E5] hover:text-[#3730A3] hover:underline flex items-center gap-1;
+  }
+
+  /* ── Filter sidebar active item ── */
+  .filter-active  { @apply bg-[#EEF2FF] text-[#4338CA] font-semibold border-l-2 border-[#4F46E5]; }
+  .filter-passive { @apply text-gray-600 hover:bg-gray-50 hover:text-gray-900; }
+}
+
+/* Shimmer keyframe (used by .skeleton) */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Thin scrollbar */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C7D2FE; border-radius: 99px; }
