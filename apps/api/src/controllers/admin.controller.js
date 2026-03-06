@@ -5,11 +5,20 @@ const { createAuditLog } = require('../middleware/audit.middleware');
 
 async function getNRSLogs(req, res) {
   try {
-    const { page, limit, tenantId, status, from, to } = req.query;
+    const { page, limit, tenantId, status, search, from, to } = req.query;
     const { take, skip } = paginate(page, limit);
     const where = {};
     if (tenantId) where.tenantId = tenantId;
     if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { irn: { contains: search, mode: 'insensitive' } },
+        { invoiceRef: { contains: search, mode: 'insensitive' } },
+        { invoice: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
+        { tenant: { businessName: { contains: search, mode: 'insensitive' } } },
+        { tenant: { tradingName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
     if (from || to) {
       where.createdAt = {};
       if (from) where.createdAt.gte = new Date(from);
@@ -25,6 +34,55 @@ async function getNRSLogs(req, res) {
     res.json(paginatedResponse(data, total, page, limit));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch NRS logs' });
+  }
+}
+
+async function getNRSStats(req, res) {
+  try {
+    const { period = '30d' } = req.query;
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : period === '365d' ? 365 : 30;
+    const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [nrsByStatus, total, taxByStatus] = await Promise.all([
+      prisma.nRSLog.groupBy({
+        by: ['status'],
+        where: { createdAt: { gte: from } },
+        _count: true,
+      }),
+      prisma.nRSLog.count({ where: { createdAt: { gte: from } } }),
+      prisma.taxFiling.groupBy({
+        by: ['status'],
+        where: { createdAt: { gte: from } },
+        _count: true,
+      }),
+    ]);
+
+    const nrsCount = (status) => nrsByStatus.find((r) => r.status === status)?._count || 0;
+    const taxCount = (status) => taxByStatus.find((r) => r.status === status)?._count || 0;
+    const approved = nrsCount('SUCCESS') + nrsCount('APPROVED');
+    const failed = nrsCount('FAILED') + nrsCount('REJECTED');
+    const pending = nrsCount('PENDING');
+    const filedTaxReturns = taxCount('FILED') + taxCount('APPROVED') + taxCount('PAID');
+    const pendingTaxFilings = taxCount('PENDING') + taxCount('DRAFT');
+    const overdueTaxFilings = taxCount('OVERDUE') + taxCount('LATE');
+
+    res.json({
+      data: {
+        period,
+        total,
+        approved,
+        failed,
+        pending,
+        successRate: total > 0 ? Number(((approved / total) * 100).toFixed(1)) : 0,
+        taxByStatus,
+        filedTaxReturns,
+        pendingTaxFilings,
+        overdueTaxFilings,
+      },
+    });
+  } catch (error) {
+    logger.error('NRS stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch NRS stats' });
   }
 }
 
@@ -1075,7 +1133,7 @@ async function updateMaintenanceMode(req, res) {
 }
 
 module.exports = {
-  getNRSLogs, retryNRSSubmission, getPlatformAnalytics, getAuditLogs, moderateListing, createAdminUser,
+  getNRSLogs, getNRSStats, retryNRSSubmission, getPlatformAnalytics, getAuditLogs, moderateListing, createAdminUser,
   getSubscriptionStats, listSubscriptions, updateTenantSubscription,
   listTenants, getTenantDetail, adminUpdateKYC, adminAddTenantNote, adminToggleTenantActive, adminGetTenantAuditLogs, adminToggleTenantUserStatus,
   suspendTenant, activateTenant, extendTrial,

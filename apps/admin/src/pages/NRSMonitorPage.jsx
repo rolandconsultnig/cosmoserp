@@ -8,7 +8,7 @@ import api from '../lib/api';
 import { formatDateTime, getStatusColor, cn } from '../lib/utils';
 
 function StatusIcon({ status }) {
-  if (status === 'APPROVED') return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+  if (status === 'APPROVED' || status === 'SUCCESS') return <CheckCircle className="w-4 h-4 text-emerald-500" />;
   if (status === 'FAILED')   return <XCircle className="w-4 h-4 text-red-500" />;
   return <Clock className="w-4 h-4 text-amber-500" />;
 }
@@ -83,8 +83,8 @@ export default function NRSMonitorPage() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">NRS Bridge Monitor</h1>
-          <p className="page-subtitle">FIRS e-invoicing submissions across all tenants · Auto-refreshes every 30s</p>
+          <h1 className="page-title">NRS / Tax Compliance</h1>
+          <p className="page-subtitle">Monitor NRS e-invoicing submissions and tax filings · Auto-refreshes every 30s</p>
         </div>
         <div className="flex items-center gap-2 text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-full">
           <Activity className="w-3.5 h-3.5" />
@@ -116,6 +116,28 @@ export default function NRSMonitorPage() {
             />
           </div>
         ))}
+      </div>
+
+      {/* ── Tax compliance summary ── */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-[13px] font-bold text-slate-800">Tax Filing Compliance</h2>
+          <span className="text-[11px] text-slate-400">Last 30 days</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+            <div className="text-[11px] font-semibold text-emerald-700">Filed Returns</div>
+            <div className="text-[20px] font-black text-emerald-800 mt-1">{(stats?.filedTaxReturns || 0).toLocaleString()}</div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <div className="text-[11px] font-semibold text-amber-700">Pending Filings</div>
+            <div className="text-[20px] font-black text-amber-800 mt-1">{(stats?.pendingTaxFilings || 0).toLocaleString()}</div>
+          </div>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+            <div className="text-[11px] font-semibold text-rose-700">Overdue Filings</div>
+            <div className="text-[20px] font-black text-rose-800 mt-1">{(stats?.overdueTaxFilings || 0).toLocaleString()}</div>
+          </div>
+        </div>
       </div>
 
       {/* ── Failed alert ── */}
@@ -156,7 +178,7 @@ export default function NRSMonitorPage() {
         >
           <option value="">All Statuses</option>
           <option value="PENDING">Pending</option>
-          <option value="APPROVED">Approved</option>
+          <option value="SUCCESS">Approved</option>
           <option value="FAILED">Failed</option>
         </select>
       </div>

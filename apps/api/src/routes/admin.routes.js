@@ -6,6 +6,7 @@ const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
 
 router.use(authenticate, requireAdmin);
 router.get('/nrs-logs', ctrl.getNRSLogs);
+router.get('/nrs-stats', ctrl.getNRSStats);
 router.post('/nrs-logs/:id/retry', ctrl.retryNRSSubmission);
 router.get('/analytics', ctrl.getPlatformAnalytics);
 router.get('/audit-logs', ctrl.getAuditLogs);
