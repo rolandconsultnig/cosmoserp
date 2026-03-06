@@ -375,7 +375,7 @@ All ports used by Cosmos ERP:
 | **22**   | SSH                  | Server access |
 | **5133** | Cosmos ERP API       | **Internal only** — Node.js API; set `PORT=5133` in `apps/api/.env`. Nginx proxies `location /api` to `http://127.0.0.1:5133` |
 | 3060  | ERP (dev only)       | Local dev — `npm run dev` in `apps/erp` |
-| 5174  | Marketplace (dev)    | Local dev — `apps/marketplace` |
+| 5173  | Marketplace (dev)    | Local dev — `apps/marketplace` |
 | 5175  | Admin (dev)          | Local dev — `apps/admin` |
 | 5000  | API (dev default)    | Fallback if `PORT` is not set in API |
 | 6379  | Redis (optional)     | Local — cache/sessions if used |
@@ -480,6 +480,28 @@ sudo ln -sf /etc/nginx/sites-available/cosmoserp /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+### 13.4 Alternative: Nginx proxying to app ports (port 80 → 5173, 3060, 5175, 5133)
+
+If you want Nginx on port 80 to **proxy** to the running app ports instead of serving static `dist` files, use the config in the repo:
+
+| Nginx path | Proxies to |
+|------------|-------------|
+| `http://host/` | **5173** (Marketplace) |
+| `http://host/erp` | **3060** (ERP) |
+| `http://host/admin` | **5175** (Admin) |
+| `http://host/api` | **5133** (API) |
+
+Copy and enable it:
+
+```bash
+sudo cp /path/to/cosmoserp/docs/nginx-proxy-to-ports.conf /etc/nginx/sites-available/cosmoserp-proxy
+sudo ln -sf /etc/nginx/sites-available/cosmoserp-proxy /etc/nginx/sites-enabled/cosmoserp
+# Disable the static config if needed: sudo rm /etc/nginx/sites-enabled/cosmoserp
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Start the apps first: API on 5133, Marketplace dev on 5173, ERP dev on 3060, Admin dev on 5175.
 
 ---
 
