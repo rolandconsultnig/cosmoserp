@@ -571,6 +571,57 @@ curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5133/"   # API root (ma
 
 ---
 
+## Frontends not running / not loading
+
+### Local development
+
+1. **Install dependencies** (from repo root):
+   ```bash
+   npm install
+   ```
+
+2. **Start only the three frontends** (if the API fails and you still want to see the UIs):
+   ```bash
+   npm run dev:frontends
+   ```
+   - Marketplace: http://localhost:5173  
+   - ERP: http://localhost:3060  
+   - Admin: http://localhost:5175  
+
+3. **Start everything** (API + all frontends):
+   ```bash
+   npm run dev
+   ```
+
+4. **Port in use:** If a port (3060, 5173, 5175) is already in use, stop the other process or change the port in the app’s `vite.config.js` `server.port`.
+
+5. **Windows:** Use `start_frontends.bat` to launch the three frontends in separate windows (Marketplace 5173, ERP 3060, Admin 5175).
+
+### Production (Nginx serving built frontends)
+
+If the site is blank or 404:
+
+1. **Build all frontends** (from repo root on the server):
+   ```bash
+   cd ~/cosmoserp   # or /root/cosmoserp
+   npm run build
+   ```
+
+2. **Check that `dist` folders exist:**
+   ```bash
+   ls -la apps/marketplace/dist apps/erp/dist apps/admin/dist
+   ```
+   Each should contain `index.html` and an `assets/` folder.
+
+3. **Nginx paths:** In `/etc/nginx/sites-available/cosmoserp`, ensure `root` and `alias` use the same path as your repo (e.g. `/root/cosmoserp` if you cloned as root, not `/home/ubuntu/cosmoserp`).
+
+4. **Reload Nginx** after any config or build change:
+   ```bash
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+---
+
 ## Troubleshooting
 
 - **502 Bad Gateway**: API not running. Run `pm2 status` and `pm2 logs cosmos-api`.

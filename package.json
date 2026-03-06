@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:erp\" \"npm run dev:market\" \"npm run dev:admin\"",
+    "dev:frontends": "concurrently \"npm run dev:erp\" \"npm run dev:market\" \"npm run dev:admin\"",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:erp": "npm run dev --workspace=apps/erp",
     "dev:market": "npm run dev --workspace=apps/marketplace",
