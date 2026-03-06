@@ -465,18 +465,37 @@ Then in Nginx config use `server_name yourdomain.com;` and rely on CertbotΓÇÖ
 
 ## 14. Verification and URLs
 
-Open in a browser (use your domain instead of IP if you configured SSL):
+Open in a browser (use your domain instead of IP if you configured SSL). Replace `13.53.33.63` with your server IP (e.g. `13.53.33.62` if different):
 
 | App        | URL                              |
 |-----------|-----------------------------------|
-| Marketplace (primary) | http://13.53.33.62/        |
-| Admin     | http://13.53.33.62/admin          |
-| ERP       | http://13.53.33.62/erp             |
-| API       | http://13.53.33.62/api/...        |
+| Marketplace (primary) | http://13.53.33.63/        |
+| Admin     | http://13.53.33.63/admin          |
+| ERP       | http://13.53.33.63/erp             |
+| API       | http://13.53.33.63/api/...        |
 
 - **ERP**: Register a tenant and log in.
 - **Admin**: Log in with `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` from `.env` (change password after first login).
 - **Marketplace**: Browse and test checkout flow; ensure API calls go to `/api` and succeed.
+
+### Quick smoke test (from your machine or from the server)
+
+Run these to confirm each app returns HTML (status 200):
+
+```bash
+# Replace SERVER_IP with your server (e.g. 13.53.33.63)
+SERVER_IP=13.53.33.63
+
+curl -s -o /dev/null -w "%{http_code}" "http://$SERVER_IP/"           # Marketplace (expect 200)
+curl -s -o /dev/null -w "%{http_code}" "http://$SERVER_IP/admin"     # Admin (expect 200)
+curl -s -o /dev/null -w "%{http_code}" "http://$SERVER_IP/erp"        # ERP (expect 200)
+```
+
+On the server itself you can also check the API:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:5133/"   # API root (may be 404; 200 or 404 means API is up)
+```
 
 ---
 
