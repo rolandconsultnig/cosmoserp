@@ -625,6 +625,7 @@ If the site is blank or 404:
 ## Troubleshooting
 
 - **502 Bad Gateway**: API not running. Run `pm2 status` and `pm2 logs cosmos-api`.
+- **EADDRINUSE: address already in use :::5133**: Another process (or a previous API instance) is using port 5133. Find it with `sudo lsof -i :5133` or `ss -tlnp | grep 5133`, then `kill -9 <PID>`. If you use PM2, run `pm2 list` and `pm2 stop cosmos-api` or `pm2 delete cosmos-api` before starting the API again.
 - **404 on /admin or /erp**: Ensure Vite builds used `base: '/admin/'` and `base: '/erp/'` and Nginx `alias` paths point to the correct `dist` folders. Replace `/home/ubuntu/cosmoserp` with `/root/cosmoserp` in Nginx if you cloned as root.
 - **API errors**: Check `apps/api/.env`, `DATABASE_URL`, and `REDIS_URL`. Ensure PostgreSQL and Redis are running.
 - **Static assets 404**: Confirm Nginx `root`/`alias` and that `npm run build` was run for each app.
