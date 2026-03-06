@@ -3,8 +3,8 @@ import { Store, Shield, CreditCard, Truck, ChevronUp } from 'lucide-react';
 
 const SHOP_LINKS  = ['All Products', 'Electronics', 'Fashion', 'Food & Beverages', 'Agriculture', 'Health & Beauty'];
 const SELL_LINKS  = [
-  { label: 'Seller Dashboard',    href: 'https://erp.cosmosng.com' },
-  { label: 'Register Your Business', href: 'https://erp.cosmosng.com/register' },
+  { label: 'Seller Dashboard',    href: '/erp' },
+  { label: 'Register Your Business', href: '/erp/register' },
   { label: 'Seller Guidelines',   href: '#' },
   { label: 'Logistics Partners',  href: '#' },
   { label: 'NRS Compliance',      href: '#' },

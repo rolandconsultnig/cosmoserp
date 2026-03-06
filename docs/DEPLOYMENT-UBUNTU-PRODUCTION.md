@@ -1,4 +1,4 @@
-﻿# CosmosERP ΓÇö Production Server Setup (Ubuntu)
+# CosmosERP ΓÇö Production Server Setup (Ubuntu)
 
 Step-by-step configuration manual for running CosmosERP on **Ubuntu** with **Nginx**, **PostgreSQL**, and **Node.js**.  
 Server IP used in this guide: **13.53.33.62** (replace with your EC2/public IP if different).
@@ -308,30 +308,26 @@ npm run build
 
 **Option B ΓÇö build each app separately:**
 
-### 10.1 ERP (served at `/`)
+### 10.1 Marketplace (primary at `/`)
+
+Marketplace is the primary app at the site root. Repo has `base: '/'` and no basename.
 
 ```bash
-cd /home/ubuntu/cosmoserp/apps/erp   # or: cd /root/cosmoserp/apps/erp
+cd /home/ubuntu/cosmoserp/apps/marketplace   # or: cd /root/cosmoserp/apps/marketplace
 npm run build
 ```
 
-(No `base` change needed; default is `/`.)
-
 ### 10.2 Admin (served at `/admin`)
-
-The repo already has `base: '/admin/'` in `apps/admin/vite.config.js` and `basename="/admin"` in the router.
 
 ```bash
 cd /home/ubuntu/cosmoserp/apps/admin   # or: cd /root/cosmoserp/apps/admin
 npm run build
 ```
 
-### 10.3 Marketplace (served at `/marketplace`)
-
-The repo already has `base: '/marketplace/'` in `apps/marketplace/vite.config.js` and `basename="/marketplace"` in the router.
+### 10.3 ERP (served at `/erp`)
 
 ```bash
-cd /home/ubuntu/cosmoserp/apps/marketplace   # or: cd /root/cosmoserp/apps/marketplace
+cd /home/ubuntu/cosmoserp/apps/erp   # or: cd /root/cosmoserp/apps/erp
 npm run build
 ```
 
@@ -386,10 +382,10 @@ sudo nano /etc/nginx/sites-available/cosmoserp
 
 Paste the configuration below. It assumes:
 
-- ERP at `http://13.53.33.62/`
-- Admin at `http://13.53.33.62/admin`
-- Marketplace at `http://13.53.33.62/marketplace`
-- API at `http://13.53.33.62/api` (proxied to `localhost:5133`)
+- **Marketplace** (primary) at `http://13.53.33.62/`
+- **Admin** at `http://13.53.33.62/admin`
+- **ERP** at `http://13.53.33.62/erp`
+- **API** at `http://13.53.33.62/api` (proxied to `localhost:5133`). Replace `/home/ubuntu/cosmoserp` with your repo path (e.g. `/root/cosmoserp`).
 
 **Nginx configuration:**
 
@@ -402,7 +398,7 @@ server {
     listen [::]:80;
     server_name 13.53.33.62;
 
-    root /home/ubuntu/cosmoserp/apps/erp/dist;
+    root /home/ubuntu/cosmoserp/apps/marketplace/dist;
     index index.html;
 
     # API proxy
@@ -418,23 +414,23 @@ server {
         proxy_send_timeout 60s;
     }
 
-    # ERP app (root)
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
     # Admin app
     location /admin {
-        alias /home/ubuntu/cosmoserp/apps/admin/dist;
+        alias /home/ubuntu/cosmoserp/apps/admin/dist/;
         try_files $uri $uri/ /admin/index.html;
         index index.html;
     }
 
-    # Marketplace app
-    location /marketplace {
-        alias /home/ubuntu/cosmoserp/apps/marketplace/dist;
-        try_files $uri $uri/ /marketplace/index.html;
+    # ERP app
+    location /erp {
+        alias /home/ubuntu/cosmoserp/apps/erp/dist/;
+        try_files $uri $uri/ /erp/index.html;
         index index.html;
+    }
+
+    # Marketplace (primary at /)
+    location / {
+        try_files $uri $uri/ /index.html;
     }
 
     # Optional: restrict upload size for API
@@ -473,10 +469,10 @@ Open in a browser (use your domain instead of IP if you configured SSL):
 
 | App        | URL                              |
 |-----------|-----------------------------------|
-| ERP       | http://13.53.33.62/               |
+| Marketplace (primary) | http://13.53.33.62/        |
 | Admin     | http://13.53.33.62/admin          |
-| Marketplace | http://13.53.33.62/marketplace  |
-| API health | http://13.53.33.62/api/... (e.g. a public route) |
+| ERP       | http://13.53.33.62/erp             |
+| API       | http://13.53.33.62/api/...        |
 
 - **ERP**: Register a tenant and log in.
 - **Admin**: Log in with `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` from `.env` (change password after first login).
@@ -504,6 +500,6 @@ Open in a browser (use your domain instead of IP if you configured SSL):
 ## Troubleshooting
 
 - **502 Bad Gateway**: API not running. Run `pm2 status` and `pm2 logs cosmos-api`.
-- **404 on /admin or /marketplace**: Ensure Vite builds used `base: '/admin/'` and `base: '/marketplace/'` and Nginx `alias` paths point to the correct `dist` folders.
+- **404 on /admin or /erp**: Ensure Vite builds used `base: '/admin/'` and `base: '/erp/'` and Nginx `alias` paths point to the correct `dist` folders. Replace `/home/ubuntu/cosmoserp` with `/root/cosmoserp` in Nginx if you cloned as root.
 - **API errors**: Check `apps/api/.env`, `DATABASE_URL`, and `REDIS_URL`. Ensure PostgreSQL and Redis are running.
 - **Static assets 404**: Confirm Nginx `root`/`alias` and that `npm run build` was run for each app.

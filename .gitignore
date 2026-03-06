@@ -6,3 +6,23 @@ build
 *.tmp
 *.cache
 *.env
+.env.*
+!.env.example
+
+# IDE / editor
+.cursor
+.idea
+.vscode
+*.swp
+*.swo
+
+# Keys and secrets (never commit)
+key/
+*.pem
+
+# Vite / build caches
+.vite
+
+# API logs
+apps/api/logs
+logs
