@@ -18,9 +18,10 @@ Server IP used in this guide: **13.53.33.62** (replace with your EC2/public IP i
 9. [Database Migrations and Seed](#9-database-migrations-and-seed)
 10. [Build Frontend Apps](#10-build-frontend-apps)
 11. [Run API with PM2](#11-run-api-with-pm2)
-12. [Install and Configure Nginx](#12-install-and-configure-nginx)
-13. [SSL (Optional) with Let's Encrypt](#13-ssl-optional-with-lets-encrypt)
-14. [Verification and URLs](#14-verification-and-urls)
+12. [Application Ports Reference](#12-application-ports-reference)
+13. [Install and Configure Nginx](#13-install-and-configure-nginx)
+14. [SSL (Optional) with Let's Encrypt](#14-ssl-optional-with-lets-encrypt)
+15. [Verification and URLs](#15-verification-and-urls)
 
 ---
 
@@ -363,16 +364,46 @@ API will listen on **5133** (from `PORT=5133` in `.env`).
 
 ---
 
-## 12. Install and Configure Nginx
+## 12. Application Ports Reference
 
-### 12.1 Install Nginx
+All ports used by Cosmos ERP:
+
+| Port  | Service              | Where / Purpose |
+|-------|----------------------|------------------|
+| **80**   | Nginx (HTTP)         | Public — browser traffic; Nginx serves frontends and proxies `/api` to 5133 |
+| **443**  | Nginx (HTTPS)        | Public — if you enable SSL with Let's Encrypt |
+| **22**   | SSH                  | Server access |
+| **5133** | Cosmos ERP API       | **Internal only** — Node.js API; set `PORT=5133` in `apps/api/.env`. Nginx proxies `location /api` to `http://127.0.0.1:5133` |
+| 3060  | ERP (dev only)       | Local dev — `npm run dev` in `apps/erp` |
+| 5174  | Marketplace (dev)    | Local dev — `apps/marketplace` |
+| 5175  | Admin (dev)          | Local dev — `apps/admin` |
+| 5000  | API (dev default)    | Fallback if `PORT` is not set in API |
+| 6379  | Redis (optional)     | Local — cache/sessions if used |
+
+**Firewall (UFW):** open only **22**, **80**, and **443** to the internet. Do **not** expose **5133**; Nginx is the only public entry.
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+On **AWS EC2**, open the same ports (22, 80, 443) in the instance **Security Group** inbound rules.
+
+---
+
+## 13. Install and Configure Nginx
+
+### 13.1 Install Nginx
 
 ```bash
 sudo apt install -y nginx
 sudo systemctl enable nginx
 ```
 
-### 12.2 Create Nginx Configuration
+### 13.2 Create Nginx Configuration
 
 Create a new site config (replace `13.53.33.62` with your domain if you use one later):
 
@@ -387,11 +418,13 @@ Paste the configuration below. It assumes:
 - **ERP** at `http://13.53.33.62/erp`
 - **API** at `http://13.53.33.62/api` (proxied to `localhost:5133`). Replace `/home/ubuntu/cosmoserp` with your repo path (e.g. `/root/cosmoserp`).
 
-**Nginx configuration:**
+**Nginx configuration:**  
+Set `root`/`alias` to your repo path (e.g. `/root/cosmoserp` if you cloned as root). The API must be running on **port 5133** (set `PORT=5133` in `apps/api/.env`).
 
 ```nginx
-# CosmosERP ΓÇö Production (IP: 13.53.33.62)
-# Replace 13.53.33.62 with your domain when using SSL (e.g. cosmoserp.example.com)
+# CosmosERP — Production
+# Ports: 80 (this server), 5133 (API — internal only, proxied below)
+# Replace 13.53.33.62 with your server IP or domain
 
 server {
     listen 80;
@@ -401,7 +434,7 @@ server {
     root /home/ubuntu/cosmoserp/apps/marketplace/dist;
     index index.html;
 
-    # API proxy
+    # Proxy /api to Node.js API (must listen on 5133)
     location /api {
         proxy_pass http://127.0.0.1:5133;
         proxy_http_version 1.1;
@@ -440,7 +473,7 @@ server {
 
 Save and exit.
 
-### 12.3 Enable Site and Reload Nginx
+### 13.3 Enable Site and Reload Nginx
 
 ```bash
 sudo ln -sf /etc/nginx/sites-available/cosmoserp /etc/nginx/sites-enabled/
@@ -450,7 +483,7 @@ sudo systemctl reload nginx
 
 ---
 
-## 13. SSL (Optional) with Let's Encrypt
+## 14. SSL (Optional) with Let's Encrypt
 
 If you have a **domain** pointing to `13.53.33.62`, you can add HTTPS:
 
@@ -463,7 +496,7 @@ Then in Nginx config use `server_name yourdomain.com;` and rely on CertbotΓÇÖ
 
 ---
 
-## 14. Verification and URLs
+## 15. Verification and URLs
 
 Open in a browser (use your domain instead of IP if you configured SSL). Replace `13.53.33.63` with your server IP (e.g. `13.53.33.62` if different):
 
