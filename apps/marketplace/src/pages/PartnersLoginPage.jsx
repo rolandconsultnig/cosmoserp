@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { Truck, Headphones, Users, ArrowRight } from 'lucide-react';
 
 const PARTNER_OPTIONS = [
@@ -29,7 +28,17 @@ const PARTNER_OPTIONS = [
   },
 ];
 
+function getErpBase() {
+  if (typeof window === 'undefined') return '/erp';
+  const url = import.meta.env.VITE_ERP_URL;
+  if (url) return url;
+  const p = window.location.port;
+  if (p === '5174' || p === '5181' || p === '5173') return 'http://localhost:3060/erp';
+  return '/erp';
+}
+
 export default function PartnersLoginPage() {
+  const erpBase = getErpBase();
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-xl">
@@ -52,19 +61,19 @@ export default function PartnersLoginPage() {
                     <h2 className="font-semibold text-gray-900 text-sm">{title}</h2>
                     <p className="text-gray-600 text-xs mt-0.5 mb-3">{description}</p>
                     <div className="flex flex-wrap gap-2">
-                      <Link
-                        to={href}
+                      <a
+                        href={erpBase + href}
                         className="inline-flex items-center gap-1 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium px-3 py-2 rounded border border-gray-700"
                       >
                         Sign in <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
+                      </a>
                       {registerHref && (
-                        <Link
-                          to={registerHref}
+                        <a
+                          href={erpBase + registerHref}
                           className="inline-flex items-center border border-gray-300 text-gray-700 text-xs font-medium px-3 py-2 rounded hover:bg-gray-50"
                         >
                           Register
-                        </Link>
+                        </a>
                       )}
                     </div>
                   </div>
@@ -74,7 +83,7 @@ export default function PartnersLoginPage() {
           </div>
         </div>
         <p className="text-center text-gray-500 text-xs mt-4">
-          Not a partner? <Link to="/login" className="text-blue-600 hover:underline">Business / Seller login</Link>
+          Not a partner? <a href={erpBase + '/login'} className="text-blue-600 hover:underline">Business / Seller login</a>
         </p>
       </div>
     </div>

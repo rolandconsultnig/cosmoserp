@@ -221,16 +221,21 @@ export default function POSLayout() {
             </div>
             <span className="hidden sm:inline">{today}</span>
             <OnlineDot />
-            <div className="hidden sm:flex items-center gap-1.5">
-              <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white"
-                style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
-              >
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </div>
-              <span style={{ color: 'rgba(255,255,255,0.55)' }}>
-                {user?.firstName}
+            {/* Sales agent — top-right corner */}
+            <div className="flex items-center gap-2.5 pl-3 border-l flex-shrink-0" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
+              <span className="hidden sm:inline font-medium text-right" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                {user?.firstName} {user?.lastName}
               </span>
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ring-2 ring-emerald-400/60 flex-shrink-0 overflow-hidden bg-slate-600"
+                title={`${user?.firstName || ''} ${user?.lastName || ''}`}
+              >
+                {(user?.avatarUrl || user?.imageUrl) ? (
+                  <img src={user.avatarUrl || user.imageUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{user?.firstName?.[0]}{user?.lastName?.[0]}</span>
+                )}
+              </div>
             </div>
           </div>
         </header>

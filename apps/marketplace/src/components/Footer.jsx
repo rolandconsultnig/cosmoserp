@@ -6,7 +6,7 @@ const SELL_LINKS  = [
   { label: 'Seller Dashboard',    href: '/erp' },
   { label: 'Register Your Business', href: '/erp/register' },
   { label: 'Seller Guidelines',   href: '#' },
-  { label: 'Logistics Partners',  href: '/erp/partners-login' },
+  { label: 'Logistics Partners',  href: '/partners-login' },
   { label: 'NRS Compliance',      href: '#' },
 ];
 const HELP_LINKS  = ['Track Your Order', 'Returns & Refunds', 'Shipping Policy', 'Customer Protection', 'Contact Support'];
@@ -63,7 +63,11 @@ export default function Footer() {
               <ul className="space-y-2.5 text-sm">
                 {SELL_LINKS.map(({ label, href }) => (
                   <li key={label}>
-                    <a href={href} className="text-gray-400 hover:text-amber-300 transition-colors">{label}</a>
+                    {href.startsWith('/erp') ? (
+                      <a href={href} className="text-gray-400 hover:text-amber-300 transition-colors">{label}</a>
+                    ) : (
+                      <Link to={href} className="text-gray-400 hover:text-amber-300 transition-colors">{label}</Link>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -25,7 +25,8 @@ api.interceptors.response.use(
         return api(original);
       } catch {
         localStorage.clear();
-        window.location.href = '/login';
+        const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) ? String(import.meta.env.BASE_URL).replace(/\/?$/, '') : '/erp';
+        window.location.href = base + '/login';
       }
     }
     return Promise.reject(error);

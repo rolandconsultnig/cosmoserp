@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Search, Package, Plus, Minus, Trash2, User, UserCheck,
   CreditCard, Banknote, Smartphone, CheckCircle, Printer,
   RotateCcw, X, ShoppingCart, Tag, Percent, Hash,
-  ChevronDown, Loader2, AlertCircle, Zap, Receipt,
+  ChevronDown, Loader2, AlertCircle, Zap, Receipt, FileText, Mail, MessageCircle,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
@@ -217,7 +218,44 @@ function CartRow({ item, onQty, onRemove, onPriceEdit }) {
 
 /* ── Receipt Modal ────────────────────────────────────── */
 function ReceiptModal({ sale, tenant, user, onNewSale }) {
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceSent, setInvoiceSent] = useState(false);
+  const [invoiceError, setInvoiceError] = useState('');
+  const [receiptSendLoading, setReceiptSendLoading] = useState(false);
+  const [receiptSendDone, setReceiptSendDone] = useState({ email: false, whatsapp: false });
+
   const handlePrint = () => window.print();
+
+  const handleSendReceipt = async (sendEmail, sendWhatsApp) => {
+    if (!sale.saleId) return;
+    setInvoiceError('');
+    setReceiptSendLoading(true);
+    try {
+      await api.post(`/pos/sales/${sale.saleId}/send-receipt`, { sendEmail, sendWhatsApp });
+      setReceiptSendDone((p) => ({ ...p, ...(sendEmail && { email: true }), ...(sendWhatsApp && { whatsapp: true }) }));
+    } catch (err) {
+      setInvoiceError(err.response?.data?.error || err.message || 'Failed to send receipt');
+    } finally {
+      setReceiptSendLoading(false);
+    }
+  };
+
+  const handleCreateInvoice = async (sendEmail = false, sendWhatsApp = false) => {
+    if (!sale.saleId) {
+      setInvoiceError('Sale ID not available');
+      return;
+    }
+    setInvoiceError('');
+    setInvoiceLoading(true);
+    try {
+      await api.post(`/pos/sales/${sale.saleId}/create-invoice`, { sendEmail, sendWhatsApp });
+      setInvoiceSent(true);
+    } catch (err) {
+      setInvoiceError(err.response?.data?.error || err.message || 'Failed to create invoice');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -323,17 +361,94 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
         {/* Print style injected into head */}
         <style>{`@media print{body *{visibility:hidden}.pos-receipt,.pos-receipt *{visibility:visible}.pos-receipt{position:fixed;top:0;left:0;width:80mm;font-size:12px}}`}</style>
 
-        {/* Actions */}
-        <div className="px-5 pb-5 flex gap-3">
-          <button
-            onClick={handlePrint}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            <Printer className="w-4 h-4" /> Print
-          </button>
+        {/* Success / error messages */}
+        {invoiceSent && (
+          <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-800 text-[12px] font-medium">
+            Invoice created and sent where requested.
+          </div>
+        )}
+        {(receiptSendDone.email || receiptSendDone.whatsapp) && (
+          <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-sky-50 text-sky-800 text-[12px] font-medium">
+            Receipt sent {[receiptSendDone.email && 'by email', receiptSendDone.whatsapp && 'via WhatsApp'].filter(Boolean).join(' & ')}.
+          </div>
+        )}
+        {invoiceError && (
+          <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-red-50 text-red-700 text-[12px]">
+            {invoiceError}
+          </div>
+        )}
+
+        {/* Actions: Print, Send receipt, Create/Send invoice */}
+        <div className="px-5 pb-5 space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <Printer className="w-4 h-4" /> Print
+            </button>
+            {sale.saleId && (sale.customerEmail || sale.customerWhatsapp) && (
+              <div className="flex gap-1 flex-1">
+                {sale.customerEmail && (
+                  <button
+                    onClick={() => handleSendReceipt(true, false)}
+                    disabled={receiptSendLoading || receiptSendDone.email}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60"
+                    title="Send receipt by email"
+                  >
+                    {receiptSendLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                    Receipt → Email
+                  </button>
+                )}
+                {sale.customerWhatsapp && (
+                  <button
+                    onClick={() => handleSendReceipt(false, true)}
+                    disabled={receiptSendLoading || receiptSendDone.whatsapp}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-60"
+                    title="Send receipt via WhatsApp"
+                  >
+                    {receiptSendLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}
+                    Receipt → WhatsApp
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {sale.saleId && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleCreateInvoice(false, false)}
+                disabled={invoiceLoading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors disabled:opacity-60"
+              >
+                {invoiceLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                Create invoice
+              </button>
+              {sale.customerEmail && (
+                <button
+                  onClick={() => handleCreateInvoice(true, false)}
+                  disabled={invoiceLoading}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  title="Create invoice and email it"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Invoice → Email
+                </button>
+              )}
+              {sale.customerWhatsapp && (
+                <button
+                  onClick={() => handleCreateInvoice(false, true)}
+                  disabled={invoiceLoading}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-60"
+                  title="Create invoice and send via WhatsApp"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> Invoice → WhatsApp
+                </button>
+              )}
+            </div>
+          )}
           <button
             onClick={onNewSale}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold text-white transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold text-white transition-colors"
             style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}
           >
             <Zap className="w-4 h-4" /> New Sale
@@ -349,6 +464,8 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
 ══════════════════════════════════════════════════════════ */
 export default function POSPage() {
   const { user, tenant } = useAuthStore();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   /* ── Product catalog state ── */
   const [search, setSearch]             = useState('');
@@ -375,6 +492,10 @@ export default function POSPage() {
 
   /* ── Completed sale / receipt ── */
   const [completedSale, setCompletedSale] = useState(null);
+
+  /* ── Quotation success (after Save as Quotation) ── */
+  const [quotationSuccess, setQuotationSuccess] = useState(null);
+  const [quotationSendLoading, setQuotationSendLoading] = useState(false);
 
   /* ── Error ── */
   const [saleError, setSaleError] = useState('');
@@ -406,6 +527,10 @@ export default function POSPage() {
     mutationFn: (payload) => api.post('/pos/sale', payload),
   });
 
+  const quotationMutation = useMutation({
+    mutationFn: (payload) => api.post('/pos/create-quotation', payload),
+  });
+
   /* ══════════════════════════════════
      Derived data
   ══════════════════════════════════ */
@@ -416,6 +541,19 @@ export default function POSPage() {
     : allProducts.filter((p) => (p.category || p.categoryName) === categoryFilter);
 
   const customers    = customersData?.data || [];
+
+  /* Pre-add product when navigating from dashboard with state.addProductId */
+  const pendingAddId = location.state?.addProductId;
+  const lastAppliedAddRef = useRef(null);
+  useEffect(() => {
+    if (!pendingAddId || allProducts.length === 0 || lastAppliedAddRef.current === pendingAddId) return;
+    const product = allProducts.find((p) => p.id === pendingAddId);
+    if (product) {
+      lastAppliedAddRef.current = pendingAddId;
+      addToCart(product);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [pendingAddId, allProducts, addToCart, navigate, location.pathname]);
 
   /* ══════════════════════════════════
      Cart calculations
@@ -480,6 +618,28 @@ export default function POSPage() {
     setAmountTendered('');
     setPayMethod('CASH');
     setSaleError('');
+    setQuotationSuccess(null);
+  };
+
+  const handleSaveAsQuotation = async () => {
+    if (cart.length === 0) return;
+    setSaleError('');
+    try {
+      const result = await quotationMutation.mutateAsync({
+        customerId: selectedCustomer?.id || undefined,
+        customerName: selectedCustomer?.name || selectedCustomer?.businessName || undefined,
+        items: cart.map((i) => ({
+          productId: i.productId || undefined,
+          name: i.name,
+          qty: i.qty,
+          unitPrice: i.unitPrice,
+        })),
+      });
+      const quote = result?.data?.data;
+      setQuotationSuccess(quote ? { quoteNumber: quote.quoteNumber, id: quote.id } : { quoteNumber: 'Saved', id: null });
+    } catch (err) {
+      setSaleError(err.response?.data?.error || err.message || 'Failed to save quotation');
+    }
   };
 
   /* ══════════════════════════════════
@@ -489,34 +649,40 @@ export default function POSPage() {
     setSaleError('');
     const receiptNo = genReceiptNo();
     try {
-      await saleMutation.mutateAsync({
+      const result = await saleMutation.mutateAsync({
         customerId:     selectedCustomer?.id || null,
+        customerName:   selectedCustomer?.name || selectedCustomer?.businessName || null,
         items:          cart.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, unitPrice: i.unitPrice })),
         paymentMethod:  payMethod,
+        discountAmount: discountAmt,
         discount:       discountAmt,
         discountType,
         amountTendered: payMethod === 'CASH' ? tendered : undefined,
         subtotal,
-        vat,
+        vatAmount:      vat,
         total,
+        totalAmount:    total,
         receiptNo,
         notes: `POS Sale – ${payMethod}${selectedCustomer ? ` – ${selectedCustomer.name}` : ''}`,
       });
 
       const saleData = {
+        saleId:         result?.data?.data?.id ?? null,
         receiptNo,
-        items: cart.map((i) => ({ ...i })),
+        items:          cart.map((i) => ({ ...i })),
         subtotal,
         discountAmt,
-        discountLabel: discountValue
+        discountLabel:  discountValue
           ? discountType === 'percent' ? ` (${discountValue}%)` : ''
           : '',
         vat,
         total,
         payMethod,
         amountTendered: tendered,
-        change: Math.max(0, change),
-        customerName: selectedCustomer?.name || selectedCustomer?.businessName || null,
+        change:         Math.max(0, change),
+        customerName:   selectedCustomer?.name || selectedCustomer?.businessName || null,
+        customerEmail:  selectedCustomer?.email || null,
+        customerWhatsapp: selectedCustomer?.whatsapp || selectedCustomer?.phone || null,
       };
       setCompletedSale(saleData);
       setSessionSales((s) => ({ count: s.count + 1, total: s.total + total }));
@@ -937,6 +1103,73 @@ export default function POSPage() {
               </div>
             )}
 
+            {/* Quotation success */}
+            {quotationSuccess && (
+              <div
+                className="px-3 py-2.5 rounded-xl text-[12px] space-y-2"
+                style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.30)', color: '#34D399' }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">Quotation {quotationSuccess.quoteNumber} saved</span>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => { navigate('/quotes'); setQuotationSuccess(null); }}
+                      className="px-2 py-1 rounded-lg text-[11px] font-bold bg-white/20 hover:bg-white/30"
+                    >
+                      View quotes
+                    </button>
+                    <button
+                      onClick={clearCart}
+                      className="px-2 py-1 rounded-lg text-[11px] font-bold bg-white/20 hover:bg-white/30"
+                    >
+                      Clear cart
+                    </button>
+                  </div>
+                </div>
+                {quotationSuccess.id && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    <span className="text-[11px] opacity-90">Send:</span>
+                    <button
+                      onClick={async () => {
+                        setQuotationSendLoading(true);
+                        setSaleError('');
+                        try {
+                          await api.post(`/quotes/${quotationSuccess.id}/send`, { sendEmail: true });
+                        } catch (e) {
+                          setSaleError(e.response?.data?.error || e.message || 'Failed to send');
+                        } finally {
+                          setQuotationSendLoading(false);
+                        }
+                      }}
+                      disabled={quotationSendLoading}
+                      className="px-2 py-1 rounded-lg text-[11px] font-bold bg-white/20 hover:bg-white/30 flex items-center gap-1 disabled:opacity-60"
+                    >
+                      {quotationSendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                      Email
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setQuotationSendLoading(true);
+                        setSaleError('');
+                        try {
+                          await api.post(`/quotes/${quotationSuccess.id}/send`, { sendWhatsApp: true });
+                        } catch (e) {
+                          setSaleError(e.response?.data?.error || e.message || 'Failed to send');
+                        } finally {
+                          setQuotationSendLoading(false);
+                        }
+                      }}
+                      disabled={quotationSendLoading}
+                      className="px-2 py-1 rounded-lg text-[11px] font-bold bg-white/20 hover:bg-white/30 flex items-center gap-1 disabled:opacity-60"
+                    >
+                      {quotationSendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageCircle className="w-3 h-3" />}
+                      WhatsApp
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Sale error */}
             {saleError && (
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-[12px]"
@@ -945,6 +1178,18 @@ export default function POSPage() {
                 {saleError}
               </div>
             )}
+
+            {/* Save as Quotation */}
+            <button
+              type="button"
+              onClick={handleSaveAsQuotation}
+              disabled={quotationMutation.isPending}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-bold border transition-colors disabled:opacity-60"
+              style={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.06)' }}
+            >
+              {quotationMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+              Save as Quotation
+            </button>
 
             {/* Charge button */}
             <button

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Search, Shield, Truck, CreditCard, Star, ArrowRight, ShoppingBag, Award } from 'lucide-react';
+import { Search, Shield, Truck, CreditCard, Star, ArrowRight, ShoppingBag, Award, Users } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency } from '../lib/utils';
 import useCartStore from '../store/cartStore';
@@ -218,30 +218,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Stats strip */}
-      <section className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-            <div>
-              <div className="text-2xl font-bold text-gray-900">10,000+</div>
-              <div className="text-sm text-gray-500">Verified Sellers</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">500K+</div>
-              <div className="text-sm text-gray-500">Products Listed</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">99.2%</div>
-              <div className="text-sm text-gray-500">Customer Satisfaction</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">37</div>
-              <div className="text-sm text-gray-500">States Covered</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Trust strip */}
       <section className="bg-gray-50 border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-4">
@@ -263,7 +239,7 @@ export default function HomePage() {
 
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         {/* Promo links */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             to="/products?sort=popular"
             className="bg-gray-800 text-white rounded-lg p-4 flex items-center justify-between hover:bg-gray-700 transition-colors"
@@ -283,6 +259,15 @@ export default function HomePage() {
             className="bg-gray-800 text-white rounded-lg p-4 flex items-center justify-between hover:bg-gray-700 transition-colors"
           >
             <span className="font-semibold">New Arrivals</span>
+            <ArrowRight className="w-5 h-5 text-amber-400" />
+          </Link>
+          <Link
+            to="/partners-login"
+            className="bg-gray-800 text-white rounded-lg p-4 flex items-center justify-between hover:bg-gray-700 transition-colors"
+          >
+            <span className="font-semibold flex items-center gap-2">
+              <Users className="w-4 h-4 text-amber-400" /> Partners Login
+            </span>
             <ArrowRight className="w-5 h-5 text-amber-400" />
           </Link>
         </section>

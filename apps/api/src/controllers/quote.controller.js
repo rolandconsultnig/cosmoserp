@@ -2,6 +2,8 @@ const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
 const { generateQuoteNumber, generateInvoiceNumber, calculateVAT, calculateWHT, roundDecimal, paginate, paginatedResponse } = require('../utils/helpers');
 const { createAuditLog } = require('../middleware/audit.middleware');
+const whatsappService = require('../services/whatsapp.service');
+const emailService = require('../services/email.service');
 
 async function list(req, res) {
   try {
@@ -112,11 +114,39 @@ async function update(req, res) {
 
 async function sendQuote(req, res) {
   try {
-    const quote = await prisma.quote.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
+    const quote = await prisma.quote.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId },
+      include: { customer: true, lines: true, tenant: { select: { businessName: true, tradingName: true } } },
+    });
     if (!quote) return res.status(404).json({ error: 'Quote not found' });
     await prisma.quote.update({ where: { id: quote.id }, data: { status: 'SENT' } });
-    res.json({ message: 'Quote sent successfully' });
+
+    const tenantName = quote.tenant?.tradingName || quote.tenant?.businessName || 'Cosmos ERP';
+    const sendEmail = req.body.sendEmail === true;
+    const sendWhatsApp = req.body.sendWhatsApp === true;
+    const results = { email: null, whatsapp: null };
+
+    if (sendEmail && quote.customer?.email) {
+      try {
+        results.email = await emailService.sendQuotation(quote, quote.customer.email, tenantName);
+      } catch (e) {
+        logger.error('Quote send email error:', e);
+        results.email = { status: 'error', message: e.message };
+      }
+    }
+    if (sendWhatsApp && (quote.customer?.whatsapp || quote.customer?.phone)) {
+      const wa = quote.customer.whatsapp || quote.customer.phone;
+      try {
+        results.whatsapp = await whatsappService.sendQuotation(quote, tenantName, wa);
+      } catch (e) {
+        logger.error('Quote send WhatsApp error:', e);
+        results.whatsapp = { status: 'error', message: e.message };
+      }
+    }
+
+    res.json({ message: 'Quote sent successfully', results });
   } catch (error) {
+    logger.error('Send quote error:', error);
     res.status(500).json({ error: 'Failed to send quote' });
   }
 }

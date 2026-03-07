@@ -81,4 +81,40 @@ async function sendLowStockAlert(product, warehouse, currentStock, tenantPhone) 
   return sendMessage(tenantPhone, message);
 }
 
-module.exports = { sendMessage, sendInvoice, sendPaymentReminder, sendLowStockAlert };
+/** POS receipt summary to customer WhatsApp */
+async function sendReceipt(sale, tenantName, customerWhatsapp) {
+  const total = formatCurrency(sale.total);
+  const lines = (sale.items || sale.lines || [])
+    .map((i) => `• ${i.productName || i.name} x${i.quantity || i.qty} = ${formatCurrency((i.unitPrice || 0) * (i.quantity || i.qty || 1))}`)
+    .join('\n');
+  const message = [
+    `🧾 *Receipt* from ${tenantName}`,
+    '',
+    `Receipt #: *${sale.receiptNumber || sale.receiptNo}*`,
+    '',
+    lines,
+    '',
+    `*Total: ${total}*`,
+    '',
+    'Thank you for your patronage!',
+  ].join('\n');
+
+  return sendMessage(customerWhatsapp, message);
+}
+
+/** Quotation summary to customer WhatsApp */
+async function sendQuotation(quote, tenantName, customerWhatsapp) {
+  const total = formatCurrency(quote.totalAmount, quote.currency);
+  const message = [
+    `📋 *Quotation ${quote.quoteNumber}* from ${tenantName}`,
+    '',
+    `Total: *${total}*`,
+    `Valid until: ${new Date(quote.expiryDate).toLocaleDateString('en-NG')}`,
+    '',
+    'Reply to confirm or contact us for any questions. Thank you!',
+  ].join('\n');
+
+  return sendMessage(customerWhatsapp, message);
+}
+
+module.exports = { sendMessage, sendInvoice, sendPaymentReminder, sendLowStockAlert, sendReceipt, sendQuotation };

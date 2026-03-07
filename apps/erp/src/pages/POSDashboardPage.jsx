@@ -1,259 +1,211 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  ShoppingCart, Banknote, CreditCard, Smartphone, TrendingUp,
-  Receipt, Package, Users, Zap, Clock,
+  ShoppingCart, TrendingUp, Package, History,
+  CalendarCheck, Zap, Search, ChevronRight,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
 import useAuthStore from '../store/authStore';
+import { useState } from 'react';
 
-const PAY_ICONS = { CASH: Banknote, CARD: CreditCard, TRANSFER: Smartphone, SPLIT: CreditCard };
-const PAY_COLORS = { CASH: '#10B981', CARD: '#6366F1', TRANSFER: '#F59E0B', SPLIT: '#EC4899' };
+/* Pro-POS style dashboard: products available for selection, stats strip, quick actions */
 
-function StatCard({ title, value, sub, icon: Icon, color, highlight }) {
+function ProductTile({ product, onClick }) {
+  const stock = product.totalStock ?? product.stockQuantity ?? product.stock ?? null;
+  const out = stock !== null && stock <= 0;
+
   return (
-    <div
-      className={cn('rounded-xl border p-5 transition-all', highlight ? 'border-emerald-500/30' : '')}
-      style={{ background: 'rgba(255,255,255,0.03)', borderColor: highlight ? undefined : 'rgba(255,255,255,0.07)' }}
+    <button
+      type="button"
+      onClick={() => !out && onClick(product)}
+      disabled={out}
+      className={cn(
+        'rounded-xl border-2 border-slate-200 bg-white text-left transition-all overflow-hidden',
+        'hover:border-emerald-400 hover:shadow-md active:scale-[0.98]',
+        out && 'opacity-50 cursor-not-allowed',
+      )}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>{title}</p>
-          <p className={cn('text-2xl font-black mt-1', highlight ? 'text-emerald-400' : 'text-white')}>{value}</p>
-          {sub && <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.30)' }}>{sub}</p>}
-        </div>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${color}20` }}>
-          <Icon className="w-5 h-5" style={{ color }} />
-        </div>
+      <div className="h-14 bg-slate-100 flex items-center justify-center">
+        <Package className="w-7 h-7 text-slate-400" strokeWidth={1.5} />
       </div>
-    </div>
+      <div className="p-2.5">
+        <p className="text-[12px] font-semibold text-slate-800 leading-tight line-clamp-2">{product.name}</p>
+        <p className="text-[11px] font-bold text-emerald-600 mt-0.5">{formatCurrency(product.sellingPrice)}</p>
+        {stock !== null && (
+          <p className={cn('text-[10px] mt-0.5', out ? 'text-red-500' : 'text-slate-400')}>
+            {out ? 'Out of stock' : `${stock} in stock`}
+          </p>
+        )}
+      </div>
+    </button>
   );
 }
 
 export default function POSDashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [search, setSearch] = useState('');
 
-  const { data, isLoading } = useQuery({
+  const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['pos-stats'],
     queryFn: () => api.get('/pos/stats').then((r) => r.data.data),
     refetchInterval: 30000,
   });
 
-  const s = data || {};
-  const today = s.today || {};
-  const month = s.month || {};
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: ['pos-products-dashboard', search],
+    queryFn: () =>
+      api.get('/products', { params: { limit: 100, search: search || undefined, isActive: true } }).then((r) => r.data),
+    staleTime: 60000,
+  });
 
-  if (isLoading) {
-    return (
-      <div className="p-6 space-y-6 animate-pulse">
-        <div className="h-8 rounded-lg w-64" style={{ background: 'rgba(255,255,255,0.05)' }} />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)' }} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const s = statsData || {};
+  const today = s.today || {};
+  const products = productsData?.data || [];
+
+  const handleProductSelect = (product) => {
+    navigate('/pos/terminal', { state: { addProductId: product.id } });
+  };
 
   return (
-    <div className="p-6 overflow-y-auto h-full space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-black text-white">Sales Dashboard</h1>
-          <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            Welcome back, {user?.firstName}. Here's your shift overview.
-          </p>
+    <div className="flex flex-col h-full overflow-hidden bg-slate-100">
+      {/* Stats strip — compact, pro-POS style */}
+      <div className="flex-shrink-0 flex items-center gap-4 px-4 py-3 bg-white border-b border-slate-200">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <ShoppingCart className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Today&apos;s Sales</p>
+              <p className="text-lg font-bold text-slate-900 tabular-nums">{statsLoading ? '—' : (today.sales ?? 0)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Today&apos;s Revenue</p>
+              <p className="text-lg font-bold text-emerald-700 tabular-nums">
+                {statsLoading ? '—' : formatCurrency(today.revenue ?? 0)}
+              </p>
+            </div>
+          </div>
         </div>
+        <div className="flex-1" />
         <button
           onClick={() => navigate('/pos/terminal')}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
-          style={{ background: 'linear-gradient(135deg, #059669, #10B981)', boxShadow: '0 4px 16px rgba(16,185,129,0.30)' }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all active:scale-[0.98]"
         >
           <Zap className="w-4 h-4" /> New Sale
         </button>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Today's Sales"
-          value={today.sales || 0}
-          sub="Transactions completed"
-          icon={ShoppingCart}
-          color="#10B981"
-          highlight
-        />
-        <StatCard
-          title="Today's Revenue"
-          value={formatCurrency(today.revenue || 0)}
-          sub="Gross sales amount"
-          icon={TrendingUp}
-          color="#34D399"
-          highlight
-        />
-        <StatCard
-          title="Monthly Sales"
-          value={month.sales || 0}
-          sub="This month total"
-          icon={Receipt}
-          color="#6366F1"
-        />
-        <StatCard
-          title="Monthly Revenue"
-          value={formatCurrency(month.revenue || 0)}
-          sub="This month total"
-          icon={Banknote}
-          color="#8B5CF6"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Payment methods breakdown */}
-        <div className="rounded-xl border p-5" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)' }}>
-          <h2 className="text-sm font-bold text-white mb-4">Payment Methods Today</h2>
-          {(s.paymentMethods || []).length === 0 ? (
-            <div className="text-center py-8">
-              <CreditCard className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.15)' }} />
-              <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.30)' }}>No sales yet today</p>
+      {/* Main: product grid + right panel */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left — product catalog */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white rounded-tl-xl border-r border-t border-slate-200">
+          <div className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-slate-200">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products…"
+                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
             </div>
-          ) : (
-            <div className="space-y-3">
-              {(s.paymentMethods || []).map((m) => {
-                const Icon = PAY_ICONS[m.method] || Banknote;
-                const color = PAY_COLORS[m.method] || '#10B981';
-                return (
-                  <div key={m.method} className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}15` }}>
-                      <Icon className="w-4 h-4" style={{ color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-semibold text-white">{m.method}</span>
-                        <span className="text-[12px] font-bold text-emerald-400 tabular-nums">{formatCurrency(m.total || 0)}</span>
-                      </div>
-                      <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>{m.count} transaction{m.count !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Top products today */}
-        <div className="rounded-xl border p-5" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)' }}>
-          <h2 className="text-sm font-bold text-white mb-4">Top Products Today</h2>
-          {(s.topProducts || []).length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.15)' }} />
-              <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.30)' }}>No products sold yet</p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {(s.topProducts || []).slice(0, 7).map((p, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
-                    style={{ background: i < 3 ? 'linear-gradient(135deg, #10B981, #059669)' : 'rgba(255,255,255,0.08)' }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-semibold text-white truncate">{p.productName}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
-                      {Number(p.quantitySold).toFixed(0)} sold
-                    </p>
-                  </div>
-                  <span className="text-[12px] font-bold text-emerald-400 tabular-nums flex-shrink-0">
-                    {formatCurrency(p.revenue || 0)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Cashier performance */}
-        <div className="rounded-xl border p-5" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)' }}>
-          <h2 className="text-sm font-bold text-white mb-4">Cashier Performance Today</h2>
-          {(s.cashierStats || []).length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.15)' }} />
-              <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.30)' }}>No cashier activity yet</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {(s.cashierStats || []).map((c, i) => (
-                <div key={c.cashierId} className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white flex-shrink-0"
-                    style={{ background: i === 0 ? 'linear-gradient(135deg, #10B981, #059669)' : 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
-                  >
-                    {(c.name || '??').split(' ').map((n) => n[0]).join('')}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-semibold text-white truncate">{c.name}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
-                      {c.sales} sale{c.sales !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <span className="text-[12px] font-bold text-emerald-400 tabular-nums flex-shrink-0">
-                    {formatCurrency(c.revenue || 0)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent sales */}
-      <div className="rounded-xl border" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)' }}>
-        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-          <h2 className="text-sm font-bold text-white">Recent Sales</h2>
-          <button onClick={() => navigate('/pos/history')} className="text-emerald-400 text-[12px] font-bold hover:underline">
-            View all →
-          </button>
-        </div>
-        {(s.recentSales || []).length === 0 ? (
-          <div className="p-8 text-center">
-            <Receipt className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.15)' }} />
-            <p className="text-[12px]" style={{ color: 'rgba(255,255,255,0.30)' }}>No sales recorded yet</p>
+            <span className="text-xs text-slate-500 tabular-nums">{products.length} products</span>
           </div>
-        ) : (
-          <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-            {(s.recentSales || []).map((sale) => (
-              <div key={sale.id} className="px-5 py-3 flex items-center gap-4 hover:bg-white/[0.02] transition-colors">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: sale.status === 'VOIDED' ? 'rgba(239,68,68,0.10)' : 'rgba(16,185,129,0.10)' }}>
-                  <Receipt className="w-4 h-4" style={{ color: sale.status === 'VOIDED' ? '#EF4444' : '#10B981' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-bold text-white">{sale.receiptNumber}</span>
-                    {sale.status === 'VOIDED' && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/20 text-red-400">VOID</span>
-                    )}
+          <div className="flex-1 overflow-y-auto p-4">
+            {productsLoading ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                {[...Array(12)].map((_, i) => (
+                  <div key={i} className="rounded-xl border-2 border-slate-100 overflow-hidden animate-pulse">
+                    <div className="h-14 bg-slate-100" />
+                    <div className="p-2.5 space-y-2">
+                      <div className="h-3 bg-slate-100 rounded w-4/5" />
+                      <div className="h-3 bg-slate-100 rounded w-1/3" />
+                    </div>
                   </div>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
-                    {sale.cashier?.firstName} {sale.cashier?.lastName} · {sale.lines?.length || 0} item{(sale.lines?.length || 0) !== 1 ? 's' : ''} · {sale.paymentMethod}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-[13px] font-black text-emerald-400 tabular-nums">{formatCurrency(sale.totalAmount)}</p>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                    <Clock className="w-3 h-3 inline mr-0.5" />
-                    {new Date(sale.createdAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
+                ))}
               </div>
-            ))}
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Package className="w-12 h-12 text-slate-300 mb-3" />
+                <p className="text-sm font-semibold text-slate-500">No products found</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {search ? `No results for "${search}"` : 'Add products in the Products module'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                {products.map((p) => (
+                  <ProductTile key={p.id} product={p} onClick={handleProductSelect} />
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* Right — quick actions (pro-POS style) */}
+        <div className="w-72 flex-shrink-0 flex flex-col gap-3 p-4 bg-slate-100">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Quick Actions</h2>
+            <div className="space-y-2">
+              <button
+                onClick={() => navigate('/pos/terminal')}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
+              >
+                <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> New Sale</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => navigate('/pos/history')}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors"
+              >
+                <span className="flex items-center gap-2"><History className="w-4 h-4" /> Sales History</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => navigate('/pos/end-of-day')}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors"
+              >
+                <span className="flex items-center gap-2"><CalendarCheck className="w-4 h-4" /> End of Day</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Payment Methods Today</h2>
+            {(s.paymentMethods || []).length === 0 ? (
+              <p className="text-xs text-slate-400">No sales yet today</p>
+            ) : (
+              <div className="space-y-2">
+                {(s.paymentMethods || []).map((m) => (
+                  <div key={m.method} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{m.method}</span>
+                    <span className="font-semibold text-slate-900 tabular-nums">{formatCurrency(m.total || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Recent</h2>
+            <button
+              onClick={() => navigate('/pos/history')}
+              className="text-xs text-emerald-600 font-semibold hover:underline"
+            >
+              View recent sales →
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
