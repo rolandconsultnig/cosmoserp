@@ -331,7 +331,7 @@ exports.listAvailableProviders = async (req, res) => {
       select: {
         id: true, name: true, phone: true, city: true, state: true,
         coverageAreas: true, rating: true, totalDeliveries: true, logoUrl: true,
-        _count: { select: { agents: { where: { status: 'ACTIVE' } } } },
+        _count: { select: { agents: true } },
       },
       orderBy: { rating: 'desc' },
     });
