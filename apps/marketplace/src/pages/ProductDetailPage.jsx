@@ -5,6 +5,7 @@ import { ShoppingCart, Star, Shield, Truck, ArrowLeft, Plus, Minus, ShoppingBag,
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
 import useCartStore from '../store/cartStore';
+import useShopperAuthStore from '../store/shopperAuthStore';
 
 function StarPicker({ value, onChange, size = 'w-6 h-6' }) {
   return (
@@ -27,6 +28,8 @@ export default function ProductDetailPage() {
   const [reviewError, setReviewError] = useState('');
   const [addedToCart, setAddedToCart] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+  const isAuthenticated = useShopperAuthStore((s) => s.isAuthenticated);
+  const shopper = useShopperAuthStore((s) => s.shopper);
 
   const { data, isLoading } = useQuery({
     queryKey: ['product', id],
@@ -40,6 +43,10 @@ export default function ProductDetailPage() {
   });
 
   const handleAddToCart = () => {
+    if (!isAuthenticated) {
+      navigate(`/login?next=${encodeURIComponent(`/products/${id}`)}`);
+      return;
+    }
     addItem(data, qty);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
@@ -109,9 +116,15 @@ export default function ProductDetailPage() {
         <div className="space-y-4">
           {/* Seller */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-brand-600 font-semibold text-sm">
-              {product.seller?.tradingName || product.seller?.businessName}
-            </span>
+            {product.seller?.id ? (
+              <Link to={`/store/${product.seller.id}`} className="text-brand-600 font-semibold text-sm hover:underline">
+                {product.seller?.tradingName || product.seller?.businessName}
+              </Link>
+            ) : (
+              <span className="text-brand-600 font-semibold text-sm">
+                {product.seller?.tradingName || product.seller?.businessName}
+              </span>
+            )}
             <span className="badge-green flex items-center gap-1">
               <Shield className="w-3 h-3" /> KYC Verified
             </span>
@@ -220,7 +233,14 @@ export default function ProductDetailPage() {
                 <ShoppingCart className="w-4 h-4" />
                 {addedToCart ? 'Added to Cart!' : 'Add to Cart'}
               </button>
-              <button onClick={() => { addItem(product, qty); navigate('/checkout'); }} disabled={!inStock}
+              <button onClick={() => {
+                if (!isAuthenticated) {
+                  navigate(`/login?next=${encodeURIComponent(`/products/${id}`)}`);
+                  return;
+                }
+                addItem(product, qty);
+                navigate('/checkout');
+              }} disabled={!inStock}
                 className="w-full btn-buy py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
                 Buy Now
               </button>
@@ -304,7 +324,18 @@ export default function ProductDetailPage() {
                       placeholder="Share your experience with this product…"
                       className="input resize-none" />
                   </div>
-                  <button onClick={() => reviewMutation.mutate(reviewForm)}
+                  <button onClick={() => {
+                    if (!isAuthenticated) {
+                      setReviewError('Please sign in or register before submitting a review.');
+                      navigate(`/login?next=${encodeURIComponent(`/products/${id}`)}`);
+                      return;
+                    }
+                    reviewMutation.mutate({
+                      ...reviewForm,
+                      buyerName: shopper?.fullName,
+                      buyerEmail: shopper?.email,
+                    });
+                  }}
                     disabled={reviewMutation.isPending || !reviewForm.comment}
                     className="btn-buy px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold">
                     {reviewMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

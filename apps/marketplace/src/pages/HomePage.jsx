@@ -62,7 +62,13 @@ function ProductCard({ product }) {
       </Link>
       <div className="p-3.5 flex flex-col flex-1">
         <div className="text-[11px] text-brand-600 font-semibold mb-0.5 truncate">
-          {product.seller?.tradingName || product.seller?.businessName}
+          {product.seller?.id ? (
+            <Link to={`/store/${product.seller.id}`} className="hover:underline">
+              {product.seller?.tradingName || product.seller?.businessName}
+            </Link>
+          ) : (
+            product.seller?.tradingName || product.seller?.businessName
+          )}
         </div>
         <Link to={`/products/${product.id}`}>
           <h3 className="text-sm text-gray-900 leading-snug line-clamp-2 hover:text-brand-700 transition-colors font-medium">

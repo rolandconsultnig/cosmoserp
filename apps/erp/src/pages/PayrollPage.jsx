@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, CheckCircle, Download, ChevronDown, Users, DollarSign, Loader2 } from 'lucide-react';
+import { Play, CheckCircle, Download, Loader2, BadgeCheck, Ban, FileSpreadsheet } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, formatDate, getStatusColor, cn } from '../lib/utils';
 
@@ -8,11 +8,25 @@ export default function PayrollPage() {
   const qc = useQueryClient();
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [statusFilter, setStatusFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
   const [selectedRun, setSelectedRun] = useState(null);
 
+  const { data: summary } = useQuery({
+    queryKey: ['payroll-summary', year],
+    queryFn: () => api.get('/payroll/summary', { params: { year } }).then((r) => r.data.data),
+  });
+
   const { data: runs, isLoading } = useQuery({
-    queryKey: ['payroll-runs', year],
-    queryFn: () => api.get('/payroll', { params: { year } }).then((r) => r.data),
+    queryKey: ['payroll-runs', year, statusFilter, monthFilter],
+    queryFn: () =>
+      api.get('/payroll', {
+        params: {
+          year,
+          status: statusFilter || undefined,
+          month: monthFilter || undefined,
+        },
+      }).then((r) => r.data),
   });
 
   const { data: runDetail } = useQuery({
@@ -28,7 +42,17 @@ export default function PayrollPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id) => api.post(`/payroll/${id}/approve`),
-    onSuccess: () => { qc.invalidateQueries(['payroll-runs']); qc.invalidateQueries(['payroll-run', selectedRun]); },
+    onSuccess: () => { qc.invalidateQueries(['payroll-runs']); qc.invalidateQueries(['payroll-run', selectedRun]); qc.invalidateQueries(['payroll-summary']); },
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: (id) => api.post(`/payroll/${id}/mark-paid`),
+    onSuccess: () => { qc.invalidateQueries(['payroll-runs']); qc.invalidateQueries(['payroll-run', selectedRun]); qc.invalidateQueries(['payroll-summary']); },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id) => api.post(`/payroll/${id}/cancel`),
+    onSuccess: () => { qc.invalidateQueries(['payroll-runs']); qc.invalidateQueries(['payroll-run', selectedRun]); qc.invalidateQueries(['payroll-summary']); },
   });
 
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -40,6 +64,22 @@ export default function PayrollPage() {
           <h1 className="page-title">Payroll</h1>
           <p className="page-subtitle">Nigerian statutory deductions: PAYE, Pension (8%), NHF, ITF</p>
         </div>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[
+          { label: 'Runs', value: summary?.runCount || 0, color: 'text-slate-800' },
+          { label: 'Total Gross', value: formatCurrency(summary?.totalGross || 0), color: 'text-blue-700' },
+          { label: 'Total PAYE', value: formatCurrency(summary?.totalPaye || 0), color: 'text-red-700' },
+          { label: 'Total Pension', value: formatCurrency(summary?.totalPension || 0), color: 'text-amber-700' },
+          { label: 'Total Net', value: formatCurrency(summary?.totalNet || 0), color: 'text-emerald-700' },
+        ].map((card) => (
+          <div key={card.label} className="bg-white rounded-xl border border-slate-100 p-3 shadow-sm">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">{card.label}</p>
+            <p className={cn('mt-1 text-lg font-bold', card.color)}>{card.value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Process payroll */}
@@ -77,6 +117,27 @@ export default function PayrollPage() {
         {/* Payroll run list */}
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 font-semibold text-slate-900 text-sm">Payroll Runs ({year})</div>
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70 flex flex-wrap gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+            >
+              <option value="">All statuses</option>
+              <option value="PROCESSING">Processing</option>
+              <option value="APPROVED">Approved</option>
+              <option value="PAID">Paid</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs"
+            >
+              <option value="">All months</option>
+              {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+          </div>
           {isLoading && <div className="p-4 text-center text-slate-400 text-sm">Loading…</div>}
           {(runs?.data || []).length === 0 && !isLoading && (
             <div className="p-4 text-center text-slate-400 text-sm">No payroll runs for {year}</div>
@@ -129,12 +190,30 @@ export default function PayrollPage() {
                     Approve Payroll
                   </button>
                 )}
+                {runDetail.status === 'APPROVED' && (
+                  <button onClick={() => markPaidMutation.mutate(runDetail.id)} disabled={markPaidMutation.isPending}
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                    {markPaidMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <BadgeCheck className="w-4 h-4" />}
+                    Mark as Paid
+                  </button>
+                )}
+                {['PROCESSING','APPROVED'].includes(runDetail.status) && (
+                  <button onClick={() => cancelMutation.mutate(runDetail.id)} disabled={cancelMutation.isPending}
+                    className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                    {cancelMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                    Cancel Run
+                  </button>
+                )}
                 {['APPROVED','PAID'].includes(runDetail.status) && (
                   <a href={`/api/payroll/${runDetail.id}/nibss`}
                     className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
                     <Download className="w-4 h-4" /> Download NIBSS File
                   </a>
                 )}
+                <a href={`/api/payroll/${runDetail.id}/export`}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                  <FileSpreadsheet className="w-4 h-4" /> Export CSV
+                </a>
               </div>
 
               {/* Payslips table */}

@@ -5,6 +5,7 @@ import { Shield, Loader2, CreditCard, ShoppingBag, Lock, MapPin, User, Phone, Ma
 import api from '../lib/api';
 import { formatCurrency } from '../lib/utils';
 import useCartStore from '../store/cartStore';
+import useShopperAuthStore from '../store/shopperAuthStore';
 
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
@@ -28,8 +29,12 @@ function Field({ icon: Icon, label, required, children }) {
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { items, clear } = useCartStore();
+  const shopper = useShopperAuthStore((s) => s.shopper);
   const [form, setForm] = useState({
-    buyerName: '', buyerEmail: '', buyerPhone: '', buyerAddress: '',
+    buyerName: shopper?.fullName || '',
+    buyerEmail: shopper?.email || '',
+    buyerPhone: shopper?.phone || '',
+    buyerAddress: '',
     buyerCity: '', buyerState: 'Lagos', deliveryInstructions: '',
   });
   const [error, setError] = useState('');
@@ -75,7 +80,7 @@ export default function CheckoutPage() {
     }
     orderMutation.mutate({
       ...form,
-      items: items.map((i) => ({ productId: i.id, quantity: i.quantity, unitPrice: parseFloat(i.sellingPrice) })),
+      items: items.map((i) => ({ listingId: i.id, quantity: i.quantity })),
     });
   };
 

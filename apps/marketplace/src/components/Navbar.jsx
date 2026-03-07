@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Search, Store, Menu, X, MapPin, ChevronDown, User } from 'lucide-react';
 import { useState } from 'react';
 import useCartStore from '../store/cartStore';
+import useShopperAuthStore from '../store/shopperAuthStore';
 
 const CATEGORIES = [
   'All Departments', 'Electronics', 'Fashion & Apparel', 'Food & Beverages',
@@ -14,6 +15,9 @@ export default function Navbar() {
   const navigate  = useNavigate();
   const items     = useCartStore((s) => s.items);
   const cartCount = items.reduce((s, i) => s + i.quantity, 0);
+  const shopper = useShopperAuthStore((s) => s.shopper);
+  const isAuthenticated = useShopperAuthStore((s) => s.isAuthenticated);
+  const logout = useShopperAuthStore((s) => s.logout);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -67,14 +71,39 @@ export default function Navbar() {
 
             <div className="flex-1 sm:hidden" />
 
-            {/* Account */}
-            <div className="hidden sm:flex items-center gap-1 text-white/80 hover:text-white cursor-pointer px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
-              <User className="w-4 h-4 text-amber-400" />
-              <div className="leading-none">
-                <div className="text-[10px] text-white/60">Hello, Guest</div>
-                <div className="text-xs font-semibold">Account</div>
+            {/* Account: when guest show Sign in + Register; when buyer show Sign out */}
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => { logout(); navigate('/'); }}
+                className="hidden sm:flex items-center gap-1 text-white/80 hover:text-white cursor-pointer px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <User className="w-4 h-4 text-amber-400" />
+                <div className="leading-none">
+                  <div className="text-[10px] text-white/60">Hello, {shopper?.fullName?.split(' ')[0] || 'Buyer'}</div>
+                  <div className="text-xs font-semibold">Sign out</div>
+                </div>
+              </button>
+            ) : (
+              <div className="hidden sm:flex items-center gap-1">
+                <Link
+                  to="/register"
+                  className="flex items-center gap-1 text-white/80 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-colors text-xs font-semibold"
+                >
+                  Register
+                </Link>
+                <Link
+                  to="/login"
+                  className="flex items-center gap-1 text-white/80 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <User className="w-4 h-4 text-amber-400" />
+                  <div className="leading-none">
+                    <div className="text-[10px] text-white/60">Hello, Guest</div>
+                    <div className="text-xs font-semibold">Sign in</div>
+                  </div>
+                </Link>
               </div>
-            </div>
+            )}
 
             {/* Cart */}
             <Link to="/cart"
@@ -100,7 +129,13 @@ export default function Navbar() {
 
         {/* Mobile search row */}
         {mobileOpen && (
-          <div className="px-3 pb-3 sm:hidden">
+          <div className="px-3 pb-3 sm:hidden space-y-2">
+            {!isAuthenticated && (
+              <div className="flex gap-2">
+                <Link to="/register" className="flex-1 text-center py-2 rounded-lg bg-white/10 text-amber-300 text-sm font-semibold" onClick={() => setMobileOpen(false)}>Register</Link>
+                <Link to="/login" className="flex-1 text-center py-2 rounded-lg bg-amber-400 text-navy text-sm font-semibold" onClick={() => setMobileOpen(false)}>Sign in</Link>
+              </div>
+            )}
             <form onSubmit={handleSearch} className="flex rounded-xl overflow-hidden shadow-md">
               <input
                 value={search}

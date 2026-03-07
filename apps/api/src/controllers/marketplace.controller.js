@@ -4,12 +4,59 @@ const { generateOrderNumber, roundDecimal, slugify, paginate, paginatedResponse 
 const { createAuditLog } = require('../middleware/audit.middleware');
 const axios = require('axios');
 
+function mapSeller(tenant) {
+  if (!tenant) return null;
+  return {
+    id: tenant.id,
+    businessName: tenant.businessName,
+    tradingName: tenant.tradingName,
+    city: tenant.city,
+    state: tenant.state,
+    isMarketplaceSeller: tenant.isMarketplaceSeller,
+  };
+}
+
+function mapListingCard(listing) {
+  return {
+    id: listing.id,
+    tenantId: listing.tenantId || listing.product?.tenantId,
+    name: listing.title,
+    title: listing.title,
+    description: listing.description,
+    sellingPrice: parseFloat(listing.price),
+    price: parseFloat(listing.price),
+    comparePrice: listing.comparePrice ? parseFloat(listing.comparePrice) : null,
+    currency: listing.currency,
+    stock: listing.stock,
+    imageUrl: listing.images?.[0] || null,
+    images: listing.images || [],
+    avgRating: parseFloat(listing.rating || 0),
+    rating: parseFloat(listing.rating || 0),
+    reviewCount: listing.reviewCount || 0,
+    soldCount: listing.soldCount || 0,
+    slug: listing.slug,
+    unit: listing.product?.unit || 'piece',
+    seller: mapSeller(listing.product?.tenant),
+  };
+}
+
+function mapListingDetail(listing) {
+  return {
+    ...mapListingCard(listing),
+    category: listing.category || null,
+    sku: listing.product?.sku || null,
+    stockLevels: [],
+    reviews: listing.reviews || [],
+  };
+}
+
 async function listListings(req, res) {
   try {
-    const { page, limit, search, categoryId, minPrice, maxPrice, sort } = req.query;
+    const { page, limit, search, categoryId, tenantId, minPrice, maxPrice, sort } = req.query;
     const { take, skip } = paginate(page, limit);
     const where = { isActive: true };
     if (categoryId) where.categoryId = categoryId;
+    if (tenantId) where.tenantId = tenantId;
     if (minPrice || maxPrice) {
       where.price = {};
       if (minPrice) where.price.gte = parseFloat(minPrice);
@@ -26,12 +73,20 @@ async function listListings(req, res) {
     const [data, total] = await Promise.all([
       prisma.marketplaceListing.findMany({
         where, take, skip, orderBy,
-        include: { category: { select: { id: true, name: true } } },
-        select: { id: true, title: true, description: true, price: true, comparePrice: true, currency: true, stock: true, images: true, rating: true, reviewCount: true, soldCount: true, slug: true, tenantId: true, category: true, isFeatured: true },
+        include: {
+          category: { select: { id: true, name: true } },
+          product: {
+            select: {
+              tenantId: true,
+              unit: true,
+              tenant: { select: { id: true, businessName: true, tradingName: true, city: true, state: true, isMarketplaceSeller: true } },
+            },
+          },
+        },
       }),
       prisma.marketplaceListing.count({ where }),
     ]);
-    res.json(paginatedResponse(data, total, page, limit));
+    res.json(paginatedResponse(data.map(mapListingCard), total, page, limit));
   } catch (error) {
     logger.error('List listings error:', error);
     res.status(500).json({ error: 'Failed to fetch listings' });
@@ -45,15 +100,67 @@ async function getListing(req, res) {
       include: {
         category: true,
         reviews: { orderBy: { createdAt: 'desc' }, take: 10 },
-        product: { select: { id: true, tenantId: true } },
+        product: {
+          select: {
+            id: true,
+            sku: true,
+            unit: true,
+            tenantId: true,
+            tenant: { select: { id: true, businessName: true, tradingName: true, city: true, state: true, isMarketplaceSeller: true } },
+          },
+        },
       },
     });
     if (!listing) return res.status(404).json({ error: 'Product not found' });
 
     await prisma.marketplaceListing.update({ where: { id: listing.id }, data: { viewCount: { increment: 1 } } });
-    res.json({ data: listing });
+    res.json({ data: mapListingDetail(listing) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch listing' });
+  }
+}
+
+async function getSellerStore(req, res) {
+  try {
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: req.params.tenantId, isMarketplaceSeller: true, isActive: true },
+      select: {
+        id: true,
+        businessName: true,
+        tradingName: true,
+        city: true,
+        state: true,
+        industry: true,
+        kycStatus: true,
+        isMarketplaceSeller: true,
+      },
+    });
+    if (!tenant) return res.status(404).json({ error: 'Seller store not found' });
+
+    const listings = await prisma.marketplaceListing.findMany({
+      where: { tenantId: tenant.id, isActive: true },
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+      take: 60,
+      include: {
+        product: {
+          select: {
+            tenantId: true,
+            unit: true,
+            tenant: { select: { id: true, businessName: true, tradingName: true, city: true, state: true, isMarketplaceSeller: true } },
+          },
+        },
+      },
+    });
+
+    res.json({
+      data: {
+        seller: mapSeller(tenant),
+        listings: listings.map(mapListingCard),
+      },
+    });
+  } catch (error) {
+    logger.error('Get seller store error:', error);
+    res.status(500).json({ error: 'Failed to fetch seller store' });
   }
 }
 
@@ -310,4 +417,4 @@ async function listCategories(req, res) {
   }
 }
 
-module.exports = { listListings, getListing, createOrder, initiatePayment, verifyPayment, getOrder, getShippingRates, addReview, listCategories };
+module.exports = { listListings, getListing, getSellerStore, createOrder, initiatePayment, verifyPayment, getOrder, getShippingRates, addReview, listCategories };
