@@ -30,6 +30,7 @@ import POSLoginPage from './pages/POSLoginPage';
 import POSDashboardPage from './pages/POSDashboardPage';
 import POSSalesHistoryPage from './pages/POSSalesHistoryPage';
 import POSEndOfDayPage from './pages/POSEndOfDayPage';
+import PartnersLoginPage from './pages/PartnersLoginPage';
 import LogisticsLoginPage from './pages/LogisticsLoginPage';
 import LogisticsRegisterPage from './pages/LogisticsRegisterPage';
 import LogisticsLayout from './components/layout/LogisticsLayout';
@@ -57,6 +58,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+      <Route path="/partners-login" element={<PartnersLoginPage />} />
       <Route path="/agent-login" element={<PublicRoute><AgentLoginPage /></PublicRoute>} />
       <Route path="/pos-login" element={<PublicRoute><POSLoginPage /></PublicRoute>} />
       <Route path="/logistics-login" element={<LogisticsLoginPage />} />
