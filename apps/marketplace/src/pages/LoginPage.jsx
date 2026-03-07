@@ -27,8 +27,8 @@ export default function LoginPage() {
   return (
     <div className="max-w-md mx-auto px-4 py-10">
       <div className="card p-6">
-        <h1 className="text-2xl font-bold text-gray-900">Buyer sign in</h1>
-        <p className="text-sm text-gray-500 mt-1">Sign in with your buyer account to shop and checkout.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Customer sign in</h1>
+        <p className="text-sm text-gray-500 mt-1">Sign in with your customer account to shop and checkout.</p>
 
         {error && (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
@@ -53,9 +53,9 @@ export default function LoginPage() {
         </form>
 
         <p className="text-sm text-gray-600 mt-4">
-          New buyer?{' '}
+          New customer?{' '}
           <Link to={`/register?next=${encodeURIComponent(next)}`} className="text-brand-600 hover:underline font-semibold">
-            Register as buyer
+            Register as customer
           </Link>
         </p>
       </div>

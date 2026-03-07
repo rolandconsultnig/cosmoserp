@@ -35,7 +35,7 @@ export default function RegisterPage() {
   return (
     <div className="max-w-md mx-auto px-4 py-10">
       <div className="card p-6">
-        <h1 className="text-2xl font-bold text-gray-900">Buyer registration</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Customer registration</h1>
         <p className="text-sm text-gray-500 mt-1">Create an account to shop, add to cart, and checkout on the marketplace.</p>
 
         {error && (
@@ -75,11 +75,11 @@ export default function RegisterPage() {
             </label>
             <input className="input" type="password" value={form.confirmPassword} onChange={update('confirmPassword')} required />
           </div>
-          <button type="submit" className="w-full btn-buy py-3 rounded-xl font-bold text-sm">Register as buyer</button>
+          <button type="submit" className="w-full btn-buy py-3 rounded-xl font-bold text-sm">Register as customer</button>
         </form>
 
         <p className="text-sm text-gray-600 mt-4">
-          Already have a buyer account?{' '}
+          Already have a customer account?{' '}
           <Link to={`/login?next=${encodeURIComponent(next)}`} className="text-brand-600 hover:underline font-semibold">
             Sign in
           </Link>

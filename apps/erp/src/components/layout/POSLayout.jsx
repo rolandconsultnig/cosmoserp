@@ -71,12 +71,7 @@ export default function POSLayout() {
       )}
         style={{ borderColor: 'rgba(255,255,255,0.08)' }}
       >
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
-        >
-          <Zap className="w-4.5 h-4.5 text-white" strokeWidth={2.5} />
-        </div>
+        <img src="/logo.png" alt="Cosmos" className="h-8 w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-black text-white text-sm leading-tight">POS Terminal</div>

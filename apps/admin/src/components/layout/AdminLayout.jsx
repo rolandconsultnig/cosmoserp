@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Shield, BarChart3, ClipboardList,
-  Store, LogOut, ChevronLeft, ChevronRight, Bell, Zap, Activity, Truck,
+  Store, LogOut, ChevronLeft, ChevronRight, Bell, Activity, Truck,
   CreditCard, Users, DollarSign, Briefcase, ShoppingCart, Headphones, Settings,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -82,12 +82,7 @@ export default function AdminLayout() {
             collapsed ? 'justify-center' : 'gap-3',
           )}
         >
-          <div
-            className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
-          >
-            <Zap className="w-[18px] h-[18px] text-white" strokeWidth={2.5} />
-          </div>
+          <img src="/logo.png" alt="Cosmos Admin" className="h-9 w-auto object-contain flex-shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
               <div className="text-[14px] font-bold text-white leading-tight tracking-tight">

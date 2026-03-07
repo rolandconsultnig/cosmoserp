@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Search, Store, Menu, X, MapPin, ChevronDown, User } from 'lucide-react';
+import { ShoppingCart, Search, Menu, X, MapPin, ChevronDown, User } from 'lucide-react';
 import { useState } from 'react';
 import useCartStore from '../store/cartStore';
 import useShopperAuthStore from '../store/shopperAuthStore';
@@ -33,9 +33,7 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-              <div className="w-9 h-9 bg-amber-400 rounded-xl flex items-center justify-center shadow-md group-hover:bg-amber-300 transition-colors">
-                <Store className="w-5 h-5 text-navy" />
-              </div>
+              <img src="/logo.png" alt="Cosmos Market" className="h-9 w-auto object-contain" />
               <div className="hidden sm:block leading-none">
                 <div className="text-white font-extrabold text-base tracking-tight">Cosmos</div>
                 <div className="text-amber-300 text-[10px] font-semibold uppercase tracking-widest">Market</div>
@@ -71,7 +69,7 @@ export default function Navbar() {
 
             <div className="flex-1 sm:hidden" />
 
-            {/* Account: when guest show Sign in + Register; when buyer show Sign out */}
+            {/* Account: when guest show Sign in + Register; when customer show Sign out */}
             {isAuthenticated ? (
               <button
                 type="button"
@@ -80,7 +78,7 @@ export default function Navbar() {
               >
                 <User className="w-4 h-4 text-amber-400" />
                 <div className="leading-none">
-                  <div className="text-[10px] text-white/60">Hello, {shopper?.fullName?.split(' ')[0] || 'Buyer'}</div>
+                  <div className="text-[10px] text-white/60">Hello, {shopper?.fullName?.split(' ')[0] || 'Customer'}</div>
                   <div className="text-xs font-semibold">Sign out</div>
                 </div>
               </button>

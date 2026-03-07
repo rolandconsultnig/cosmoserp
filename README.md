@@ -42,7 +42,7 @@ cosmos-erp/
 ### 5. E-Commerce Marketplace
 - Global product search
 - Seller toggle (publish to Cosmos Market)
-- Escrow payments via Paystack/Flutterwave
+- Escrow payments via Cosmos Escrow
 - Logistics API (GIG Logistics, Kobo360)
 
 ### 6. Super Admin Platform (Roland Consult)
@@ -60,7 +60,7 @@ cosmos-erp/
 | Cache | Redis |
 | Frontend | React, Vite, TailwindCSS, shadcn/ui |
 | Auth | JWT + Refresh tokens, RBAC |
-| Payments | Paystack, Flutterwave |
+| Payments | Cosmos Escrow |
 | Search | Elasticsearch / Algolia |
 | Messaging | WhatsApp Business API |
 | Tax | NRS/FIRS API |

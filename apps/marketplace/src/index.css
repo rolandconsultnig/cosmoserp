@@ -88,6 +88,17 @@
   100% { background-position:  200% 0; }
 }
 
+/* Hero carousel: slides move right to left (track is 300% wide, move by 33.33% per slide) */
+@keyframes hero-carousel {
+  0%, 28%   { transform: translateX(0); }
+  33%, 61%  { transform: translateX(-33.333%); }
+  66%, 94%  { transform: translateX(-66.666%); }
+  100%      { transform: translateX(-66.666%); }
+}
+.hero-carousel-track {
+  animation: hero-carousel 21s ease-in-out infinite;
+}
+
 /* Thin scrollbar */
 ::-webkit-scrollbar       { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

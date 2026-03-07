@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Store, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 export default function LoginPage() {
@@ -36,9 +36,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <Store className="w-6 h-6 text-white" />
-            </div>
+            <img src="/logo.png" alt="Cosmos ERP" className="h-10 w-auto object-contain" />
             <div>
               <div className="font-bold text-slate-900 text-lg leading-tight">Cosmos ERP</div>
               <div className="text-xs text-slate-500">Nigerian Business Management</div>

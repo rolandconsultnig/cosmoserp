@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, FileCheck, Package, Users, Truck,
   Warehouse, ShoppingCart, UserSquare, DollarSign, Building2,
   Shield, BarChart3, Settings, LogOut, ChevronLeft, ChevronRight,
-  Bell, Search, Menu, X, Store, Receipt, Headphones, Zap
+  Bell, Search, Menu, X, Receipt, Headphones, Zap
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
@@ -81,9 +81,7 @@ export default function AppLayout() {
     )}>
       {/* Logo */}
       <div className={cn('flex items-center h-16 border-b border-slate-200 px-4', collapsed && !mobile ? 'justify-center' : 'gap-3')}>
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-          <Store className="w-5 h-5 text-white" />
-        </div>
+        <img src="/logo.png" alt="Cosmos ERP" className="h-8 w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-bold text-slate-900 text-sm leading-tight">Cosmos ERP</div>

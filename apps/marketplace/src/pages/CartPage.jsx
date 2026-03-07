@@ -134,14 +134,14 @@ export default function CartPage() {
             </button>
 
             <div className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
-              <Lock className="w-3 h-3" /> Secured by Paystack
+              <Lock className="w-3 h-3" /> Secured by Cosmos Escrow
             </div>
           </div>
 
           {/* Trust badges */}
           <div style={{ background: '#EEF2FF' }} className="rounded-2xl border border-brand-100 p-4 space-y-2.5">
             {[
-              { icon: Shield, text: 'Payments secured by Paystack Escrow' },
+              { icon: Shield, text: 'Payments secured by Cosmos Escrow' },
               { icon: Shield, text: 'NRS tax receipt for every purchase' },
               { icon: Shield, text: 'All sellers are KYC-verified' },
             ].map(({ icon: Icon, text }) => (

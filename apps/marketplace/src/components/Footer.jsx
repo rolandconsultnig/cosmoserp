@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Store, Shield, CreditCard, Truck, ChevronUp } from 'lucide-react';
+import { Shield, CreditCard, Truck, ChevronUp } from 'lucide-react';
 
 const SHOP_LINKS  = ['All Products', 'Electronics', 'Fashion', 'Food & Beverages', 'Agriculture', 'Health & Beauty'];
 const SELL_LINKS  = [
@@ -9,7 +9,7 @@ const SELL_LINKS  = [
   { label: 'Logistics Partners',  href: '#' },
   { label: 'NRS Compliance',      href: '#' },
 ];
-const HELP_LINKS  = ['Track Your Order', 'Returns & Refunds', 'Shipping Policy', 'Buyer Protection', 'Contact Support'];
+const HELP_LINKS  = ['Track Your Order', 'Returns & Refunds', 'Shipping Policy', 'Customer Protection', 'Contact Support'];
 
 export default function Footer() {
   return (
@@ -30,16 +30,14 @@ export default function Footer() {
             {/* Brand */}
             <div className="col-span-2 sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 bg-amber-400 rounded-xl flex items-center justify-center">
-                  <Store className="w-5 h-5 text-navy" />
-                </div>
+                <img src="/logo.png" alt="Cosmos Market" className="h-9 w-auto object-contain" />
                 <div className="leading-none">
                   <div className="font-extrabold text-white text-base">Cosmos</div>
                   <div className="text-amber-400 text-[10px] font-semibold uppercase tracking-widest">Market</div>
                 </div>
               </div>
               <p className="text-sm text-gray-400 leading-relaxed">
-                Nigeria's verified B2B & B2C marketplace — connecting KYC-approved businesses with buyers nationwide.
+                Nigeria's verified B2B & B2C marketplace — connecting KYC-approved businesses with customers nationwide.
               </p>
               <div className="mt-4 text-xs text-gray-500">Powered by Roland Consult · 2025</div>
             </div>
@@ -87,7 +85,7 @@ export default function Footer() {
               <div className="space-y-3">
                 {[
                   { icon: Shield,    text: 'NRS Tax-Compliant Receipts' },
-                  { icon: CreditCard, text: 'Paystack Escrow Payments' },
+                  { icon: CreditCard, text: 'Cosmos Escrow Payments' },
                   { icon: Truck,     text: 'GIG & Sendbox Logistics' },
                   { icon: Shield,    text: 'KYC-Verified Sellers' },
                 ].map(({ icon: Icon, text }) => (

@@ -182,7 +182,7 @@ export default function ProductDetailPage() {
             </div>
             <div className="flex items-center gap-2 text-sm text-brand-800">
               <Shield className="w-4 h-4 text-brand-600 flex-shrink-0" />
-              <span>Payments secured by Paystack escrow</span>
+              <span>Payments secured by Cosmos Escrow</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-brand-800">
               <Shield className="w-4 h-4 text-brand-600 flex-shrink-0" />
@@ -199,7 +199,7 @@ export default function ProductDetailPage() {
             {/* Delivery note */}
             <div className="text-xs text-gray-600 flex items-start gap-1.5 bg-amber-50 border border-amber-100 rounded-xl p-2.5">
               <Truck className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
-              <span>FREE delivery on orders above ₦50,000. Nationwide coverage.</span>
+              <span>End to End Delivery (E2ED) on orders above ₦50,000. Nationwide coverage.</span>
             </div>
 
             {/* Stock status */}

@@ -153,7 +153,7 @@ export default function CheckoutPage() {
                   <CreditCard className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-bold text-gray-900 text-sm">Paystack Secure Payment</div>
+                  <div className="font-bold text-gray-900 text-sm">Cosmos Secure Payment</div>
                   <div className="text-xs text-gray-500 mt-0.5">Card, bank transfer, USSD. Funds held in escrow until delivery confirmed.</div>
                 </div>
                 <div className="w-5 h-5 bg-brand-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -217,7 +217,7 @@ export default function CheckoutPage() {
               </button>
 
               <div className="text-center text-[11px] text-gray-400 mt-3 flex items-center justify-center gap-1">
-                <Shield className="w-3 h-3" /> Secured by Paystack · NRS receipt will be issued
+                <Shield className="w-3 h-3" /> Secured by Cosmos Escrow · NRS receipt will be issued
               </div>
             </div>
           </div>
