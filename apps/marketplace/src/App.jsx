@@ -10,6 +10,7 @@ import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import StorefrontPage from './pages/StorefrontPage';
+import LogisticsPartnersPage from './pages/LogisticsPartnersPage';
 import useShopperAuthStore from './store/shopperAuthStore';
 
 function RequireShopper({ children }) {
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/store/:tenantId" element={<StorefrontPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/logistics" element={<LogisticsPartnersPage />} />
           <Route path="/cart" element={<RequireShopper><CartPage /></RequireShopper>} />
           <Route path="/checkout" element={<RequireShopper><CheckoutPage /></RequireShopper>} />
           <Route path="/order/confirmation/:orderId" element={<RequireShopper><OrderConfirmationPage /></RequireShopper>} />

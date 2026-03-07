@@ -6,7 +6,7 @@ const SELL_LINKS  = [
   { label: 'Seller Dashboard',    href: '/erp' },
   { label: 'Register Your Business', href: '/erp/register' },
   { label: 'Seller Guidelines',   href: '#' },
-  { label: 'Logistics Partners',  href: '#' },
+  { label: 'Logistics Partners',  href: '/logistics' },
   { label: 'NRS Compliance',      href: '#' },
 ];
 const HELP_LINKS  = ['Track Your Order', 'Returns & Refunds', 'Shipping Policy', 'Customer Protection', 'Contact Support'];
