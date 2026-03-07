@@ -29,8 +29,10 @@ router.post('/agents/login', logistics.loginAgent);
 // ── Public: Tracking ──
 router.get('/track/:trackingOrId', logistics.trackDelivery);
 
+// ── Public: List approved logistics partners (for marketplace Logistics Partners page) ──
+router.get('/providers', logistics.listAvailableProviders);
+
 // ── Seller / Tenant endpoints (needs ERP auth) ──
-router.get('/providers', authenticate, logistics.listAvailableProviders);
 router.post('/deliveries/request', authenticate, logistics.requestDelivery);
 
 // ── Agent portal (needs agent auth) ──
