@@ -157,6 +157,16 @@ async function me(req, res) {
   }
 }
 
+// admin-specific "me" endpoint used by the admin frontend
+async function adminMe(req, res) {
+  try {
+    // authenticate middleware ensures req.isAdmin and req.admin exist
+    res.json({ admin: req.admin, type: 'admin' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch admin profile' });
+  }
+}
+
 async function forgotPassword(req, res) {
   try {
     const { email } = req.body;
