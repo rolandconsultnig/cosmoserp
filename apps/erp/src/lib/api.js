@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const apiBase = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+  ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '')
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBase,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -19,7 +23,7 @@ api.interceptors.response.use(
       original._retry = true;
       try {
         const refresh = localStorage.getItem('refreshToken');
-        const { data } = await axios.post('/api/auth/refresh', { refreshToken: refresh });
+        const { data } = await axios.post(`${apiBase}/auth/refresh`, { refreshToken: refresh });
         localStorage.setItem('accessToken', data.accessToken);
         original.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(original);

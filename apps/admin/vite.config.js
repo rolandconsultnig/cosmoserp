@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   server: {
     port: 5175,
+    https: true, // avoids browser "password on insecure (http) page" warning
     proxy: {
       '/api': { target: 'http://localhost:5133', changeOrigin: true },
     },

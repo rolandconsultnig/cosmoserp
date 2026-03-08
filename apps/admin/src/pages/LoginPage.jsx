@@ -4,8 +4,8 @@ import { Eye, EyeOff, Loader2, Zap, Lock, Mail, ShieldCheck } from 'lucide-react
 import useAuthStore from '../store/authStore';
 
 export default function LoginPage() {
-  const [email, setEmail]       = useState('admin@rolandconsult.ng');
-  const [password, setPassword] = useState('Admin@Cosmos2024!');
+  const [email, setEmail]       = useState('sam@afrinict.net');
+  const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
@@ -138,7 +138,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@rolandconsult.ng"
+                    placeholder="sam@afrinict.net"
                     className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm
                                text-slate-900 placeholder:text-slate-400 bg-slate-50/50
                                focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500

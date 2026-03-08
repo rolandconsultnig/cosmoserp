@@ -4,8 +4,8 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('demo@lagostrading.ng');
-  const [password, setPassword] = useState('Demo@12345');
+  const [email, setEmail] = useState('tochi@afrinict.com');
+  const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,7 +58,7 @@ export default function LoginPage() {
               <input
                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="you@company.ng"
+                placeholder="tochi@afrinict.com"
               />
             </div>
             <div>
@@ -94,7 +94,7 @@ export default function LoginPage() {
           {/* Demo credentials */}
           <div className="mt-4 bg-blue-50 rounded-lg p-3">
             <div className="text-xs font-semibold text-blue-700 mb-1">Demo Credentials</div>
-            <div className="text-xs text-blue-600">📧 demo@lagostrading.ng</div>
+            <div className="text-xs text-blue-600">📧 tochi@afrinict.com</div>
             <div className="text-xs text-blue-600">🔑 Demo@12345</div>
           </div>
         </div>

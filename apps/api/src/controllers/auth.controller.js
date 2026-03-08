@@ -218,4 +218,4 @@ async function changePassword(req, res) {
   }
 }
 
-module.exports = { login, adminLogin, refresh, logout, me, forgotPassword, resetPassword, changePassword };
+module.exports = { login, adminLogin, refresh, logout, me, adminMe, forgotPassword, resetPassword, changePassword };

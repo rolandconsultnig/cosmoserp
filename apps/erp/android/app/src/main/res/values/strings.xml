@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CosmosERP POS interface</string>
+    <string name="title_activity_main">CosmosERP POS interface</string>
+    <string name="package_name">com.cosmoserp.pos</string>
+    <string name="custom_url_scheme">com.cosmoserp.pos</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+</resources>

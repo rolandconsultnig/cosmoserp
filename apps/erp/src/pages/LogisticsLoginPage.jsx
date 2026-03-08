@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5133/api';
 
 export default function LogisticsLoginPage() {
   const [mode, setMode] = useState('agent'); // 'agent' | 'company'
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('ogadriver@afrinict.com');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
@@ -113,7 +113,7 @@ export default function LogisticsLoginPage() {
                   autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={mode === 'agent' ? 'agent@logistics.ng' : 'admin@logistics.ng'}
+                  placeholder={mode === 'agent' ? 'ogadriver@afrinict.com' : 'admin@logistics.ng'}
                   className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
