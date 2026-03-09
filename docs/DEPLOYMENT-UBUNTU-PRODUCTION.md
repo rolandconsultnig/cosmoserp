@@ -342,12 +342,15 @@ Build outputs:
 
 ## 11. Run API with PM2
 
+Only the **API** runs under PM2 (process name `cosmos-api`). The **admin**, **ERP**, and **marketplace** apps are built to `dist/` and served by Nginx — they are **not** PM2 processes. So `pm2 restart admin` will fail; use `pm2 restart cosmos-api` to restart the API.
+
 Install PM2 and start the API so it restarts on reboot:
 
 ```bash
 sudo npm install -g pm2
-cd /home/ubuntu/cosmoserp/apps/api
-pm2 start src/index.js --name cosmos-api
+cd /home/ubuntu/cosmoserp   # or /root/cosmoserp
+pm2 start ecosystem.config.cjs
+# Or manually: cd apps/api && pm2 start src/index.js --name cosmos-api
 pm2 save
 pm2 startup
 # Run the command that pm2 startup prints (sudo env PATH=...)
@@ -360,7 +363,9 @@ pm2 status
 pm2 logs cosmos-api
 ```
 
-API will listen on **5133** (from `PORT=5133` in `.env`).
+To restart after code or env changes: `pm2 restart cosmos-api` (use `--update-env` to pick up new `.env` values).
+
+API will listen on **5133** (from `PORT=5133` in `apps/api/.env`).
 
 ---
 
@@ -447,18 +452,32 @@ server {
         proxy_send_timeout 60s;
     }
 
-    # Admin app
-    location /admin {
+    # Admin app (use /admin/ with trailing slash; alias+try_files fallback via named location)
+    location = /admin {
+        return 301 /admin/;
+    }
+    location /admin/ {
         alias /home/ubuntu/cosmoserp/apps/admin/dist/;
-        try_files $uri $uri/ /admin/index.html;
+        try_files $uri $uri/ @admin_fallback;
         index index.html;
     }
+    location @admin_fallback {
+        root /home/ubuntu/cosmoserp/apps/admin/dist;
+        try_files /index.html =404;
+    }
 
-    # ERP app
-    location /erp {
+    # ERP app (same pattern for SPA fallback)
+    location = /erp {
+        return 301 /erp/;
+    }
+    location /erp/ {
         alias /home/ubuntu/cosmoserp/apps/erp/dist/;
-        try_files $uri $uri/ /erp/index.html;
+        try_files $uri $uri/ @erp_fallback;
         index index.html;
+    }
+    location @erp_fallback {
+        root /home/ubuntu/cosmoserp/apps/erp/dist;
+        try_files /index.html =404;
     }
 
     # Marketplace (primary at /)
@@ -624,8 +643,19 @@ If the site is blank or 404:
 
 ## Troubleshooting
 
-- **502 Bad Gateway**: API not running. Run `pm2 status` and `pm2 logs cosmos-api`.
+- **"Process or Namespace admin not found"**: The admin app is not a PM2 process; it is built to static files and served by Nginx. Only `cosmos-api` runs under PM2. Use `pm2 restart cosmos-api` to restart the API.
+- **Admin page not loading (blank, 404, or 403)**:
+  1. **Path mismatch**: Nginx uses `/home/ubuntu/cosmoserp`; if you cloned as root, change every path in the Nginx config to `/root/cosmoserp` and run `sudo nginx -t && sudo systemctl reload nginx`.
+  2. **Admin not built**: On the server run `cd /root/cosmoserp/apps/admin && npm run build` (or `cd ~/cosmoserp/apps/admin && npm run build`). Then `ls apps/admin/dist` should show `index.html` and `assets/`.
+  3. **Nginx alias + try_files**: If you see 404 for `/admin/` or client-side routes, use the config in this doc that has `location /admin/`, `@admin_fallback`, and `try_files ... @admin_fallback` (alias and try_files together are buggy in some Nginx versions).
+  4. **Test**: `curl -s -o /dev/null -w "%{http_code}" http://SERVER_IP/admin/` should be 200.
+- **502 Bad Gateway on `/admin` or `/admin/`**:
+  1. **Check which request returns 502** — In the browser open DevTools → Network, reload the page, and see whether the request with status 502 is the document (`.../admin/`) or an API call (`.../api/...`). If it's **`/api/...`**, the API is the problem: ensure `cosmos-api` is running and Nginx proxies `/api` to `http://127.0.0.1:5133`; run `pm2 logs cosmos-api` and `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5133/`.
+  2. **If the document `/admin/` returns 502** — Nginx is likely **proxying** `/admin` to a backend (e.g. port 5175). If that backend is down or not listening, you get 502. **Fix:** Either (A) serve admin as static files: in Nginx use `location /admin/` with `alias /root/cosmoserp/apps/admin/dist/` and `try_files ... @admin_fallback` (no `proxy_pass`), and you can stop the `cosmos-admin` PM2 process; or (B) keep proxying and ensure the app Nginx proxies to is running and listening on the port Nginx uses (e.g. 5175).
+  3. **Run the diagnostic script** (from repo root): `bash docs/scripts/nginx-502-diagnose.sh` — it prints how Nginx serves `/admin`, whether the API responds, and suggests a fix.
+- **502 Bad Gateway (API)** — API not running. Run `pm2 status` and `pm2 logs cosmos-api`.
 - **EADDRINUSE: address already in use :::5133**: Another process (or a previous API instance) is using port 5133. Find it with `sudo lsof -i :5133` or `ss -tlnp | grep 5133`, then `kill -9 <PID>`. If you use PM2, run `pm2 list` and `pm2 stop cosmos-api` or `pm2 delete cosmos-api` before starting the API again.
 - **404 on /admin or /erp**: Ensure Vite builds used `base: '/admin/'` and `base: '/erp/'` and Nginx `alias` paths point to the correct `dist` folders. Replace `/home/ubuntu/cosmoserp` with `/root/cosmoserp` in Nginx if you cloned as root.
 - **API errors**: Check `apps/api/.env`, `DATABASE_URL`, and `REDIS_URL`. Ensure PostgreSQL and Redis are running.
 - **Static assets 404**: Confirm Nginx `root`/`alias` and that `npm run build` was run for each app.
+- **"This page is in Quirks Mode" / "use <!DOCTYPE html>"**: The browser is getting HTML that doesn’t start with `<!DOCTYPE html>`. (1) **Wrong site** — You may be hitting the Nginx default welcome page. In your Cosmos Nginx config use `listen 80 default_server;` so the Cosmos site is used when opening the server by IP, then reload Nginx. (2) **Old build** — Rebuild frontends so `dist/index.html` includes DOCTYPE: from repo root run `npm run build`, then reload the page.

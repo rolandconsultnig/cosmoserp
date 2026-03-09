@@ -35,13 +35,22 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
+// CORS: allow web frontends and Android app (Capacitor sends Origin: null or API host)
+const corsOrigins = [
+  process.env.ERP_URL || 'http://localhost:5173',
+  process.env.MARKETPLACE_URL || process.env.MARKET_URL || 'http://localhost:5174',
+  process.env.ADMIN_URL || 'http://localhost:5175',
+].filter(Boolean);
+if (process.env.API_PUBLIC_URL) corsOrigins.push(process.env.API_PUBLIC_URL);
 app.use(cors({
-  origin: [
-    process.env.ERP_URL || 'http://localhost:5173',
-    process.env.MARKET_URL || 'http://localhost:5174',
-    process.env.ADMIN_URL || 'http://localhost:5175',
-  ],
+  origin: (orig, cb) => {
+    if (!orig) return cb(null, true); // Android/native app often sends no Origin
+    if (corsOrigins.some(o => orig === o || orig.startsWith(o))) return cb(null, true);
+    return cb(null, false);
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));

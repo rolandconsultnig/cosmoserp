@@ -7,7 +7,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:9.1.0'
+        classpath 'com.android.tools.build:gradle:8.7.3'
         classpath 'com.google.gms:google-services:4.4.0'
 
         // NOTE: Do not place your application dependencies here; they belong
@@ -21,6 +21,22 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            android {
+                buildTypes {
+                    release {
+                        // Override the problematic default Proguard file reference in external modules
+                        proguardFiles.clear()
+                        proguardFiles 'proguard-rules.pro'
+                    }
+                }
+            }
+        }
     }
 }
 

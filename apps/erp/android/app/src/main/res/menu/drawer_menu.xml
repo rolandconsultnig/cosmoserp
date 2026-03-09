@@ -17,6 +17,10 @@
             android:id="@+id/nav_customers"
             android:icon="@android:drawable/ic_menu_edit"
             android:title="Customers" />
+        <item
+            android:id="@+id/nav_end_of_day"
+            android:icon="@android:drawable/ic_menu_today"
+            android:title="End of Day" />
     </group>
 
     <item android:title="System">

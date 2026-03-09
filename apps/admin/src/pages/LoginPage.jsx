@@ -4,17 +4,18 @@ import { Eye, EyeOff, Loader2, Zap, Lock, Mail, ShieldCheck } from 'lucide-react
 import useAuthStore from '../store/authStore';
 
 export default function LoginPage() {
-  const [email, setEmail]       = useState('sam@afrinict.net');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
-  const { login }   = useAuthStore();
+  const { login, serverUnreachable, clearServerUnreachable } = useAuthStore();
   const navigate    = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    clearServerUnreachable();
     setLoading(true);
     try {
       await login(email, password);
@@ -117,6 +118,13 @@ export default function LoginPage() {
               </p>
             </div>
 
+            {/* Backend unreachable (502 / connection refused) */}
+            {serverUnreachable && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-sm mb-5">
+                <p className="font-medium">Cannot reach the server</p>
+                <p className="mt-1 text-amber-700">Start the API (e.g. <code className="bg-amber-100 px-1 rounded">npm run dev</code> from repo root or <code className="bg-amber-100 px-1 rounded">apps/api</code> on port 5133) and refresh.</p>
+              </div>
+            )}
             {/* Error */}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-5 flex items-center gap-2">
@@ -138,7 +146,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="sam@afrinict.net"
+                    placeholder="Email"
                     className="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm
                                text-slate-900 placeholder:text-slate-400 bg-slate-50/50
                                focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500

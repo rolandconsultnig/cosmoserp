@@ -5,24 +5,25 @@ const useAuthStore = create((set) => ({
   admin: null,
   isAuthenticated: false,
   isLoading: true,
+  serverUnreachable: false,
 
   init: async () => {
     const token = localStorage.getItem('admin_token');
     if (!token) { set({ isLoading: false }); return; }
     try {
-      // call the admin-specific profile endpoint to avoid accidentally
-      // validating a non-admin access token from another workspace
       const { data } = await api.get('/auth/admin/me');
       if (!data.admin || data.type !== 'admin') throw new Error('Not an admin session');
-      // also clear any regular user tokens just in case
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       set({ admin: data.admin, isAuthenticated: true, isLoading: false });
-    } catch {
+    } catch (err) {
       localStorage.removeItem('admin_token');
-      set({ isLoading: false });
+      const isServerError = err.response?.status >= 502 || err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK';
+      set({ isLoading: false, serverUnreachable: !!isServerError });
     }
   },
+
+  clearServerUnreachable: () => set({ serverUnreachable: false }),
 
   login: async (email, password) => {
     const { data } = await api.post('/auth/admin/login', { email, password });

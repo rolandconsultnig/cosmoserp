@@ -1,0 +1,99 @@
+package com.cosmoserp.pos;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import java.util.ArrayList;
+import java.util.List;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+
+public class RecentOrdersActivity extends AppCompatActivity {
+
+    private RecyclerView recyclerView;
+    private OrdersAdapter adapter;
+    private List<SalesResponse.Sale> salesList;
+    private ProgressBar progressBar;
+    private ApiService apiService;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_recent_orders);
+
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        getSupportActionBar().setTitle("Recent Orders");
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+        recyclerView = findViewById(R.id.ordersRecyclerView);
+        progressBar = findViewById(R.id.progressBar);
+        
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        salesList = new ArrayList<>();
+        adapter = new OrdersAdapter(salesList);
+        recyclerView.setAdapter(adapter);
+
+        SharedPreferences prefs = getSharedPreferences("CosmosPOS", Context.MODE_PRIVATE);
+        String token = prefs.getString("access_token", null);
+
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor(chain -> {
+                    Request newRequest = chain.request().newBuilder()
+                            .addHeader("Authorization", "Bearer " + token)
+                            .build();
+                    return chain.proceed(newRequest);
+                })
+                .build();
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(NetworkConfig.BASE_URL)
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+        apiService = retrofit.create(ApiService.class);
+
+        fetchRecentSales();
+    }
+
+    private void fetchRecentSales() {
+        progressBar.setVisibility(View.VISIBLE);
+        apiService.getRecentSales(1, 50).enqueue(new Callback<SalesResponse>() {
+            @Override
+            public void onResponse(Call<SalesResponse> call, Response<SalesResponse> response) {
+                progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    salesList.clear();
+                    salesList.addAll(response.body().getData());
+                    adapter.notifyDataSetChanged();
+                } else {
+                    Toast.makeText(RecentOrdersActivity.this, "Failed to load orders", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<SalesResponse> call, Throwable t) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(RecentOrdersActivity.this, "Network error", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        onBackPressed();
+        return true;
+    }
+}
