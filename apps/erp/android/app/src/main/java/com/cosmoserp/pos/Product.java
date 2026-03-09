@@ -1,6 +1,7 @@
 package com.cosmoserp.pos;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.Locale;
 
 public class Product {
     private String id;
@@ -14,11 +15,11 @@ public class Product {
     public Product(String name, String priceStr) {
         this.name = name;
         try {
-            this.price = Double.parseDouble(priceStr.replace("$", "").replace(",", ""));
+            this.price = Double.parseDouble(priceStr.replaceAll("[^0-9.]", ""));
         } catch (Exception e) {
             this.price = 0.0;
         }
-        this.currency = "USD";
+        this.currency = "NGN";
     }
 
     public String getId() { return id; }
@@ -29,6 +30,8 @@ public class Product {
     public String getCurrency() { return currency; }
 
     public String getFormattedPrice() {
-        return (currency != null ? currency : "$") + " " + String.format("%.2f", price);
+        String symbol = "₦";
+        if ("USD".equals(currency)) symbol = "$";
+        return symbol + String.format(Locale.getDefault(), "%,.2f", price);
     }
 }

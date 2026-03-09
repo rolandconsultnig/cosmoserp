@@ -11,9 +11,15 @@ import java.util.List;
 public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductViewHolder> {
 
     private List<Product> products;
+    private OnProductClickListener listener;
 
-    public ProductAdapter(List<Product> products) {
+    public interface OnProductClickListener {
+        void onProductClick(Product product);
+    }
+
+    public ProductAdapter(List<Product> products, OnProductClickListener listener) {
         this.products = products;
+        this.listener = listener;
     }
 
     @NonNull
@@ -28,6 +34,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
         Product product = products.get(position);
         holder.productName.setText(product.getName());
         holder.productPrice.setText(product.getFormattedPrice());
+        holder.itemView.setOnClickListener(v -> listener.onProductClick(product));
     }
 
     @Override

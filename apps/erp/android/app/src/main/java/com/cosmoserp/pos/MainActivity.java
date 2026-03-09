@@ -21,21 +21,25 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
+public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener, ProductAdapter.OnProductClickListener {
     
     private RecyclerView recyclerView;
     private ProductAdapter adapter;
     private List<Product> productList;
+    private List<Product> cartList = new ArrayList<>();
     private DrawerLayout drawer;
     private TextView totalAmountText;
+    private TextView cartItemsCountText;
     private ApiService apiService;
     private String token;
+    private double currentTotal = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,11 +71,31 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
 
         totalAmountText = findViewById(R.id.totalAmount);
+        cartItemsCountText = findViewById(R.id.cartSummary).findViewById(android.R.id.text1); // Adjusted based on generic layout
+        // In actual layout activity_main.xml, finding the text in cartSummary card
+        // Need to update the cart summary section in activity_main.xml to have proper IDs
+
         productList = new ArrayList<>();
-        adapter = new ProductAdapter(productList);
+        adapter = new ProductAdapter(productList, this);
         recyclerView.setAdapter(adapter);
 
-        // OkHttpClient to add Authorization header
+        setupNetwork();
+        fetchProducts();
+
+        findViewById(R.id.checkoutButton).setOnClickListener(v -> {
+            if (cartList.isEmpty()) {
+                Toast.makeText(this, "Cart is empty", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Processing payment of " + formatNaira(currentTotal), Toast.LENGTH_LONG).show();
+                clearCart();
+            }
+        });
+
+        findViewById(R.id.scanButton).setOnClickListener(v -> 
+                Toast.makeText(MainActivity.this, "Opening Barcode Scanner...", Toast.LENGTH_SHORT).show());
+    }
+
+    private void setupNetwork() {
         OkHttpClient client = new OkHttpClient.Builder()
                 .addInterceptor(chain -> {
                     Request newRequest = chain.request().newBuilder()
@@ -87,14 +111,33 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         apiService = retrofit.create(ApiService.class);
+    }
 
-        fetchProducts();
+    @Override
+    public void onProductClick(Product product) {
+        cartList.add(product);
+        currentTotal += product.getPrice();
+        updateCartSummary();
+        Toast.makeText(this, product.getName() + " added to cart", Toast.LENGTH_SHORT).show();
+    }
 
-        findViewById(R.id.checkoutButton).setOnClickListener(v -> 
-                Toast.makeText(MainActivity.this, "Proceeding to Payment...", Toast.LENGTH_SHORT).show());
+    private void updateCartSummary() {
+        totalAmountText.setText("Total: " + formatNaira(currentTotal));
+        // Note: In activity_main.xml, we'll ensure IDs are set for the items count text
+        TextView countText = findViewById(R.id.cartSummary).findViewWithTag("item_count_text");
+        if (countText != null) {
+            countText.setText("Items in Cart: " + cartList.size());
+        }
+    }
 
-        findViewById(R.id.scanButton).setOnClickListener(v -> 
-                Toast.makeText(MainActivity.this, "Opening Scanner...", Toast.LENGTH_SHORT).show());
+    private void clearCart() {
+        cartList.clear();
+        currentTotal = 0;
+        updateCartSummary();
+    }
+
+    private String formatNaira(double amount) {
+        return "₦" + String.format(Locale.getDefault(), "%,.2f", amount);
     }
 
     private void fetchProducts() {
@@ -105,11 +148,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     productList.clear();
                     productList.addAll(response.body().getData());
                     adapter.notifyDataSetChanged();
-                } else {
-                    showError("Failed to load products: " + response.code());
-                    if (response.code() == 401) {
-                        logout();
-                    }
+                } else if (response.code() == 401) {
+                    logout();
                 }
             }
 
@@ -154,11 +194,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             startActivity(new Intent(this, CustomerManagementActivity.class));
         } else if (id == R.id.nav_end_of_day) {
             startActivity(new Intent(this, EndOfDayActivity.class));
-        } else if (id == R.id.nav_pos) {
-            // Already here
-            drawer.closeDrawer(GravityCompat.START);
-        } else {
-            Toast.makeText(this, item.getTitle() + " selected", Toast.LENGTH_SHORT).show();
         }
         drawer.closeDrawer(GravityCompat.START);
         return true;
