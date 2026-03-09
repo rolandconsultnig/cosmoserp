@@ -230,6 +230,8 @@ enum UserRole {
   HR
   STAFF
   VIEWER
+  FIELD_AGENT
+  CRM_MANAGER
 }
 
 model RefreshToken {

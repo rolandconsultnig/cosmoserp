@@ -17,8 +17,15 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const data = await login(email, password);
+      const role = data?.user?.role;
+      if (role === 'FIELD_AGENT') {
+        navigate('/field-agent');
+      } else if (role === 'CRM_MANAGER') {
+        navigate('/crm');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Check your credentials.');
     } finally {

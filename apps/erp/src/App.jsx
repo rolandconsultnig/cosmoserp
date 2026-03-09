@@ -24,6 +24,8 @@ import SupportPage from './pages/SupportPage';
 import AgentLoginPage from './pages/AgentLoginPage';
 import AgentDashboardPage from './pages/AgentDashboardPage';
 import AgentLayout from './components/layout/AgentLayout';
+import FieldAgentDashboardPage from './pages/FieldAgentDashboardPage';
+import CrmDashboardPage from './pages/CrmDashboardPage';
 import POSLayout from './components/layout/POSLayout';
 import POSPage from './pages/POSPage';
 import POSLoginPage from './pages/POSLoginPage';
@@ -96,6 +98,9 @@ export default function App() {
         <Route path="tickets" element={<SupportPage defaultTab="tickets" />} />
         <Route path="calls" element={<SupportPage defaultTab="calls" />} />
       </Route>
+      {/* New portals: Field Agent & CRM Manager */}
+      <Route path="/field-agent" element={<PrivateRoute><FieldAgentDashboardPage /></PrivateRoute>} />
+      <Route path="/crm" element={<PrivateRoute><CrmDashboardPage /></PrivateRoute>} />
       <Route path="/logistics" element={<LogisticsLayout />}>
         <Route index element={<Navigate to="/logistics/dashboard" replace />} />
         <Route path="dashboard" element={<LogisticsDashboardPage />} />

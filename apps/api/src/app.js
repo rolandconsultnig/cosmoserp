@@ -29,6 +29,10 @@ const currencyRoutes = require('./routes/currency.routes');
 const supportRoutes = require('./routes/support.routes');
 const posRoutes = require('./routes/pos.routes');
 const logisticsRoutes = require('./routes/logistics.routes');
+const agentRoutes = require('./routes/agent.routes');
+const crmRoutes = require('./routes/crm.routes');
+
+const { authenticate, requireRole } = require('./middleware/auth.middleware');
 
 const app = express();
 
@@ -104,6 +108,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/pos', posRoutes);
 app.use('/api/logistics', logisticsRoutes);
+app.use('/api/agents', authenticate, requireRole('FIELD_AGENT'), agentRoutes);
+app.use('/api/crm', authenticate, requireRole('CRM_MANAGER'), crmRoutes);
 
 app.use((err, req, res, next) => {
   logger.error(err.stack);

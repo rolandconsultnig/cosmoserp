@@ -66,6 +66,23 @@ curl -X POST http://localhost/api/auth/login \
 
 ---
 
+## Admin login 401 (Super Admin)
+
+If `POST /api/auth/admin/login` returns **401 Unauthorized**:
+
+1. **Credentials (from seed):** Email `sam@afrinict.net`, Password `Samolan123@` (capital S, no space).
+2. **Ensure admin exists on the server:** From repo root on the server:
+   ```bash
+   cd apps/api && npm run db:seed
+   ```
+   Or only fix the super admin without full seed:
+   ```bash
+   cd apps/api && node scripts/ensure-super-admin.js
+   ```
+3. **Check DB:** `DATABASE_URL` in `.env` must point to the same database the API uses; run the seed/script in that environment.
+
+---
+
 ## Database requirement for login
 
 For `POST /api/auth/login` to succeed:
