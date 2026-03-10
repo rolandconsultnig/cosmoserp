@@ -15,9 +15,21 @@ function signCustomerToken(payload) {
 
 async function register(req, res) {
   try {
-    const { email, password, fullName, phone } = req.body;
-    const normalizedEmail = (email || '').trim().toLowerCase();
-    if (!normalizedEmail || !password || !fullName) {
+    if (!process.env.JWT_SECRET) {
+      logger.error('Marketplace register: JWT_SECRET is not set');
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
+    }
+    const body = req.body || {};
+    const email = typeof body.email === 'string' ? body.email : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const fullName = typeof body.fullName === 'string' ? body.fullName : '';
+    const phone = body.phone != null ? String(body.phone) : '';
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const fullNameTrimmed = fullName.trim();
+    const phoneTrimmed = phone.trim() || null;
+
+    if (!normalizedEmail || !password || !fullNameTrimmed) {
       return res.status(400).json({ error: 'Email, password, and full name are required' });
     }
     if (password.length < 8) {
@@ -36,8 +48,8 @@ async function register(req, res) {
       data: {
         email: normalizedEmail,
         passwordHash,
-        fullName: (fullName || '').trim(),
-        phone: (phone || '').trim() || null,
+        fullName: fullNameTrimmed,
+        phone: phoneTrimmed,
       },
     });
 
@@ -58,14 +70,24 @@ async function register(req, res) {
     });
   } catch (error) {
     logger.error('Marketplace customer register error:', error);
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ error: 'An account with this email already exists. Please sign in.' });
+    }
     res.status(500).json({ error: 'Registration failed' });
   }
 }
 
 async function login(req, res) {
   try {
-    const { email, password } = req.body;
-    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (!process.env.JWT_SECRET) {
+      logger.error('Marketplace login: JWT_SECRET is not set');
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
+    }
+    const body = req.body || {};
+    const email = typeof body.email === 'string' ? body.email : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (!normalizedEmail || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
