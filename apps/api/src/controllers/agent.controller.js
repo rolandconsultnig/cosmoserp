@@ -200,6 +200,7 @@ async function getBusiness(req, res) {
 
 module.exports = {
   getMe,
+  getDashboard,
   listBusinesses,
   getBusiness,
   createBusiness,
