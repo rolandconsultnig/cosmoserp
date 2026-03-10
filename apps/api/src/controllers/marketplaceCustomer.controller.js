@@ -289,7 +289,15 @@ async function resendVerificationEmail(req, res) {
         emailVerificationExpiresAt: verificationExpiresAt,
       },
     });
-    await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
+    try {
+      await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
+    } catch (emailErr) {
+      logger.error('Marketplace resendVerification email send failed:', emailErr);
+      return res.status(503).json({
+        error: 'Verification email could not be sent. The server may not have email configured. Please try again later or contact support.',
+        code: 'EMAIL_SEND_FAILED',
+      });
+    }
     res.json({ message: 'Verification email sent. Please check your inbox.' });
   } catch (error) {
     logger.error('Marketplace resendVerification error:', error);

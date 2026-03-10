@@ -250,12 +250,15 @@ WHATSAPP_API_URL=https://graph.facebook.com/v18.0
 WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
 WHATSAPP_ACCESS_TOKEN=your-whatsapp-access-token
 
-# Email
-SMTP_HOST=smtp.gmail.com
+# Email (private domain — e.g. hello@cosmoserp.afrinict.com). Use your host's SMTP server (mail.domain.com or smtp.domain.com).
+# For Gmail use smtp.gmail.com and an app password.
+SMTP_HOST=smtp.cosmoserp.afrinict.com
 SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-EMAIL_FROM=noreply@cosmoserp.ng
+SMTP_SECURE=false
+SMTP_USER=hello@cosmoserp.afrinict.com
+SMTP_PASS=your-mailbox-password
+MAIL_FROM=hello@cosmoserp.afrinict.com
+PLATFORM_EMAIL=hello@cosmoserp.afrinict.com
 
 # GIG Logistics
 GIG_API_URL=https://api.giglogistics.com/v1
