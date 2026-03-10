@@ -11,6 +11,15 @@ async function authenticate(req, res, next) {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    if (decoded.type === 'marketplace_customer') {
+      const customer = await prisma.marketplaceCustomer.findUnique({
+        where: { id: decoded.customerId },
+      });
+      if (!customer) return res.status(401).json({ error: 'Account not found' });
+      req.customer = customer;
+      return next();
+    }
+
     if (decoded.type === 'admin') {
       const admin = await prisma.adminUser.findUnique({ where: { id: decoded.id } });
       if (!admin || !admin.isActive) {
@@ -68,4 +77,12 @@ function requireKYC(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, requireAdmin, requireRole, requireKYC };
+function authenticateMarketplace(req, res, next) {
+  authenticate(req, res, (err) => {
+    if (err) return next(err);
+    if (!req.customer) return res.status(403).json({ error: 'Customer account required' });
+    next();
+  });
+}
+
+module.exports = { authenticate, authenticateMarketplace, requireAdmin, requireRole, requireKYC };

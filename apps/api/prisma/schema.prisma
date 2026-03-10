@@ -152,19 +152,19 @@ enum KycDocumentType {
 }
 
 model KycDocument {
-  id            String         @id @default(uuid())
-  tenantId      String
-  documentType  KycDocumentType
-  filePath      String
-  fileName      String
-  mimeType      String?
-  fileSize      Int?
-  notes         String?
-  uploadedById  String?
-  uploadedAt    DateTime       @default(now())
+  id           String          @id @default(uuid())
+  tenantId     String
+  documentType KycDocumentType
+  filePath     String
+  fileName     String
+  mimeType     String?
+  fileSize     Int?
+  notes        String?
+  uploadedById String?
+  uploadedAt   DateTime        @default(now())
 
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedBy User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([documentType])
@@ -246,15 +246,15 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  tenant            Tenant          @relation(fields: [tenantId], references: [id])
-  createdInvoices   Invoice[]      @relation("InvoiceCreator")
-  auditLogs         AuditLog[]
-  refreshTokens     RefreshToken[]
-  assignedTickets   SupportTicket[] @relation("AssignedTickets")
-  ticketComments    TicketComment[]
-  agentCallLogs     CallLog[]      @relation("AgentCallLogs")
-  posCashierSales   POSSale[]      @relation("POSCashier")
-  onboardedTenants   Tenant[]      @relation("OnboardedTenants")
+  tenant               Tenant          @relation(fields: [tenantId], references: [id])
+  createdInvoices      Invoice[]       @relation("InvoiceCreator")
+  auditLogs            AuditLog[]
+  refreshTokens        RefreshToken[]
+  assignedTickets      SupportTicket[] @relation("AssignedTickets")
+  ticketComments       TicketComment[]
+  agentCallLogs        CallLog[]       @relation("AgentCallLogs")
+  posCashierSales      POSSale[]       @relation("POSCashier")
+  onboardedTenants     Tenant[]        @relation("OnboardedTenants")
   kycDocumentsUploaded KycDocument[]
 
   @@unique([tenantId, email])
@@ -1028,6 +1028,16 @@ model MarketplaceListing {
   @@index([categoryId])
 }
 
+model MarketplaceCustomer {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model MarketplaceOrder {
   id                String                 @id @default(uuid())
   orderNumber       String                 @unique
@@ -1259,6 +1269,11 @@ model POSSale {
   totalAmount    Decimal       @db.Decimal(18, 2)
   amountTendered Decimal       @default(0) @db.Decimal(18, 2)
   changeDue      Decimal       @default(0) @db.Decimal(18, 2)
+  tenders        Json?
+  offline        Boolean       @default(false)
+  offlineId      String?
+  deviceId       String?
+  terminalId     String?
   status         POSSaleStatus @default(COMPLETED)
   notes          String?
   voidedAt       DateTime?
@@ -1274,6 +1289,8 @@ model POSSale {
   @@unique([tenantId, receiptNumber])
   @@index([tenantId, createdAt])
   @@index([tenantId, cashierId])
+  @@index([offline, createdAt])
+  @@index([offlineId])
 }
 
 model POSSaleLine {
@@ -1310,9 +1327,9 @@ enum POSSaleStatus {
 // ─────────────────────────────────────────────
 
 model LogisticsCompany {
-  id              String              @id @default(uuid())
+  id              String          @id @default(uuid())
   name            String
-  email           String              @unique
+  email           String          @unique
   phone           String?
   password        String
   contactPerson   String?
@@ -1325,49 +1342,49 @@ model LogisticsCompany {
   bankName        String?
   bankAccount     String?
   bankCode        String?
-  status          LogisticsStatus     @default(PENDING)
-  rating          Decimal             @default(0) @db.Decimal(3, 2)
-  totalDeliveries Int                 @default(0)
-  isActive        Boolean             @default(true)
+  status          LogisticsStatus @default(PENDING)
+  rating          Decimal         @default(0) @db.Decimal(3, 2)
+  totalDeliveries Int             @default(0)
+  isActive        Boolean         @default(true)
   approvedAt      DateTime?
   approvedById    String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  agents          LogisticsAgent[]
-  deliveries      Delivery[]
+  agents     LogisticsAgent[]
+  deliveries Delivery[]
 
   @@index([status])
 }
 
 model LogisticsAgent {
-  id              String              @id @default(uuid())
+  id              String               @id @default(uuid())
   companyId       String?
   tenantId        String?
   firstName       String
   lastName        String
-  email           String              @unique
+  email           String               @unique
   phone           String
   password        String
   avatarUrl       String?
-  agentCode       String?             @unique
+  agentCode       String?              @unique
   vehicleType     VehicleType?
   vehiclePlate    String?
   coverageZone    String?
   city            String?
   state           String?
   status          LogisticsAgentStatus @default(PENDING)
-  rating          Decimal             @default(0) @db.Decimal(3, 2)
-  totalDeliveries Int                 @default(0)
-  successRate     Decimal             @default(0) @db.Decimal(5, 2)
-  isOnline        Boolean             @default(false)
+  rating          Decimal              @default(0) @db.Decimal(3, 2)
+  totalDeliveries Int                  @default(0)
+  successRate     Decimal              @default(0) @db.Decimal(5, 2)
+  isOnline        Boolean              @default(false)
   lastSeenAt      DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
-  company         LogisticsCompany?   @relation(fields: [companyId], references: [id])
-  tenant          Tenant?             @relation(fields: [tenantId], references: [id])
-  deliveries      Delivery[]
+  company    LogisticsCompany? @relation(fields: [companyId], references: [id])
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id])
+  deliveries Delivery[]
 
   @@index([companyId])
   @@index([status])
@@ -1375,45 +1392,45 @@ model LogisticsAgent {
 }
 
 model Delivery {
-  id                    String          @id @default(uuid())
-  tenantId              String?
-  orderId               String?
-  orderRef              String?
-  invoiceRef            String?
-  trackingNumber        String          @unique
-  companyId             String?
-  agentId               String?
-  customerName          String
-  customerPhone         String?
-  customerEmail         String?
-  pickupAddress         String?
-  deliveryAddress       String
-  city                  String?
-  state                 String?
-  packageDescription    String?
-  packageWeight         Decimal?        @db.Decimal(10, 3)
-  packageSize           String?
-  deliveryFee           Decimal         @default(0) @db.Decimal(18, 2)
-  platformCommission    Decimal         @default(0) @db.Decimal(18, 2)
-  agentPayout           Decimal         @default(0) @db.Decimal(18, 2)
-  status                DeliveryStatus  @default(PENDING_PICKUP)
-  priority              DeliveryPriority @default(STANDARD)
-  notes                 String?
-  proofOfDelivery       String?
-  failureReason         String?
-  pickedUpAt            DateTime?
-  inTransitAt           DateTime?
-  outForDeliveryAt      DateTime?
-  deliveredAt           DateTime?
-  failedAt              DateTime?
-  expectedDeliveryDate  DateTime?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  id                   String           @id @default(uuid())
+  tenantId             String?
+  orderId              String?
+  orderRef             String?
+  invoiceRef           String?
+  trackingNumber       String           @unique
+  companyId            String?
+  agentId              String?
+  customerName         String
+  customerPhone        String?
+  customerEmail        String?
+  pickupAddress        String?
+  deliveryAddress      String
+  city                 String?
+  state                String?
+  packageDescription   String?
+  packageWeight        Decimal?         @db.Decimal(10, 3)
+  packageSize          String?
+  deliveryFee          Decimal          @default(0) @db.Decimal(18, 2)
+  platformCommission   Decimal          @default(0) @db.Decimal(18, 2)
+  agentPayout          Decimal          @default(0) @db.Decimal(18, 2)
+  status               DeliveryStatus   @default(PENDING_PICKUP)
+  priority             DeliveryPriority @default(STANDARD)
+  notes                String?
+  proofOfDelivery      String?
+  failureReason        String?
+  pickedUpAt           DateTime?
+  inTransitAt          DateTime?
+  outForDeliveryAt     DateTime?
+  deliveredAt          DateTime?
+  failedAt             DateTime?
+  expectedDeliveryDate DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
-  tenant                Tenant?             @relation(fields: [tenantId], references: [id])
-  company               LogisticsCompany?   @relation(fields: [companyId], references: [id])
-  agent                 LogisticsAgent?     @relation(fields: [agentId], references: [id])
-  marketplaceOrder      MarketplaceOrder?   @relation(fields: [orderId], references: [id])
+  tenant           Tenant?           @relation(fields: [tenantId], references: [id])
+  company          LogisticsCompany? @relation(fields: [companyId], references: [id])
+  agent            LogisticsAgent?   @relation(fields: [agentId], references: [id])
+  marketplaceOrder MarketplaceOrder? @relation(fields: [orderId], references: [id])
 
   @@index([tenantId])
   @@index([agentId])

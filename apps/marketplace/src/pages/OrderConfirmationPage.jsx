@@ -49,13 +49,13 @@ export default function OrderConfirmationPage() {
 
           {/* Items */}
           <div className="space-y-3 mb-5">
-            {(order.items || []).map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-sm">
+            {(order.lines || order.items || []).map((line) => (
+              <div key={line.id} className="flex items-center justify-between text-sm">
                 <div className="flex-1 min-w-0 mr-4">
-                  <span className="font-medium text-gray-900">{item.product?.name}</span>
-                  <span className="text-gray-400 ml-2 text-xs">×{item.quantity}</span>
+                  <span className="font-medium text-gray-900">{line.productName || line.product?.name}</span>
+                  <span className="text-gray-400 ml-2 text-xs">×{line.quantity}</span>
                 </div>
-                <span className="font-bold text-gray-900 flex-shrink-0">{formatCurrency(item.lineTotal)}</span>
+                <span className="font-bold text-gray-900 flex-shrink-0">{formatCurrency(line.lineTotal)}</span>
               </div>
             ))}
           </div>
@@ -70,10 +70,10 @@ export default function OrderConfirmationPage() {
               <span>VAT (7.5%)</span>
               <span>{formatCurrency(order.vatAmount)}</span>
             </div>
-            {parseFloat(order.shippingAmount) > 0 && (
+            {(parseFloat(order.shippingCost || order.shippingAmount) || 0) > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>Shipping</span>
-                <span>{formatCurrency(order.shippingAmount)}</span>
+                <span>{formatCurrency(order.shippingCost || order.shippingAmount)}</span>
               </div>
             )}
             <div className="flex justify-between font-extrabold text-gray-900 border-t border-gray-100 pt-2">
@@ -89,8 +89,11 @@ export default function OrderConfirmationPage() {
                 <MapPin className="w-3.5 h-3.5 text-brand-500" /> Delivery To
               </div>
               <div className="text-sm text-gray-900 font-semibold">{order.buyerName}</div>
-              <div className="text-sm text-gray-500">{order.deliveryAddress}</div>
-              <div className="text-sm text-gray-500">{[order.buyerCity, order.buyerState].filter(Boolean).join(', ')}</div>
+              <div className="text-sm text-gray-500">
+                {typeof order.deliveryAddress === 'string'
+                  ? order.deliveryAddress
+                  : order.deliveryAddress?.address || [order.deliveryAddress?.city, order.deliveryAddress?.state].filter(Boolean).join(', ')}
+              </div>
             </div>
           )}
         </div>

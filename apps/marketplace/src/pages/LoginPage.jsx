@@ -13,15 +13,21 @@ export default function LoginPage() {
 
   const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const submit = (e) => {
+  const [loading, setLoading] = useState(false);
+  const submit = async (e) => {
     e.preventDefault();
     setError('');
-    const result = login(form);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setLoading(true);
+    try {
+      const result = await login(form);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      navigate(next);
+    } finally {
+      setLoading(false);
     }
-    navigate(next);
   };
 
   return (
@@ -49,7 +55,7 @@ export default function LoginPage() {
             </label>
             <input className="input" type="password" value={form.password} onChange={update('password')} required />
           </div>
-          <button type="submit" className="w-full btn-buy py-3 rounded-xl font-bold text-sm">Sign In</button>
+          <button type="submit" disabled={loading} className="w-full btn-buy py-3 rounded-xl font-bold text-sm disabled:opacity-60">Sign In</button>
         </form>
 
         <p className="text-sm text-gray-600 mt-4">

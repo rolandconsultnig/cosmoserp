@@ -13,6 +13,10 @@ import RegisterPage from './pages/RegisterPage';
 import StorefrontPage from './pages/StorefrontPage';
 import LogisticsPartnersPage from './pages/LogisticsPartnersPage';
 import PartnersLoginPage from './pages/PartnersLoginPage';
+import CustomerAccountPage from './pages/CustomerAccountPage';
+import CustomerOrdersPage from './pages/CustomerOrdersPage';
+import CustomerOrderDetailPage from './pages/CustomerOrderDetailPage';
+import CustomerProfilePage from './pages/CustomerProfilePage';
 import useShopperAuthStore from './store/shopperAuthStore';
 
 // When user hits /erp/* on the marketplace, redirect once: /erp/partners-login -> /partners-login; others -> ERP app
@@ -63,6 +67,10 @@ export default function App() {
           <Route path="/cart" element={<RequireShopper><CartPage /></RequireShopper>} />
           <Route path="/checkout" element={<RequireShopper><CheckoutPage /></RequireShopper>} />
           <Route path="/order/confirmation/:orderId" element={<RequireShopper><OrderConfirmationPage /></RequireShopper>} />
+          <Route path="/account" element={<RequireShopper><CustomerAccountPage /></RequireShopper>} />
+          <Route path="/account/orders" element={<RequireShopper><CustomerOrdersPage /></RequireShopper>} />
+          <Route path="/account/orders/:id" element={<RequireShopper><CustomerOrderDetailPage /></RequireShopper>} />
+          <Route path="/account/profile" element={<RequireShopper><CustomerProfilePage /></RequireShopper>} />
         </Routes>
       </main>
       <Footer />

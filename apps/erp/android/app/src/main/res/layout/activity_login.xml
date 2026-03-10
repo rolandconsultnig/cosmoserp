@@ -8,10 +8,13 @@
     android:padding="32dp">
 
     <ImageView
-        android:layout_width="100dp"
-        android:layout_height="100dp"
+        android:id="@+id/loginLogo"
+        android:layout_width="wrap_content"
+        android:layout_height="120dp"
         android:layout_marginBottom="24dp"
-        android:src="@mipmap/ic_launcher" />
+        android:src="@drawable/cosmos_logo"
+        android:adjustViewBounds="true"
+        android:contentDescription="Cosmos ERP Logo" />
 
     <TextView
         android:layout_width="wrap_content"

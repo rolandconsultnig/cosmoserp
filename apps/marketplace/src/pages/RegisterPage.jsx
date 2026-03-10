@@ -9,27 +9,33 @@ export default function RegisterPage() {
   const register = useShopperAuthStore((s) => s.register);
   const [form, setForm] = useState({ fullName: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const next = new URLSearchParams(location.search).get('next') || '/products';
 
   const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (form.password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
-    const result = register(form);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setLoading(true);
+    try {
+      const result = await register(form);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      navigate(next);
+    } finally {
+      setLoading(false);
     }
-    navigate(next);
   };
 
   return (
@@ -75,7 +81,7 @@ export default function RegisterPage() {
             </label>
             <input className="input" type="password" value={form.confirmPassword} onChange={update('confirmPassword')} required />
           </div>
-          <button type="submit" className="w-full btn-buy py-3 rounded-xl font-bold text-sm">Register as customer</button>
+          <button type="submit" disabled={loading} className="w-full btn-buy py-3 rounded-xl font-bold text-sm disabled:opacity-60">Register as customer</button>
         </form>
 
         <p className="text-sm text-gray-600 mt-4">

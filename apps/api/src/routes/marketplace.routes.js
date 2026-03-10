@@ -1,6 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/marketplace.controller');
+const customerCtrl = require('../controllers/marketplaceCustomer.controller');
+const { authenticateMarketplace } = require('../middleware/auth.middleware');
+
+router.post('/auth/register', customerCtrl.register);
+router.post('/auth/login', customerCtrl.login);
+router.get('/customer/me', authenticateMarketplace, customerCtrl.getMe);
+router.patch('/customer/me', authenticateMarketplace, customerCtrl.updateProfile);
+router.get('/customer/orders', authenticateMarketplace, customerCtrl.listMyOrders);
+router.get('/customer/orders/:id', authenticateMarketplace, customerCtrl.getMyOrder);
 
 router.get('/categories', ctrl.listCategories);
 router.get('/listings', ctrl.listListings);

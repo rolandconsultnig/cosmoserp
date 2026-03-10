@@ -5,58 +5,165 @@ const pdfService = require('../services/pdf.service');
 const whatsappService = require('../services/whatsapp.service');
 const emailService = require('../services/email.service');
 
-// ── Record a POS sale ──────────────────────────────────
+// Internal helper used by both online and offline checkout
+async function createPosSale(tx, { tenantId, cashierId, payload, defaults = {} }) {
+  const {
+    receiptNumber,
+    receiptNo,
+    customerId,
+    customerName,
+    registerId,
+    paymentMethod,
+    items,
+    subtotal,
+    discountAmount,
+    discountType,
+    discountValue,
+    vatAmount,
+    totalAmount,
+    amountTendered,
+    changeDue,
+    notes,
+    discount,
+    tenders,
+    offline,
+    offlineId,
+    deviceId,
+    terminalId,
+  } = payload;
+
+  if (!items || items.length === 0) {
+    throw new Error('Sale must have at least one item');
+  }
+
+  const receipt = receiptNumber || receiptNo || `POS-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const discountAmt = discountAmount ?? discount ?? 0;
+
+  const created = await tx.pOSSale.create({
+    data: {
+      tenantId,
+      receiptNumber: receipt,
+      customerId: customerId || null,
+      customerName: customerName || null,
+      cashierId,
+      registerId: registerId || null,
+      paymentMethod: paymentMethod || 'CASH',
+      subtotal: subtotal || defaults.subtotal || 0,
+      discountAmount: discountAmt,
+      discountType: discountType || null,
+      discountValue: discountValue || 0,
+      vatAmount: vatAmount || defaults.vatAmount || 0,
+      totalAmount: totalAmount || defaults.totalAmount || 0,
+      amountTendered: amountTendered || defaults.amountTendered || 0,
+      changeDue: changeDue || defaults.changeDue || 0,
+      notes: notes || null,
+      tenders: tenders || null,
+      offline: !!offline,
+      offlineId: offlineId || null,
+      deviceId: deviceId || null,
+      terminalId: terminalId || null,
+      lines: {
+        create: items.map((item) => ({
+          productId: item.productId || null,
+          productName: item.name || item.productName,
+          sku: item.sku || null,
+          quantity: item.qty || item.quantity || 1,
+          unitPrice: item.unitPrice,
+          vatRate: item.vatRate || 0.075,
+          vatAmount:
+            item.vatAmount ||
+            (item.unitPrice * (item.qty || item.quantity || 1) * 0.075),
+          lineTotal:
+            item.lineTotal ||
+            (item.unitPrice * (item.qty || item.quantity || 1)),
+        })),
+      },
+    },
+    include: { lines: true, cashier: { select: { firstName: true, lastName: true } } },
+  });
+
+  return created;
+}
+
+// ── Record a POS sale (legacy endpoint, delegates to checkout) ─────────────
 exports.createSale = async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
     const cashierId = req.user.id;
-    const {
-      receiptNumber, receiptNo, customerId, customerName, registerId,
-      paymentMethod, items, subtotal, discountAmount, discountType,
-      discountValue, vatAmount, totalAmount, amountTendered,
-      changeDue, notes, discount,
-    } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({ error: 'Sale must have at least one item' });
-    }
-
-    const receipt = receiptNumber || receiptNo || `POS-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const discountAmt = discountAmount ?? discount ?? 0;
-
     const sale = await prisma.$transaction(async (tx) => {
-      const created = await tx.pOSSale.create({
-        data: {
-          tenantId,
-          receiptNumber: receipt,
-          customerId: customerId || null,
-          customerName: customerName || null,
-          cashierId,
-          registerId: registerId || null,
-          paymentMethod: paymentMethod || 'CASH',
-          subtotal: subtotal || 0,
-          discountAmount: discountAmt,
-          discountType: discountType || null,
-          discountValue: discountValue || 0,
-          vatAmount: vatAmount || 0,
-          totalAmount: totalAmount || 0,
-          amountTendered: amountTendered || 0,
-          changeDue: changeDue || 0,
-          notes: notes || null,
-          lines: {
-            create: items.map((item) => ({
-              productId: item.productId || null,
-              productName: item.name || item.productName,
-              sku: item.sku || null,
-              quantity: item.qty || item.quantity || 1,
-              unitPrice: item.unitPrice,
-              vatRate: item.vatRate || 0.075,
-              vatAmount: item.vatAmount || (item.unitPrice * (item.qty || item.quantity || 1) * 0.075),
-              lineTotal: item.lineTotal || (item.unitPrice * (item.qty || item.quantity || 1)),
-            })),
+      const created = await createPosSale(tx, {
+        tenantId,
+        cashierId,
+        payload: req.body,
+        defaults: {},
+      });
+
+      const warehouse = await tx.warehouse.findFirst({
+        where: { tenantId },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      });
+
+      for (const line of created.lines) {
+        if (!line.productId) continue;
+        const lineQty = Math.floor(Number(line.quantity)) || 0;
+        if (lineQty <= 0) continue;
+
+        if (!warehouse) {
+          throw new Error(`No warehouse found for tenant; cannot deduct stock for product ${line.productName}`);
+        }
+
+        const stockLevel = await tx.stockLevel.findUnique({
+          where: {
+            productId_warehouseId: {
+              productId: line.productId,
+              warehouseId: warehouse.id,
+            },
           },
-        },
-        include: { lines: true, cashier: { select: { firstName: true, lastName: true } } },
+        });
+        if (!stockLevel) {
+          throw new Error(
+            `Insufficient stock: no stock record for "${line.productName}" in warehouse`,
+          );
+        }
+        const available = stockLevel.quantity - (stockLevel.reservedQty || 0);
+        if (available < lineQty) {
+          throw new Error(
+            `Insufficient stock for "${line.productName}": available ${available}, required ${lineQty}`,
+          );
+        }
+
+        await tx.stockLevel.update({
+          where: {
+            productId_warehouseId: {
+              productId: line.productId,
+              warehouseId: warehouse.id,
+            },
+          },
+          data: { quantity: { decrement: lineQty } },
+        });
+      }
+
+      return created;
+    });
+
+    res.status(201).json({ data: sale });
+  } catch (err) {
+    console.error('POS sale error:', err);
+    res.status(500).json({ error: err.message || 'Failed to record sale' });
+  }
+};
+
+// ── New: POS checkout endpoint (same as createSale but explicit) ───────────
+exports.checkout = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const cashierId = req.user.id;
+    const sale = await prisma.$transaction(async (tx) => {
+      const created = await createPosSale(tx, {
+        tenantId,
+        cashierId,
+        payload: req.body,
+        defaults: {},
       });
 
       const warehouse = await tx.warehouse.findFirst({
@@ -95,10 +202,76 @@ exports.createSale = async (req, res) => {
 
     res.status(201).json({ data: sale });
   } catch (err) {
-    console.error('POS sale error:', err);
-    res.status(500).json({ error: err.message || 'Failed to record sale' });
+    console.error('POS checkout error:', err);
+    res.status(500).json({ error: err.message || 'Failed to complete checkout' });
   }
 };
+
+// ── Offline sync: upsert offline POS sales from devices ────────────────────
+exports.syncOfflineSales = async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    const cashierId = req.user.id;
+    const sales = Array.isArray(req.body?.sales) ? req.body.sales : [];
+    if (!sales.length) {
+      return res.status(400).json({ error: 'No sales provided' });
+    }
+
+    const results = [];
+    for (const payload of sales) {
+      // Skip if offlineId already exists
+      if (payload.offlineId) {
+        const existing = await prisma.pOSSale.findFirst({
+          where: { tenantId, offlineId: payload.offlineId },
+          select: { id: true },
+        });
+        if (existing) {
+          results.push({ offlineId: payload.offlineId, status: 'skipped_existing', id: existing.id });
+          continue;
+        }
+      }
+
+      const created = await prisma.$transaction(async (tx) => {
+        const sale = await createPosSale(tx, {
+          tenantId,
+          cashierId,
+          payload: { ...payload, offline: true },
+          defaults: {},
+        });
+
+        const warehouse = await tx.warehouse.findFirst({
+          where: { tenantId },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        });
+
+        for (const line of sale.lines) {
+          if (!line.productId) continue;
+          const lineQty = Math.floor(Number(line.quantity)) || 0;
+          if (lineQty <= 0) continue;
+          if (!warehouse) continue;
+
+          const stockLevel = await tx.stockLevel.findUnique({
+            where: { productId_warehouseId: { productId: line.productId, warehouseId: warehouse.id } },
+          });
+          if (!stockLevel) continue;
+          await tx.stockLevel.update({
+            where: { productId_warehouseId: { productId: line.productId, warehouseId: warehouse.id } },
+            data: { quantity: { decrement: lineQty } },
+          });
+        }
+
+        return sale;
+      });
+
+      results.push({ offlineId: payload.offlineId || null, status: 'synced', id: created.id });
+    }
+
+    res.json({ data: results });
+  } catch (err) {
+    console.error('POS syncOfflineSales error:', err);
+    res.status(500).json({ error: err.message || 'Failed to sync offline sales' });
+  }
+}
 
 // ── List POS sales ─────────────────────────────────────
 exports.listSales = async (req, res) => {
