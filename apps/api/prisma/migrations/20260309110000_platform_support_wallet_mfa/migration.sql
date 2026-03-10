@@ -1,7 +1,4 @@
--- Add CHAT to TicketChannel enum (idempotent)
-DO $$ BEGIN
-    ALTER TYPE "TicketChannel" ADD VALUE 'CHAT';
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- CHAT enum value added in 20260309105000_add_chat_to_ticket_channel (must be committed before use).
 
 -- MFA and platform tickets on AdminUser
 ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "mfaEnabled" BOOLEAN NOT NULL DEFAULT false;
