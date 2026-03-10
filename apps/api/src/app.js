@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -5,6 +6,7 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { logger } = require('./utils/logger');
+const { UPLOAD_BASE } = require('./middleware/upload.middleware');
 
 const authRoutes = require('./routes/auth.routes');
 const tenantRoutes = require('./routes/tenant.routes');
@@ -84,6 +86,9 @@ app.use('/api/auth', authLimiter);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Cosmos ERP API', timestamp: new Date().toISOString() });
 });
+
+const uploadsPath = path.isAbsolute(UPLOAD_BASE) ? UPLOAD_BASE : path.join(process.cwd(), UPLOAD_BASE);
+app.use('/uploads', express.static(uploadsPath));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tenants', tenantRoutes);

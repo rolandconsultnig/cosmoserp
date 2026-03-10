@@ -283,16 +283,24 @@ Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
 ## 9. Database Migrations and Seed
 
-From `apps/api`:
+All tables (Platform, AdminUser, Tenant, User, LogisticsCompany, LogisticsAgent, Delivery, KycDocument, POS, Support, etc.) are created by Prisma migrations. On a fresh database, run from `apps/api`:
 
 ```bash
-cd /home/ubuntu/cosmoserp/apps/api
+cd /path/to/cosmoserp/apps/api
 npx prisma generate
 npx prisma migrate deploy
-node prisma/seed.js
+npm run db:seed
 ```
 
-If `migrate deploy` or `seed` fails, check `DATABASE_URL` and PostgreSQL user permissions.
+Or explicitly: `node prisma/seed.js`. The seed creates:
+
+- **Admin**: sam@afrinict.net / Samolan123@
+- **ERP demo tenant** and user tochi@afrinict.com / Tobechi123@
+- **POS user** andpos@afrinict.net / PoS123@
+- **Logistics agent** ogadriver@afrinict.com / Driver123@
+- **Product categories** (reference data)
+
+If `migrate deploy` or `seed` fails, check `DATABASE_URL` and PostgreSQL user permissions (e.g. `GRANT ALL ON SCHEMA public TO cosmos_user`).
 
 ---
 

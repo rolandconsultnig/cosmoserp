@@ -70,6 +70,8 @@ model Tenant {
   industry            String?
   kycStatus           KYCStatus        @default(PENDING)
   kycDocuments        Json?
+  kycFormData         Json?
+  kycRejectionReason  String?
   kycVerifiedAt       DateTime?
   kycVerifiedBy       String?
   isActive            Boolean          @default(true)
@@ -86,6 +88,8 @@ model Tenant {
   bankSortCode        String?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
+  onboardedByAgentId  String?
+  onboardedBy         User?            @relation("OnboardedTenants", fields: [onboardedByAgentId], references: [id])
 
   users             User[]
   products          Product[]
@@ -110,9 +114,11 @@ model Tenant {
   posSales          POSSale[]
   logisticsAgents   LogisticsAgent[]
   deliveries        Delivery[]
+  kycDocumentFiles  KycDocument[]
 
   @@index([kycStatus])
   @@index([subscriptionStatus])
+  @@index([onboardedByAgentId])
 }
 
 enum BusinessType {
@@ -130,6 +136,38 @@ enum KYCStatus {
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+enum KycDocumentType {
+  CAC_CERTIFICATE
+  CAC_PARTICULARS
+  CAC_FORM
+  DIRECTOR_ID
+  DIRECTOR_PHOTO
+  PROOF_OF_ADDRESS
+  UTILITY_BILL
+  BANK_STATEMENT
+  TAX_CLEARANCE
+  OTHER
+}
+
+model KycDocument {
+  id            String         @id @default(uuid())
+  tenantId      String
+  documentType  KycDocumentType
+  filePath      String
+  fileName      String
+  mimeType      String?
+  fileSize      Int?
+  notes         String?
+  uploadedById  String?
+  uploadedAt    DateTime       @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([documentType])
 }
 
 enum SubscriptionPlan {
@@ -208,14 +246,16 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  tenant          Tenant          @relation(fields: [tenantId], references: [id])
-  createdInvoices Invoice[]       @relation("InvoiceCreator")
-  auditLogs       AuditLog[]
-  refreshTokens   RefreshToken[]
-  assignedTickets SupportTicket[] @relation("AssignedTickets")
-  ticketComments  TicketComment[]
-  agentCallLogs   CallLog[]       @relation("AgentCallLogs")
-  posCashierSales POSSale[]       @relation("POSCashier")
+  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  createdInvoices   Invoice[]      @relation("InvoiceCreator")
+  auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+  assignedTickets   SupportTicket[] @relation("AssignedTickets")
+  ticketComments    TicketComment[]
+  agentCallLogs     CallLog[]      @relation("AgentCallLogs")
+  posCashierSales   POSSale[]      @relation("POSCashier")
+  onboardedTenants   Tenant[]      @relation("OnboardedTenants")
+  kycDocumentsUploaded KycDocument[]
 
   @@unique([tenantId, email])
   @@index([tenantId])

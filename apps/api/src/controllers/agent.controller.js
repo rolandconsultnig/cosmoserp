@@ -36,10 +36,33 @@ async function getMe(req, res) {
   }
 }
 
+async function getDashboard(req, res) {
+  try {
+    const agentId = req.user.id;
+    const [total, pending, approved, rejected] = await Promise.all([
+      prisma.tenant.count({ where: { onboardedByAgentId: agentId } }),
+      prisma.tenant.count({ where: { onboardedByAgentId: agentId, kycStatus: 'PENDING' } }),
+      prisma.tenant.count({ where: { onboardedByAgentId: agentId, kycStatus: 'APPROVED' } }),
+      prisma.tenant.count({ where: { onboardedByAgentId: agentId, kycStatus: 'REJECTED' } }),
+    ]);
+    res.json({
+      data: {
+        totalBusinesses: total,
+        pendingKyc: pending,
+        approvedKyc: approved,
+        rejectedKyc: rejected,
+      },
+    });
+  } catch (error) {
+    logger.error('Agent getDashboard error:', error);
+    res.status(500).json({ error: 'Failed to load dashboard' });
+  }
+}
+
 async function listBusinesses(req, res) {
   try {
     const { search, kycStatus, page = 1, limit = 20 } = req.query;
-    const where = {};
+    const where = { onboardedByAgentId: req.user.id };
     if (kycStatus) where.kycStatus = kycStatus;
     if (search) {
       where.OR = [
@@ -64,8 +87,10 @@ async function listBusinesses(req, res) {
           businessName: true,
           email: true,
           phone: true,
+          address: true,
           city: true,
           state: true,
+          industry: true,
           kycStatus: true,
           subscriptionStatus: true,
           createdAt: true,
@@ -111,11 +136,13 @@ async function createBusiness(req, res) {
         address: address || '',
         city: city || '',
         state: state || '',
+        country: 'Nigeria',
         industry,
         kycStatus: 'PENDING',
         subscriptionPlan: 'STARTER',
         subscriptionStatus: 'TRIAL',
         trialEndsAt,
+        onboardedByAgentId: req.user.id,
       },
     });
 
@@ -139,9 +166,42 @@ async function createBusiness(req, res) {
   }
 }
 
+async function getBusiness(req, res) {
+  try {
+    const { id } = req.params;
+    const tenant = await prisma.tenant.findFirst({
+      where: { id, onboardedByAgentId: req.user.id },
+      select: {
+        id: true,
+        businessName: true,
+        tradingName: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        industry: true,
+        kycStatus: true,
+        subscriptionStatus: true,
+        trialEndsAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (!tenant) {
+      return res.status(404).json({ error: 'Business not found' });
+    }
+    res.json({ data: tenant });
+  } catch (error) {
+    logger.error('Agent getBusiness error:', error);
+    res.status(500).json({ error: 'Failed to load business' });
+  }
+}
+
 module.exports = {
   getMe,
   listBusinesses,
+  getBusiness,
   createBusiness,
 };
 

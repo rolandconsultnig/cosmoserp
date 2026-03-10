@@ -21,11 +21,17 @@ import NRSPage from './pages/NRSPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import SupportPage from './pages/SupportPage';
+import KYCPage from './pages/KYCPage';
 import AgentLoginPage from './pages/AgentLoginPage';
 import AgentDashboardPage from './pages/AgentDashboardPage';
 import AgentLayout from './components/layout/AgentLayout';
 import FieldAgentDashboardPage from './pages/FieldAgentDashboardPage';
+import FieldAgentBusinessesPage from './pages/FieldAgentBusinessesPage';
+import FieldAgentNewBusinessPage from './pages/FieldAgentNewBusinessPage';
+import FieldAgentBusinessDetailPage from './pages/FieldAgentBusinessDetailPage';
+import FieldAgentBusinessKYCPage from './pages/FieldAgentBusinessKYCPage';
 import CrmDashboardPage from './pages/CrmDashboardPage';
+import FieldAgentLayout from './components/layout/FieldAgentLayout';
 import POSLayout from './components/layout/POSLayout';
 import POSPage from './pages/POSPage';
 import POSLoginPage from './pages/POSLoginPage';
@@ -82,6 +88,7 @@ export default function App() {
         <Route path="finance" element={<FinancePage />} />
         <Route path="nrs" element={<NRSPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="kyc" element={<KYCPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="support" element={<SupportPage />} />
       </Route>
@@ -98,8 +105,14 @@ export default function App() {
         <Route path="tickets" element={<SupportPage defaultTab="tickets" />} />
         <Route path="calls" element={<SupportPage defaultTab="calls" />} />
       </Route>
-      {/* New portals: Field Agent & CRM Manager */}
-      <Route path="/field-agent" element={<PrivateRoute><FieldAgentDashboardPage /></PrivateRoute>} />
+      {/* Field Agent portal */}
+      <Route path="/field-agent" element={<PrivateRoute><FieldAgentLayout /></PrivateRoute>}>
+        <Route index element={<FieldAgentDashboardPage />} />
+        <Route path="businesses" element={<FieldAgentBusinessesPage />} />
+        <Route path="businesses/new" element={<FieldAgentNewBusinessPage />} />
+        <Route path="businesses/:id" element={<FieldAgentBusinessDetailPage />} />
+        <Route path="businesses/:id/kyc" element={<FieldAgentBusinessKYCPage />} />
+      </Route>
       <Route path="/crm" element={<PrivateRoute><CrmDashboardPage /></PrivateRoute>} />
       <Route path="/logistics" element={<LogisticsLayout />}>
         <Route index element={<Navigate to="/logistics/dashboard" replace />} />

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, FileCheck, Package, Users, Truck,
   Warehouse, ShoppingCart, UserSquare, DollarSign, Building2,
   Shield, BarChart3, Settings, LogOut, ChevronLeft, ChevronRight,
-  Bell, Search, Menu, X, Receipt, Headphones, Zap
+  Bell, Search, Menu, X, Receipt, Headphones, Zap, ShieldCheck
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
@@ -58,6 +58,7 @@ const navGroups = [
   {
     label: 'Account',
     items: [
+      { to: '/kyc', icon: ShieldCheck, label: 'KYC Verification' },
       { to: '/settings', icon: Settings, label: 'Settings' },
     ],
   },
