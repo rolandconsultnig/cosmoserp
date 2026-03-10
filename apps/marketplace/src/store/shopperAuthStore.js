@@ -33,6 +33,9 @@ const useShopperAuthStore = create(
             phone: (phone || '').trim() || undefined,
             password,
           });
+          if (data.requiresVerification) {
+            return { ok: true, requiresVerification: true, email: data.email };
+          }
           get().setFromApi(data.customer, data.accessToken);
           return { ok: true };
         } catch (err) {
@@ -54,8 +57,20 @@ const useShopperAuthStore = create(
           get().setFromApi(data.customer, data.accessToken);
           return { ok: true };
         } catch (err) {
-          const msg = err.response?.data?.error || 'Invalid email or password.';
-          return { ok: false, error: msg };
+          const data = err.response?.data;
+          const msg = data?.error || 'Invalid email or password.';
+          const code = data?.code;
+          const emailForResend = data?.email;
+          return { ok: false, error: msg, code, emailForResend };
+        }
+      },
+
+      resendVerification: async (email) => {
+        try {
+          await api.post('/marketplace/auth/resend-verification', { email: (email || '').trim().toLowerCase() });
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, error: err.response?.data?.error || 'Failed to send verification email.' };
         }
       },
 

@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Shield, BarChart3, ClipboardList,
   Store, LogOut, ChevronLeft, ChevronRight, Bell, Activity, Truck,
-  CreditCard, Users, DollarSign, Briefcase, ShoppingCart, Headphones, Settings,
+  CreditCard, Users, DollarSign, Briefcase, ShoppingCart, Headphones, MessageCircle, Settings,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
@@ -31,7 +31,8 @@ const NAV_SECTIONS = [
   {
     title: 'Operations',
     items: [
-      { to: '/support',    icon: Headphones,    label: 'Support' },
+      { to: '/support',         icon: Headphones,    label: 'Support' },
+      { to: '/platform-support', icon: MessageCircle, label: 'Platform Support' },
       { to: '/users',      icon: Users,         label: 'Users' },
       { to: '/nrs-monitor', icon: Shield,       label: 'NRS Monitor' },
       { to: '/audit-logs', icon: ClipboardList, label: 'Audit Logs' },

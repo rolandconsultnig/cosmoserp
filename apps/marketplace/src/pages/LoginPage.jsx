@@ -7,26 +7,48 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useShopperAuthStore((s) => s.login);
+  const resendVerification = useShopperAuthStore((s) => s.resendVerification);
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [resendSuccess, setResendSuccess] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
   const next = new URLSearchParams(location.search).get('next') || '/products';
 
   const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const [loading, setLoading] = useState(false);
+  const [emailNotVerified, setEmailNotVerified] = useState(null);
+
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    setEmailNotVerified(null);
+    setResendSuccess('');
     setLoading(true);
     try {
       const result = await login(form);
       if (!result.ok) {
         setError(result.error);
+        if (result.code === 'EMAIL_NOT_VERIFIED') setEmailNotVerified(result.emailForResend || form.email);
         return;
       }
       navigate(next);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onResendVerification = async () => {
+    const email = emailNotVerified || form.email;
+    if (!email) return;
+    setResendLoading(true);
+    setResendSuccess('');
+    try {
+      const result = await resendVerification(email);
+      if (result.ok) setResendSuccess('Verification email sent. Check your inbox.');
+      else setError(result.error);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -39,6 +61,21 @@ export default function LoginPage() {
         {error && (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
             {error}
+            {emailNotVerified && (
+              <button
+                type="button"
+                onClick={onResendVerification}
+                disabled={resendLoading}
+                className="block mt-2 text-brand-600 font-semibold hover:underline disabled:opacity-60"
+              >
+                {resendLoading ? 'Sending…' : 'Resend verification email'}
+              </button>
+            )}
+          </div>
+        )}
+        {resendSuccess && (
+          <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
+            {resendSuccess}
           </div>
         )}
 

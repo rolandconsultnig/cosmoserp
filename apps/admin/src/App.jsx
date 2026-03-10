@@ -17,6 +17,7 @@ import FinanceOverviewPage from './pages/FinanceOverviewPage';
 import HRPayrollPage from './pages/HRPayrollPage';
 import POSOverviewPage from './pages/POSOverviewPage';
 import SupportTicketsPage from './pages/SupportTicketsPage';
+import PlatformSupportPage from './pages/PlatformSupportPage';
 import SystemSettingsPage from './pages/SystemSettingsPage';
 
 function PrivateRoute({ children }) {
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="hr-payroll" element={<HRPayrollPage />} />
         <Route path="pos" element={<POSOverviewPage />} />
         <Route path="support" element={<SupportTicketsPage />} />
+        <Route path="platform-support" element={<PlatformSupportPage />} />
         <Route path="settings" element={<SystemSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

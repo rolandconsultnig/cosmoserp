@@ -32,6 +32,10 @@ export default function RegisterPage() {
         setError(result.error);
         return;
       }
+      if (result.requiresVerification) {
+        navigate(`/verify-email-sent?email=${encodeURIComponent(result.email || form.email)}`);
+        return;
+      }
       navigate(next);
     } finally {
       setLoading(false);

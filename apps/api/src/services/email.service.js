@@ -11,7 +11,8 @@ const transporter = nodemailer.createTransport({
     : undefined,
 });
 
-const FROM = process.env.MAIL_FROM || process.env.SMTP_USER || 'noreply@cosmoserp.com';
+const PLATFORM_EMAIL = process.env.PLATFORM_EMAIL || 'hello@cosmoserp.afrinict.com';
+const FROM = process.env.MAIL_FROM || process.env.SMTP_USER || PLATFORM_EMAIL;
 
 async function sendMail({ to, subject, text, html }) {
   if (!to) {
@@ -99,9 +100,34 @@ async function sendInvoiceEmail(invoice, toEmail, tenantName, pdfUrl) {
   return sendMail({ to: toEmail, subject, text: body, html });
 }
 
+/** Verification link base URL (e.g. https://yourdomain.com or http://localhost:5174 for marketplace) */
+function getVerificationBaseUrl() {
+  return process.env.MARKETPLACE_URL || process.env.API_PUBLIC_URL || process.env.API_URL || 'http://localhost:5174';
+}
+
+async function sendVerificationEmail(toEmail, fullName, token) {
+  const baseUrl = getVerificationBaseUrl();
+  const verifyUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
+  const subject = 'Confirm your email – Cosmos ERP';
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+  <h2>Confirm your email</h2>
+  <p>Hi ${fullName || 'there'},</p>
+  <p>Thanks for signing up. Please confirm your email by clicking the link below:</p>
+  <p><a href="${verifyUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Verify email</a></p>
+  <p>Or copy this link: ${verifyUrl}</p>
+  <p>This link expires in 24 hours.</p>
+  <p>If you didn't create an account, you can ignore this email.</p>
+  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  </body></html>`;
+  const text = `Confirm your email: ${verifyUrl}\n\nIf you didn't create an account, ignore this email.`;
+  return sendMail({ to: toEmail, subject, text, html });
+}
+
 module.exports = {
   sendMail,
   sendReceipt,
   sendQuotation,
   sendInvoiceEmail,
+  sendVerificationEmail,
+  PLATFORM_EMAIL,
 };

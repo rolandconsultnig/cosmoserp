@@ -5,7 +5,8 @@ import {
   Banknote, AlertTriangle, Navigation, Loader2,
 } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5133/api';
+const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
+const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
 
 function formatCurrency(v) {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(v || 0);
@@ -28,7 +29,7 @@ export default function LogisticsDashboardPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(`${API_URL}/logistics/agent/dashboard`, {
+    fetch(apiUrl('/logistics/agent/dashboard'), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())

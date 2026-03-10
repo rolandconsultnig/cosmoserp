@@ -4,7 +4,8 @@ import {
   Shield, Star, Package, CheckCircle, Building2,
 } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5133/api';
+const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
+const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
 
 const VEHICLE_ICONS = { BIKE: Bike, MOTORCYCLE: Bike, CAR: Car, VAN: Truck, TRUCK: Truck };
 
@@ -27,7 +28,7 @@ export default function LogisticsProfilePage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(`${API_URL}/logistics/agent/profile`, {
+    fetch(apiUrl('/logistics/agent/profile'), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
@@ -50,7 +51,7 @@ export default function LogisticsProfilePage() {
     setError('');
     setSuccess(false);
     try {
-      const res = await fetch(`${API_URL}/logistics/agent/profile`, {
+      const res = await fetch(apiUrl('/logistics/agent/profile'), {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, vehicleType: vehicleType || undefined, vehiclePlate, coverageZone, city, state }),

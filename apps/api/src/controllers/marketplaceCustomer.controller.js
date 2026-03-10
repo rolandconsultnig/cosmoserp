@@ -1,9 +1,16 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
+const { sendVerificationEmail } = require('../services/email.service');
 
 const ROUNDS = 12;
+const VERIFICATION_EXPIRY_HOURS = 24;
+
+function generateVerificationToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 function signCustomerToken(payload) {
   return jwt.sign(
@@ -44,29 +51,32 @@ async function register(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(password, ROUNDS);
+    const verificationToken = generateVerificationToken();
+    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+
     const customer = await prisma.marketplaceCustomer.create({
       data: {
         email: normalizedEmail,
         passwordHash,
         fullName: fullNameTrimmed,
         phone: phoneTrimmed,
+        emailVerified: false,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiresAt: verificationExpiresAt,
       },
     });
 
-    const token = signCustomerToken({
-      type: 'marketplace_customer',
-      customerId: customer.id,
-      email: customer.email,
-    });
+    try {
+      await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
+    } catch (emailErr) {
+      logger.error('Verification email send failed:', emailErr);
+      // still succeed registration; user can request resend
+    }
 
     res.status(201).json({
-      accessToken: token,
-      customer: {
-        id: customer.id,
-        email: customer.email,
-        fullName: customer.fullName,
-        phone: customer.phone,
-      },
+      message: 'Account created. Please check your email to verify your account before signing in.',
+      email: customer.email,
+      requiresVerification: true,
     });
   } catch (error) {
     logger.error('Marketplace customer register error:', error);
@@ -97,6 +107,13 @@ async function login(req, res) {
     });
     if (!customer || !(await bcrypt.compare(password, customer.passwordHash))) {
       return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    if (!customer.emailVerified) {
+      return res.status(403).json({
+        error: 'Please verify your email before signing in. Check your inbox or request a new link.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: customer.email,
+      });
     }
 
     const token = signCustomerToken({
@@ -218,9 +235,73 @@ async function getMyOrder(req, res) {
   }
 }
 
+async function verifyEmail(req, res) {
+  try {
+    const token = (req.query.token || req.body?.token || '').trim();
+    if (!token) {
+      return res.status(400).json({ error: 'Verification token is required' });
+    }
+    const customer = await prisma.marketplaceCustomer.findFirst({
+      where: { emailVerificationToken: token },
+    });
+    if (!customer) {
+      return res.status(400).json({ error: 'Invalid or expired verification link' });
+    }
+    if (customer.emailVerificationExpiresAt && new Date() > customer.emailVerificationExpiresAt) {
+      return res.status(400).json({ error: 'Verification link has expired. Please request a new one.' });
+    }
+    await prisma.marketplaceCustomer.update({
+      where: { id: customer.id },
+      data: {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
+    });
+    res.json({ message: 'Email verified. You can now sign in.', email: customer.email });
+  } catch (error) {
+    logger.error('Marketplace verifyEmail error:', error);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+}
+
+async function resendVerificationEmail(req, res) {
+  try {
+    const email = (req.body?.email || req.query.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const customer = await prisma.marketplaceCustomer.findUnique({
+      where: { email },
+    });
+    if (!customer) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+    if (customer.emailVerified) {
+      return res.status(400).json({ error: 'Email is already verified. You can sign in.' });
+    }
+    const verificationToken = generateVerificationToken();
+    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+    await prisma.marketplaceCustomer.update({
+      where: { id: customer.id },
+      data: {
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiresAt: verificationExpiresAt,
+      },
+    });
+    await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
+    res.json({ message: 'Verification email sent. Please check your inbox.' });
+  } catch (error) {
+    logger.error('Marketplace resendVerification error:', error);
+    res.status(500).json({ error: 'Failed to send verification email' });
+  }
+}
+
 module.exports = {
   register,
   login,
+  verifyEmail,
+  resendVerificationEmail,
   getMe,
   updateProfile,
   listMyOrders,

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { User, Package, ChevronRight } from 'lucide-react';
+import { User, Package, MessageCircle, Wallet, ChevronRight } from 'lucide-react';
 import useShopperAuthStore from '../store/shopperAuthStore';
 
 export default function CustomerAccountPage() {
@@ -49,10 +49,28 @@ export default function CustomerAccountPage() {
         <h2 className="font-semibold text-gray-900 mb-3">Quick links</h2>
         <Link
           to="/account/orders"
-          className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+          className="flex items-center justify-between py-3 border-b border-gray-100 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
         >
           <span className="flex items-center gap-2">
             <Package className="w-5 h-5 text-brand-500" /> My Orders
+          </span>
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </Link>
+        <Link
+          to="/account/support"
+          className="flex items-center justify-between py-3 border-b border-gray-100 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-brand-500" /> Live support
+          </span>
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </Link>
+        <Link
+          to="/account/wallet"
+          className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-brand-500" /> My wallet
           </span>
           <ChevronRight className="w-5 h-5 text-gray-400" />
         </Link>

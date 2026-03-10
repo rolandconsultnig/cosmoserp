@@ -36,9 +36,12 @@ model AdminUser {
   role         AdminRole  @default(SUPPORT)
   isActive     Boolean    @default(true)
   lastLoginAt  DateTime?
+  mfaEnabled   Boolean    @default(false)
+  mfaSecret   String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   auditLogs    AuditLog[]
+  assignedPlatformTickets PlatformSupportTicket[] @relation("AssignedPlatformTickets")
 }
 
 enum AdminRole {
@@ -243,6 +246,8 @@ model User {
   lastLoginAt  DateTime?
   avatarUrl    String?
   phone        String?
+  mfaEnabled   Boolean   @default(false)
+  mfaSecret   String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -1029,13 +1034,20 @@ model MarketplaceListing {
 }
 
 model MarketplaceCustomer {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  fullName     String
-  phone        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                         String    @id @default(uuid())
+  email                      String    @unique
+  passwordHash               String
+  fullName                   String
+  phone                      String?
+  emailVerified              Boolean   @default(false)
+  emailVerificationToken     String?
+  emailVerificationExpiresAt DateTime?
+  mfaEnabled                 Boolean   @default(false)
+  mfaSecret                  String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+  wallet                     CustomerWallet?
+  platformTickets            PlatformSupportTicket[]
 }
 
 model MarketplaceOrder {
@@ -1208,6 +1220,7 @@ enum TicketChannel {
   WHATSAPP
   WALK_IN
   WEB_FORM
+  CHAT
 }
 
 enum TicketCategory {
@@ -1246,6 +1259,102 @@ enum CallOutcome {
   VOICEMAIL
   BUSY
   FAILED
+}
+
+// ─────────────────────────────────────────────
+// PLATFORM SUPPORT (Back Office)
+// ─────────────────────────────────────────────
+
+model PlatformSupportTicket {
+  id                String        @id @default(uuid())
+  ticketNumber      String        @unique
+  marketplaceCustomerId String?
+  customerEmail     String
+  customerName      String?
+  subject           String
+  description       String
+  channel           TicketChannel @default(CHAT)
+  category          TicketCategory @default(GENERAL)
+  priority          TicketPriority @default(MEDIUM)
+  status            TicketStatus   @default(OPEN)
+  assignedToAdminId String?
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  marketplaceCustomer MarketplaceCustomer? @relation(fields: [marketplaceCustomerId], references: [id], onDelete: SetNull)
+  assignedToAdmin     AdminUser?  @relation("AssignedPlatformTickets", fields: [assignedToAdminId], references: [id], onDelete: SetNull)
+  comments            PlatformTicketComment[]
+
+  @@index([status])
+  @@index([marketplaceCustomerId])
+  @@index([assignedToAdminId])
+  @@index([createdAt])
+}
+
+model PlatformTicketComment {
+  id           String   @id @default(uuid())
+  ticketId     String
+  authorType   String   // CUSTOMER | AGENT
+  authorId     String?  // AdminUser id when AGENT
+  authorName   String
+  body         String
+  isInternal   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  ticket PlatformSupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+// ─────────────────────────────────────────────
+// CUSTOMER WALLET & ESCROW
+// ─────────────────────────────────────────────
+
+model CustomerWallet {
+  id            String   @id @default(uuid())
+  customerId    String   @unique
+  balance       Decimal  @default(0) @db.Decimal(18, 2)
+  currency      String   @default("NGN")
+  updatedAt     DateTime @updatedAt
+
+  customer   MarketplaceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@index([customerId])
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  type        String   // DEPOSIT, WITHDRAWAL, PAYMENT, REFUND, ESCROW_HOLD, ESCROW_RELEASE
+  amount      Decimal  @db.Decimal(18, 2)
+  balanceAfter Decimal? @db.Decimal(18, 2)
+  reference   String?  // orderId, escrowId, paymentRef
+  status      String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  createdAt   DateTime @default(now())
+
+  wallet CustomerWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([createdAt])
+}
+
+model Escrow {
+  id             String   @id @default(uuid())
+  orderId        String?
+  marketplaceOrderId String?
+  buyerCustomerId String
+  sellerTenantId  String?
+  amount         Decimal  @db.Decimal(18, 2)
+  status         String   @default("HELD") // HELD, RELEASED_TO_SELLER, REFUNDED_TO_BUYER
+  releasedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([marketplaceOrderId])
+  @@index([buyerCustomerId])
+  @@index([status])
 }
 
 // ─────────────────────────────────────────────

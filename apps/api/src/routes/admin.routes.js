@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/admin.controller');
 const logistics = require('../controllers/logistics.controller');
+const platformSupport = require('../controllers/platformSupport.controller');
 const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
 
 router.use(authenticate, requireAdmin);
@@ -46,13 +47,20 @@ router.get('/pos/overview', ctrl.getPOSOverview);
 router.get('/pos/sales', ctrl.listPOSSales);
 router.post('/pos/sales/:saleId/void', ctrl.adminVoidSale);
 
-// Support Tickets
+// Support Tickets (tenant-scoped)
 router.get('/support/stats', ctrl.getSupportStats);
 router.get('/support/tickets', ctrl.listAllTickets);
 router.get('/support/tickets/:ticketId', ctrl.getTicketDetail);
 router.patch('/support/tickets/:ticketId', ctrl.updateTicketStatus);
 router.post('/support/tickets/:ticketId/comment', ctrl.addTicketComment);
 router.post('/support/tickets/:ticketId/escalate', ctrl.escalateTicket);
+
+// Platform Support (Back Office — all customers)
+router.get('/support/platform-tickets/stats', platformSupport.adminGetStats);
+router.get('/support/platform-tickets', platformSupport.adminListTickets);
+router.get('/support/platform-tickets/:id', platformSupport.adminGetTicket);
+router.patch('/support/platform-tickets/:id', platformSupport.adminUpdateTicket);
+router.post('/support/platform-tickets/:id/reply', platformSupport.adminAddReply);
 
 // Users Management
 router.get('/admin-users', ctrl.listAdminUsers);

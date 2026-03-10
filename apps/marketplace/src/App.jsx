@@ -17,6 +17,10 @@ import CustomerAccountPage from './pages/CustomerAccountPage';
 import CustomerOrdersPage from './pages/CustomerOrdersPage';
 import CustomerOrderDetailPage from './pages/CustomerOrderDetailPage';
 import CustomerProfilePage from './pages/CustomerProfilePage';
+import CustomerSupportPage from './pages/CustomerSupportPage';
+import CustomerWalletPage from './pages/CustomerWalletPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import VerifyEmailSentPage from './pages/VerifyEmailSentPage';
 import useShopperAuthStore from './store/shopperAuthStore';
 
 // When user hits /erp/* on the marketplace, redirect once: /erp/partners-login -> /partners-login; others -> ERP app
@@ -62,6 +66,8 @@ export default function App() {
           <Route path="/store/:tenantId" element={<StorefrontPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/verify-email-sent" element={<VerifyEmailSentPage />} />
           <Route path="/partners-login" element={<PartnersLoginPage />} />
           <Route path="/logistics" element={<LogisticsPartnersPage />} />
           <Route path="/cart" element={<RequireShopper><CartPage /></RequireShopper>} />
@@ -71,6 +77,8 @@ export default function App() {
           <Route path="/account/orders" element={<RequireShopper><CustomerOrdersPage /></RequireShopper>} />
           <Route path="/account/orders/:id" element={<RequireShopper><CustomerOrderDetailPage /></RequireShopper>} />
           <Route path="/account/profile" element={<RequireShopper><CustomerProfilePage /></RequireShopper>} />
+          <Route path="/account/support" element={<RequireShopper><CustomerSupportPage /></RequireShopper>} />
+          <Route path="/account/wallet" element={<RequireShopper><CustomerWalletPage /></RequireShopper>} />
         </Routes>
       </main>
       <Footer />

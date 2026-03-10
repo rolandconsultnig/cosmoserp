@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Truck, Eye, EyeOff, Loader2, Shield, Building2, User } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5133/api';
+const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
+const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
 
 export default function LogisticsLoginPage() {
   const [mode, setMode] = useState('agent'); // 'agent' | 'company'
@@ -19,7 +20,7 @@ export default function LogisticsLoginPage() {
     setLoading(true);
     try {
       const endpoint = mode === 'agent' ? '/logistics/agents/login' : '/logistics/companies/login';
-      const res = await fetch(`${API_URL}${endpoint}`, {
+      const res = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

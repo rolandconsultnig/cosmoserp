@@ -5,7 +5,8 @@ import {
   Phone, RotateCcw, Loader2,
 } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5133/api';
+const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
+const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
 
 function formatCurrency(v) {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(v || 0);
@@ -47,7 +48,7 @@ export default function LogisticsDeliveriesPage() {
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
 
-      const res = await fetch(`${API_URL}/logistics/agent/deliveries?${params}`, {
+      const res = await fetch(`${apiUrl('/logistics/agent/deliveries')}?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -72,7 +73,7 @@ export default function LogisticsDeliveriesPage() {
     try {
       const body = { status: newStatus };
       if (newStatus === 'FAILED') body.failureReason = failReason || 'Customer unavailable';
-      const res = await fetch(`${API_URL}/logistics/agent/deliveries/${deliveryId}/status`, {
+      const res = await fetch(apiUrl(`/logistics/agent/deliveries/${deliveryId}/status`), {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
