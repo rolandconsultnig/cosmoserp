@@ -12,7 +12,7 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "mfaSecret" TEXT;
 ALTER TABLE "MarketplaceCustomer" ADD COLUMN IF NOT EXISTS "mfaEnabled" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "MarketplaceCustomer" ADD COLUMN IF NOT EXISTS "mfaSecret" TEXT;
 
--- PlatformSupportTicket
+-- PlatformSupportTicket (use WEB_FORM default so this runs even if CHAT not yet added; set to CHAT in next migration)
 CREATE TABLE IF NOT EXISTS "PlatformSupportTicket" (
     "id" TEXT NOT NULL,
     "ticketNumber" TEXT NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS "PlatformSupportTicket" (
     "customerName" TEXT,
     "subject" TEXT NOT NULL,
     "description" TEXT NOT NULL,
-    "channel" "TicketChannel" NOT NULL DEFAULT 'CHAT',
+    "channel" "TicketChannel" NOT NULL DEFAULT 'WEB_FORM',
     "category" "TicketCategory" NOT NULL DEFAULT 'GENERAL',
     "priority" "TicketPriority" NOT NULL DEFAULT 'MEDIUM',
     "status" "TicketStatus" NOT NULL DEFAULT 'OPEN',
