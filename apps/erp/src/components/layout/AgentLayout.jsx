@@ -34,7 +34,7 @@ export default function AgentLayout() {
         'flex items-center h-16 border-b border-white/10 px-4',
         collapsed && !mobile ? 'justify-center' : 'gap-3'
       )}>
-        <img src="/logo.png" alt="Cosmos" className="h-8 w-auto object-contain flex-shrink-0" />
+        <img src="/logo.png" alt="Cosmos" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-bold text-white text-sm leading-tight">Agent Portal</div>

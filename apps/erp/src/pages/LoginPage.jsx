@@ -43,7 +43,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <img src="/logo.png" alt="Cosmos ERP" className="h-10 w-auto object-contain" />
+            <img src="/logo.png" alt="Cosmos ERP" className="h-[23px] md:h-[26px] lg:h-[28px] w-auto object-contain" />
             <div>
               <div className="font-bold text-slate-900 text-lg leading-tight">Cosmos ERP</div>
               <div className="text-xs text-slate-500">Nigerian Business Management</div>

@@ -82,7 +82,7 @@ export default function AppLayout() {
     )}>
       {/* Logo */}
       <div className={cn('flex items-center h-16 border-b border-slate-200 px-4', collapsed && !mobile ? 'justify-center' : 'gap-3')}>
-        <img src="/logo.png" alt="Cosmos ERP" className="h-8 w-auto object-contain flex-shrink-0" />
+        <img src="/logo.png" alt="Cosmos ERP" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-bold text-slate-900 text-sm leading-tight">Cosmos ERP</div>

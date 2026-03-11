@@ -83,7 +83,7 @@ export default function AdminLayout() {
             collapsed ? 'justify-center' : 'gap-3',
           )}
         >
-          <img src="/logo.png" alt="Cosmos Admin" className="h-9 w-auto object-contain flex-shrink-0" />
+          <img src="/logo.png" alt="Cosmos Admin" className="h-[21px] md:h-[24px] lg:h-[26px] w-auto object-contain flex-shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
               <div className="text-[14px] font-bold text-white leading-tight tracking-tight">
