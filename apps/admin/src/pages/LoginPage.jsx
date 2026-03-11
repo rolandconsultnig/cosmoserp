@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Zap, Lock, Mail, ShieldCheck } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -179,6 +179,9 @@ export default function LoginPage() {
                   >
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
+                </div>
+                <div className="text-right">
+                  <Link to="/forgot-password" className="text-[13px] text-indigo-600 font-medium hover:underline">Forgot password?</Link>
                 </div>
               </div>
 

@@ -12,6 +12,8 @@ router.get('/me', authenticate, authController.me);
 router.get('/admin/me', authenticate, requireAdmin, authController.adminMe);
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
+router.post('/admin/forgot-password', authController.adminForgotPassword);
+router.post('/admin/reset-password', authController.adminResetPassword);
 router.post('/change-password', authenticate, authController.changePassword);
 
 module.exports = router;

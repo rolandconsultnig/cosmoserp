@@ -92,6 +92,9 @@ export default function LoginPage() {
             </label>
             <input className="input" type="password" value={form.password} onChange={update('password')} required />
           </div>
+          <div className="text-right">
+            <Link to="/forgot-password" className="text-sm text-brand-600 font-semibold hover:underline">Forgot password?</Link>
+          </div>
           <button type="submit" disabled={loading} className="w-full btn-buy py-3 rounded-xl font-bold text-sm disabled:opacity-60">Sign In</button>
         </form>
 

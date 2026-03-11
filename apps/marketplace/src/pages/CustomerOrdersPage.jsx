@@ -1,23 +1,44 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Package, Loader2, ChevronRight } from 'lucide-react';
+import { Package, Loader2, ChevronRight, Search } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency } from '../lib/utils';
+import CustomerAccountLayout from '../components/CustomerAccountLayout';
+
+const STATUSES = [
+  { value: '', label: 'All statuses' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'CONFIRMED', label: 'Confirmed' },
+  { value: 'PROCESSING', label: 'Processing' },
+  { value: 'SHIPPED', label: 'Shipped' },
+  { value: 'DELIVERED', label: 'Delivered' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+  { value: 'REFUNDED', label: 'Refunded' },
+  { value: 'DISPUTED', label: 'Disputed' },
+];
 
 export default function CustomerOrdersPage() {
   const [page, setPage] = useState(1);
+  const [status, setStatus] = useState('');
+  const [q, setQ] = useState('');
   const { data, isLoading } = useQuery({
-    queryKey: ['customer-orders', page],
-    queryFn: () => api.get('/marketplace/customer/orders', { params: { page, limit: 10 } }).then((r) => r.data),
+    queryKey: ['customer-orders', page, status],
+    queryFn: () => api.get('/marketplace/customer/orders', { params: { page, limit: 10, status: status || undefined } }).then((r) => r.data),
   });
 
   const orders = data?.data || [];
   const meta = data?.meta || {};
   const totalPages = meta.totalPages || 1;
 
+  const filteredOrders = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return orders;
+    return orders.filter((o) => String(o.orderNumber || '').toLowerCase().includes(query));
+  }, [orders, q]);
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <CustomerAccountLayout active="orders">
       <div className="flex items-center gap-2 mb-6">
         <Link to="/account" className="text-gray-500 hover:text-gray-700 text-sm">Account</Link>
         <span className="text-gray-400">/</span>
@@ -39,7 +60,37 @@ export default function CustomerOrdersPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => (
+          <div className="card p-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">Status</label>
+                <select
+                  className="select mt-1"
+                  value={status}
+                  onChange={(e) => { setPage(1); setStatus(e.target.value); }}
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s.value || 'all'} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">Search</label>
+                <div className="relative mt-1">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    className="input pl-10"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Order number (e.g. MKT-000123)"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Search only affects this page of results.</p>
+              </div>
+            </div>
+          </div>
+
+          {filteredOrders.map((order) => (
             <Link
               key={order.id}
               to={`/account/orders/${order.id}`}
@@ -70,6 +121,12 @@ export default function CustomerOrdersPage() {
               </div>
             </Link>
           ))}
+          {filteredOrders.length === 0 && (
+            <div className="card p-6 text-center text-sm text-gray-600">
+              No orders match your search on this page.
+            </div>
+          )}
+
           {totalPages > 1 && (
             <div className="flex justify-center gap-2 pt-4">
               <button
@@ -95,6 +152,6 @@ export default function CustomerOrdersPage() {
           )}
         </div>
       )}
-    </div>
+    </CustomerAccountLayout>
   );
 }

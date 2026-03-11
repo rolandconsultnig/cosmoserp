@@ -1039,6 +1039,7 @@ model MarketplaceCustomer {
   passwordHash               String
   fullName                   String
   phone                      String?
+  avatarUrl                  String?
   emailVerified              Boolean   @default(false)
   emailVerificationToken     String?
   emailVerificationExpiresAt DateTime?
@@ -1048,6 +1049,25 @@ model MarketplaceCustomer {
   updatedAt                  DateTime  @updatedAt
   wallet                     CustomerWallet?
   platformTickets            PlatformSupportTicket[]
+  addresses                  MarketplaceCustomerAddress[]
+}
+
+model MarketplaceCustomerAddress {
+  id         String   @id @default(uuid())
+  customerId String
+  label      String   @default("Address")
+  name       String
+  phone      String?
+  address    String
+  city       String?
+  state      String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer MarketplaceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
 
 model MarketplaceOrder {
@@ -1355,6 +1375,42 @@ model Escrow {
   @@index([marketplaceOrderId])
   @@index([buyerCustomerId])
   @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// MARKETPLACE CUSTOMER UTILITIES: TRANSPORT & BUDGET
+// ─────────────────────────────────────────────
+
+model TransportBooking {
+  id         String   @id @default(uuid())
+  customerId String
+  mode       String   // AIR, RAIL, BUS
+  from       String
+  to         String
+  provider   String
+  price      Decimal  @db.Decimal(18, 2)
+  eta        String?
+  status     String   @default("BOOKED") // BOOKED, CANCELLED, COMPLETED
+  createdAt  DateTime @default(now())
+
+  customer MarketplaceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+}
+
+model BudgetPlan {
+  id         String   @id @default(uuid())
+  customerId String
+  month      String   // e.g. "2026-03"
+  incomes    Json     // array of { id, label, amount }
+  expenses   Json     // array of { id, label, amount }
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer MarketplaceCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, month])
+  @@index([customerId])
 }
 
 // ─────────────────────────────────────────────

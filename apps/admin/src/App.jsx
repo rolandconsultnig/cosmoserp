@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './store/authStore';
 import AdminLayout from './components/layout/AdminLayout';
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import TenantsPage from './pages/TenantsPage';
 import TenantDetailPage from './pages/TenantDetailPage';
@@ -43,6 +45,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+      <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
       <Route path="/" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />

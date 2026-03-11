@@ -1,8 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Package, MapPin, Loader2 } from 'lucide-react';
+import { Package, MapPin, Loader2, Copy, ExternalLink } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency } from '../lib/utils';
+import CustomerAccountLayout from '../components/CustomerAccountLayout';
 
 export default function CustomerOrderDetailPage() {
   const { id } = useParams();
@@ -14,19 +15,23 @@ export default function CustomerOrderDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-12 flex items-center justify-center gap-2 text-gray-500">
-        <Loader2 className="w-6 h-6 animate-spin" /> Loading order…
-      </div>
+      <CustomerAccountLayout active="orders">
+        <div className="py-12 flex items-center justify-center gap-2 text-gray-500">
+          <Loader2 className="w-6 h-6 animate-spin" /> Loading order…
+        </div>
+      </CustomerAccountLayout>
     );
   }
 
   const order = data;
   if (!order) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-12 text-center">
-        <p className="text-gray-500 mb-4">Order not found.</p>
-        <Link to="/account/orders" className="btn-buy py-2.5 px-5 rounded-xl font-semibold text-sm">Back to orders</Link>
-      </div>
+      <CustomerAccountLayout active="orders">
+        <div className="py-12 text-center">
+          <p className="text-gray-500 mb-4">Order not found.</p>
+          <Link to="/account/orders" className="btn-buy py-2.5 px-5 rounded-xl font-semibold text-sm">Back to orders</Link>
+        </div>
+      </CustomerAccountLayout>
     );
   }
 
@@ -34,8 +39,16 @@ export default function CustomerOrderDetailPage() {
     ? order.deliveryAddress
     : order.deliveryAddress?.address || [order.deliveryAddress?.city, order.deliveryAddress?.state].filter(Boolean).join(', '));
 
+  const copy = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
-    <div className="max-w-xl mx-auto px-4 py-8">
+    <CustomerAccountLayout active="orders">
       <div className="flex items-center gap-2 mb-6">
         <Link to="/account" className="text-gray-500 hover:text-gray-700 text-sm">Account</Link>
         <span className="text-gray-400">/</span>
@@ -48,7 +61,22 @@ export default function CustomerOrderDetailPage() {
         <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
           <div>
             <div className="text-[11px] text-gray-400 font-medium uppercase tracking-wider mb-0.5">Order Number</div>
-            <div className="font-extrabold text-gray-900 text-lg">{order.orderNumber}</div>
+            <div className="flex items-center gap-2">
+              <div className="font-extrabold text-gray-900 text-lg">{order.orderNumber}</div>
+              <button
+                type="button"
+                onClick={() => copy(order.orderNumber)}
+                className="btn-ghost inline-flex items-center gap-1"
+                title="Copy order number"
+              >
+                <Copy className="w-4 h-4" /> Copy
+              </button>
+            </div>
+            {order.trackingNumber && (
+              <div className="text-xs text-gray-500 mt-1">
+                Tracking: <span className="font-semibold text-gray-700">{order.trackingNumber}</span>
+              </div>
+            )}
           </div>
           <span className={`text-xs px-3 py-1 rounded-full ${
             order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
@@ -101,11 +129,20 @@ export default function CustomerOrderDetailPage() {
             <div className="text-sm text-gray-500">{deliveryAddress}</div>
           </div>
         )}
+
+        <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
+          <Link to="/account/support" className="btn-outline inline-flex items-center gap-2 py-2 px-4 rounded-xl text-sm font-semibold">
+            <Package className="w-4 h-4" /> Get help
+          </Link>
+          <Link to="/products" className="btn-outline inline-flex items-center gap-2 py-2 px-4 rounded-xl text-sm font-semibold">
+            <ExternalLink className="w-4 h-4" /> Continue shopping
+          </Link>
+        </div>
       </div>
 
       <Link to="/account/orders" className="btn-outline py-2.5 px-5 rounded-xl font-semibold text-sm inline-block">
         ← Back to orders
       </Link>
-    </div>
+    </CustomerAccountLayout>
   );
 }

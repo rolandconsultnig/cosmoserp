@@ -6,6 +6,7 @@ const { logger } = require('../utils/logger');
 
 const UPLOAD_BASE = process.env.UPLOAD_PATH || path.join(process.cwd(), 'uploads');
 const KYC_DIR = 'kyc';
+const AVATAR_DIR = 'avatars';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIMES = [
   'application/pdf',
@@ -59,6 +60,38 @@ const uploadKycFile = multer({
 /** Single file upload. Expects: documentType in body (or field name 'documentType'), file in field 'file'. */
 const singleKycUpload = uploadKycFile.single('file');
 
+function getAvatarDir() {
+  const dir = path.join(UPLOAD_BASE, AVATAR_DIR);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    try {
+      const dir = getAvatarDir();
+      cb(null, dir);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    const safe = `${uuidv4()}${ext}`;
+    cb(null, safe);
+  },
+});
+
+const uploadAvatarFile = multer({
+  storage: avatarStorage,
+  fileFilter,
+  limits: { fileSize: MAX_FILE_SIZE },
+});
+
+const singleAvatarUpload = uploadAvatarFile.single('file');
+
 /** Set tenant id for multer destination (call before route that uses singleKycUpload). */
 function setKycTenantId(tenantId) {
   return (req, res, next) => {
@@ -78,4 +111,6 @@ module.exports = {
   getKycFileUrl,
   UPLOAD_BASE,
   KYC_DIR,
+  AVATAR_DIR,
+  singleAvatarUpload,
 };

@@ -123,11 +123,28 @@ async function sendVerificationEmail(toEmail, fullName, token) {
   return sendMail({ to: toEmail, subject, text, html });
 }
 
+/** Password reset email. resetLink should be the full URL to the portal's reset-password page with ?token=... */
+async function sendPasswordResetEmail(toEmail, name, resetLink, portalLabel) {
+  const subject = `Reset your password – Cosmos ERP${portalLabel ? ` (${portalLabel})` : ''}`;
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+  <h2>Reset your password</h2>
+  <p>Hi ${name || 'there'},</p>
+  <p>We received a request to reset your password. Click the link below to set a new password:</p>
+  <p><a href="${resetLink}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Reset password</a></p>
+  <p>Or copy this link: ${resetLink}</p>
+  <p>This link expires in 1 hour. If you didn't request a reset, you can ignore this email.</p>
+  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  </body></html>`;
+  const text = `Reset your password: ${resetLink}\n\nThis link expires in 1 hour. If you didn't request a reset, ignore this email.`;
+  return sendMail({ to: toEmail, subject, text, html });
+}
+
 module.exports = {
   sendMail,
   sendReceipt,
   sendQuotation,
   sendInvoiceEmail,
   sendVerificationEmail,
+  sendPasswordResetEmail,
   PLATFORM_EMAIL,
 };

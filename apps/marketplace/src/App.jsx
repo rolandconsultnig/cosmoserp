@@ -10,6 +10,8 @@ import CheckoutPage from './pages/CheckoutPage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import StorefrontPage from './pages/StorefrontPage';
 import LogisticsPartnersPage from './pages/LogisticsPartnersPage';
 import PartnersLoginPage from './pages/PartnersLoginPage';
@@ -19,6 +21,11 @@ import CustomerOrderDetailPage from './pages/CustomerOrderDetailPage';
 import CustomerProfilePage from './pages/CustomerProfilePage';
 import CustomerSupportPage from './pages/CustomerSupportPage';
 import CustomerWalletPage from './pages/CustomerWalletPage';
+import CustomerSecurityPage from './pages/CustomerSecurityPage';
+import CustomerAddressesPage from './pages/CustomerAddressesPage';
+import CustomerTransportationPage from './pages/CustomerTransportationPage';
+import CustomerTrackGoodsPage from './pages/CustomerTrackGoodsPage';
+import CustomerBudgetPage from './pages/CustomerBudgetPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import VerifyEmailSentPage from './pages/VerifyEmailSentPage';
 import useShopperAuthStore from './store/shopperAuthStore';
@@ -66,6 +73,8 @@ export default function App() {
           <Route path="/store/:tenantId" element={<StorefrontPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/verify-email-sent" element={<VerifyEmailSentPage />} />
           <Route path="/partners-login" element={<PartnersLoginPage />} />
@@ -77,8 +86,13 @@ export default function App() {
           <Route path="/account/orders" element={<RequireShopper><CustomerOrdersPage /></RequireShopper>} />
           <Route path="/account/orders/:id" element={<RequireShopper><CustomerOrderDetailPage /></RequireShopper>} />
           <Route path="/account/profile" element={<RequireShopper><CustomerProfilePage /></RequireShopper>} />
+          <Route path="/account/security" element={<RequireShopper><CustomerSecurityPage /></RequireShopper>} />
+          <Route path="/account/addresses" element={<RequireShopper><CustomerAddressesPage /></RequireShopper>} />
           <Route path="/account/support" element={<RequireShopper><CustomerSupportPage /></RequireShopper>} />
           <Route path="/account/wallet" element={<RequireShopper><CustomerWalletPage /></RequireShopper>} />
+          <Route path="/account/transportation" element={<RequireShopper><CustomerTransportationPage /></RequireShopper>} />
+          <Route path="/account/track-goods" element={<RequireShopper><CustomerTrackGoodsPage /></RequireShopper>} />
+          <Route path="/account/budget" element={<RequireShopper><CustomerBudgetPage /></RequireShopper>} />
         </Routes>
       </main>
       <Footer />

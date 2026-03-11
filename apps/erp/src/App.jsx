@@ -4,6 +4,8 @@ import useAuthStore from './store/authStore';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import InvoicesPage from './pages/InvoicesPage';
 import CreateInvoicePage from './pages/CreateInvoicePage';
@@ -66,6 +68,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+      <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+      <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
       <Route path="/partners-login" element={<PartnersLoginPage />} />
       <Route path="/agent-login" element={<PublicRoute><AgentLoginPage /></PublicRoute>} />
       <Route path="/pos-login" element={<PublicRoute><POSLoginPage /></PublicRoute>} />

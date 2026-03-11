@@ -3,10 +3,17 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
-const { sendVerificationEmail } = require('../services/email.service');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email.service');
 
 const ROUNDS = 12;
 const VERIFICATION_EXPIRY_HOURS = 24;
+
+function isMarketplaceEmailVerificationDisabled() {
+  return (
+    process.env.MARKETPLACE_DISABLE_EMAIL_VERIFICATION === 'true' ||
+    process.env.DISABLE_MFA_EMAIL_CONFIRMATION === 'true'
+  );
+}
 
 function generateVerificationToken() {
   return crypto.randomBytes(32).toString('hex');
@@ -51,8 +58,9 @@ async function register(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(password, ROUNDS);
-    const verificationToken = generateVerificationToken();
-    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+    const disableVerification = isMarketplaceEmailVerificationDisabled();
+    const verificationToken = disableVerification ? null : generateVerificationToken();
+    const verificationExpiresAt = disableVerification ? null : new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
 
     const customer = await prisma.marketplaceCustomer.create({
       data: {
@@ -60,23 +68,41 @@ async function register(req, res) {
         passwordHash,
         fullName: fullNameTrimmed,
         phone: phoneTrimmed,
-        emailVerified: false,
+        emailVerified: disableVerification ? true : false,
         emailVerificationToken: verificationToken,
         emailVerificationExpiresAt: verificationExpiresAt,
       },
     });
 
-    try {
-      await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
-    } catch (emailErr) {
-      logger.error('Verification email send failed:', emailErr);
-      // still succeed registration; user can request resend
+    if (!disableVerification) {
+      try {
+        await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
+      } catch (emailErr) {
+        logger.error('Verification email send failed:', emailErr);
+        // still succeed registration; user can request resend
+      }
+      return res.status(201).json({
+        message: 'Account created. Please check your email to verify your account before signing in.',
+        email: customer.email,
+        requiresVerification: true,
+      });
     }
 
-    res.status(201).json({
-      message: 'Account created. Please check your email to verify your account before signing in.',
+    const token = signCustomerToken({
+      type: 'marketplace_customer',
+      customerId: customer.id,
       email: customer.email,
-      requiresVerification: true,
+    });
+    return res.status(201).json({
+      message: 'Account created.',
+      accessToken: token,
+      customer: {
+        id: customer.id,
+        email: customer.email,
+        fullName: customer.fullName,
+        phone: customer.phone,
+      },
+      requiresVerification: false,
     });
   } catch (error) {
     logger.error('Marketplace customer register error:', error);
@@ -108,7 +134,7 @@ async function login(req, res) {
     if (!customer || !(await bcrypt.compare(password, customer.passwordHash))) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
-    if (!customer.emailVerified) {
+    if (!customer.emailVerified && !isMarketplaceEmailVerificationDisabled()) {
       return res.status(403).json({
         error: 'Please verify your email before signing in. Check your inbox or request a new link.',
         code: 'EMAIL_NOT_VERIFIED',
@@ -146,6 +172,7 @@ async function getMe(req, res) {
         email: customer.email,
         fullName: customer.fullName,
         phone: customer.phone,
+        avatarUrl: customer.avatarUrl,
       },
     });
   } catch (error) {
@@ -156,13 +183,14 @@ async function getMe(req, res) {
 
 async function updateProfile(req, res) {
   try {
-    const { fullName, phone } = req.body;
+    const { fullName, phone, avatarUrl } = req.body;
+    const data = {};
+    if (fullName !== undefined) data.fullName = fullName.trim();
+    if (phone !== undefined) data.phone = phone?.trim() || null;
+    if (avatarUrl !== undefined) data.avatarUrl = avatarUrl || null;
     const customer = await prisma.marketplaceCustomer.update({
       where: { id: req.customer.id },
-      data: {
-        ...(fullName !== undefined && { fullName: fullName.trim() }),
-        ...(phone !== undefined && { phone: phone?.trim() || null }),
-      },
+      data,
     });
     res.json({
       data: {
@@ -170,6 +198,7 @@ async function updateProfile(req, res) {
         email: customer.email,
         fullName: customer.fullName,
         phone: customer.phone,
+        avatarUrl: customer.avatarUrl,
       },
     });
   } catch (error) {
@@ -237,6 +266,9 @@ async function getMyOrder(req, res) {
 
 async function verifyEmail(req, res) {
   try {
+    if (isMarketplaceEmailVerificationDisabled()) {
+      return res.json({ message: 'Email verification is disabled on this server. You can sign in.', disabled: true });
+    }
     const token = (req.query.token || req.body?.token || '').trim();
     if (!token) {
       return res.status(400).json({ error: 'Verification token is required' });
@@ -267,6 +299,9 @@ async function verifyEmail(req, res) {
 
 async function resendVerificationEmail(req, res) {
   try {
+    if (isMarketplaceEmailVerificationDisabled()) {
+      return res.json({ message: 'Email verification is disabled on this server.', disabled: true });
+    }
     const email = (req.body?.email || req.query.email || '').trim().toLowerCase();
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -305,13 +340,216 @@ async function resendVerificationEmail(req, res) {
   }
 }
 
+function getMarketplaceBaseUrl() {
+  return process.env.MARKETPLACE_URL || process.env.API_PUBLIC_URL || process.env.API_URL || 'http://localhost:5176';
+}
+
+async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return res.status(400).json({ error: 'Email is required' });
+
+    const customer = await prisma.marketplaceCustomer.findUnique({ where: { email: normalized } });
+    if (customer) {
+      const resetToken = jwt.sign(
+        { customerId: customer.id, type: 'marketplace_reset' },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      const baseUrl = getMarketplaceBaseUrl().replace(/\/$/, '');
+      const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+      try {
+        await sendPasswordResetEmail(customer.email, customer.fullName, resetLink, 'Marketplace');
+      } catch (emailErr) {
+        logger.error('Marketplace forgot-password email failed:', emailErr);
+        return res.status(503).json({ error: 'Could not send reset email. Please try again later.' });
+      }
+    }
+    res.json({ message: 'If that email exists, a reset link has been sent.' });
+  } catch (error) {
+    logger.error('Marketplace forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password || password.length < 8) {
+      return res.status(400).json({ error: 'Valid token and password (min 8 chars) required' });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.type !== 'marketplace_reset' || !decoded.customerId) {
+      return res.status(400).json({ error: 'Invalid reset token' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, ROUNDS);
+    await prisma.marketplaceCustomer.update({
+      where: { id: decoded.customerId },
+      data: { passwordHash },
+    });
+
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid or expired token' });
+  }
+}
+
+async function changePassword(req, res) {
+  try {
+    const body = req.body || {};
+    const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
+    const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    const customer = req.customer;
+    if (!customer) return res.status(401).json({ error: 'Authentication required' });
+
+    const ok = await bcrypt.compare(currentPassword, customer.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'Current password is incorrect' });
+
+    const passwordHash = await bcrypt.hash(newPassword, ROUNDS);
+    await prisma.marketplaceCustomer.update({
+      where: { id: customer.id },
+      data: { passwordHash },
+    });
+
+    res.json({ message: 'Password updated' });
+  } catch (error) {
+    logger.error('Marketplace customer changePassword error:', error);
+    res.status(500).json({ error: 'Failed to update password' });
+  }
+}
+
+async function listAddresses(req, res) {
+  try {
+    const customer = req.customer;
+    const items = await prisma.marketplaceCustomerAddress.findMany({
+      where: { customerId: customer.id },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    });
+    res.json({ data: items });
+  } catch (error) {
+    logger.error('Marketplace customer listAddresses error:', error);
+    res.status(500).json({ error: 'Failed to load addresses' });
+  }
+}
+
+async function upsertAddress(req, res) {
+  try {
+    const customer = req.customer;
+    const id = req.params.id;
+    const body = req.body || {};
+    const name = (body.name || '').trim();
+    const address = (body.address || '').trim();
+    const label = (body.label || 'Address').trim();
+    const phone = (body.phone || '').trim() || null;
+    const city = (body.city || '').trim() || null;
+    const state = (body.state || '').trim() || null;
+    const isDefault = !!body.isDefault;
+
+    if (!name || !address) {
+      return res.status(400).json({ error: 'Name and address are required' });
+    }
+
+    const data = { label, name, phone, address, city, state, isDefault };
+
+    const result = await prisma.$transaction(async (tx) => {
+      if (isDefault) {
+        await tx.marketplaceCustomerAddress.updateMany({
+          where: { customerId: customer.id, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+      if (id) {
+        const existing = await tx.marketplaceCustomerAddress.findFirst({
+          where: { id, customerId: customer.id },
+        });
+        if (!existing) {
+          throw Object.assign(new Error('Address not found'), { status: 404 });
+        }
+        return tx.marketplaceCustomerAddress.update({
+          where: { id: existing.id },
+          data,
+        });
+      }
+      return tx.marketplaceCustomerAddress.create({
+        data: {
+          ...data,
+          customerId: customer.id,
+        },
+      });
+    });
+
+    res.json({ data: result });
+  } catch (error) {
+    if (error.status === 404) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+    logger.error('Marketplace customer upsertAddress error:', error);
+    res.status(500).json({ error: 'Failed to save address' });
+  }
+}
+
+async function deleteAddress(req, res) {
+  try {
+    const customer = req.customer;
+    const id = req.params.id;
+    const existing = await prisma.marketplaceCustomerAddress.findFirst({
+      where: { id, customerId: customer.id },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+    await prisma.marketplaceCustomerAddress.delete({ where: { id: existing.id } });
+    res.json({ message: 'Address removed' });
+  } catch (error) {
+    logger.error('Marketplace customer deleteAddress error:', error);
+    res.status(500).json({ error: 'Failed to remove address' });
+  }
+}
+
+async function uploadAvatar(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const customer = req.customer;
+    const publicUrl = `/uploads/avatars/${req.file.filename}`;
+    const updated = await prisma.marketplaceCustomer.update({
+      where: { id: customer.id },
+      data: { avatarUrl: publicUrl },
+    });
+    res.json({
+      data: {
+        avatarUrl: updated.avatarUrl,
+      },
+    });
+  } catch (error) {
+    logger.error('Marketplace customer uploadAvatar error:', error);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  }
+}
+
 module.exports = {
   register,
   login,
   verifyEmail,
   resendVerificationEmail,
+  forgotPassword,
+  resetPassword,
+  changePassword,
   getMe,
   updateProfile,
   listMyOrders,
   getMyOrder,
+  listAddresses,
+  upsertAddress,
+  deleteAddress,
+  uploadAvatar,
 };

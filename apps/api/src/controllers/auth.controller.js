@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
 const { createAuditLog } = require('../middleware/audit.middleware');
+const { sendPasswordResetEmail } = require('../services/email.service');
 
 function signToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
@@ -167,16 +168,38 @@ async function adminMe(req, res) {
   }
 }
 
+function getErpBaseUrl() {
+  return process.env.ERP_URL || process.env.API_PUBLIC_URL || process.env.API_URL || 'http://localhost:3060';
+}
+
+function getAdminBaseUrl() {
+  return process.env.ADMIN_URL || process.env.API_PUBLIC_URL || process.env.API_URL || 'http://localhost:5175';
+}
+
 async function forgotPassword(req, res) {
   try {
     const { email } = req.body;
-    const user = await prisma.user.findFirst({ where: { email: email?.toLowerCase() } });
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return res.status(400).json({ error: 'Email is required' });
+
+    const user = await prisma.user.findFirst({
+      where: { email: normalized },
+      include: { tenant: { select: { businessName: true } } },
+    });
     if (user) {
       const resetToken = jwt.sign({ id: user.id, type: 'reset' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      logger.info(`Password reset token for ${email}: ${resetToken}`);
+      const baseUrl = getErpBaseUrl().replace(/\/$/, '');
+      const resetLink = `${baseUrl}/erp/reset-password?token=${encodeURIComponent(resetToken)}`;
+      try {
+        await sendPasswordResetEmail(user.email, `${user.firstName} ${user.lastName}`.trim(), resetLink, 'ERP');
+      } catch (emailErr) {
+        logger.error('ERP forgot-password email failed:', emailErr);
+        return res.status(503).json({ error: 'Could not send reset email. Please try again later.' });
+      }
     }
     res.json({ message: 'If that email exists, a reset link has been sent.' });
   } catch (error) {
+    logger.error('Forgot password error:', error);
     res.status(500).json({ error: 'Failed to process request' });
   }
 }
@@ -193,6 +216,49 @@ async function resetPassword(req, res) {
     const passwordHash = await bcrypt.hash(password, 12);
     await prisma.user.update({ where: { id: decoded.id }, data: { passwordHash } });
     await prisma.refreshToken.deleteMany({ where: { userId: decoded.id } });
+
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid or expired token' });
+  }
+}
+
+async function adminForgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+    const normalized = (email || '').trim().toLowerCase();
+    if (!normalized) return res.status(400).json({ error: 'Email is required' });
+
+    const admin = await prisma.adminUser.findUnique({ where: { email: normalized } });
+    if (admin) {
+      const resetToken = jwt.sign({ id: admin.id, type: 'admin_reset' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const baseUrl = getAdminBaseUrl().replace(/\/$/, '');
+      const resetLink = `${baseUrl}/admin/reset-password?token=${encodeURIComponent(resetToken)}`;
+      try {
+        await sendPasswordResetEmail(admin.email, `${admin.firstName} ${admin.lastName}`.trim(), resetLink, 'Admin');
+      } catch (emailErr) {
+        logger.error('Admin forgot-password email failed:', emailErr);
+        return res.status(503).json({ error: 'Could not send reset email. Please try again later.' });
+      }
+    }
+    res.json({ message: 'If that email exists, a reset link has been sent.' });
+  } catch (error) {
+    logger.error('Admin forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+}
+
+async function adminResetPassword(req, res) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password || password.length < 8) {
+      return res.status(400).json({ error: 'Valid token and password (min 8 chars) required' });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.type !== 'admin_reset') return res.status(400).json({ error: 'Invalid reset token' });
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await prisma.adminUser.update({ where: { id: decoded.id }, data: { passwordHash } });
 
     res.json({ message: 'Password reset successful' });
   } catch (error) {
@@ -218,4 +284,16 @@ async function changePassword(req, res) {
   }
 }
 
-module.exports = { login, adminLogin, refresh, logout, me, adminMe, forgotPassword, resetPassword, changePassword };
+module.exports = {
+  login,
+  adminLogin,
+  refresh,
+  logout,
+  me,
+  adminMe,
+  forgotPassword,
+  resetPassword,
+  adminForgotPassword,
+  adminResetPassword,
+  changePassword,
+};

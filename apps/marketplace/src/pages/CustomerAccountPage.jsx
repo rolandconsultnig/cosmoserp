@@ -1,10 +1,26 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { User, Package, MessageCircle, Wallet, ChevronRight } from 'lucide-react';
+import { User, Package, MessageCircle, Wallet, ChevronRight, Shield, MapPin } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../lib/api';
+import { formatCurrency } from '../lib/utils';
 import useShopperAuthStore from '../store/shopperAuthStore';
+import CustomerAccountLayout from '../components/CustomerAccountLayout';
 
 export default function CustomerAccountPage() {
   const { customer, shopper, fetchMe, isAuthenticated } = useShopperAuthStore();
+  const { data: walletData } = useQuery({
+    queryKey: ['customer-wallet-mini'],
+    queryFn: () => api.get('/marketplace/customer/wallet').then((r) => r.data.data),
+    enabled: !!isAuthenticated,
+    staleTime: 30_000,
+  });
+  const { data: ordersData } = useQuery({
+    queryKey: ['customer-orders-mini'],
+    queryFn: () => api.get('/marketplace/customer/orders', { params: { page: 1, limit: 1 } }).then((r) => r.data),
+    enabled: !!isAuthenticated,
+    staleTime: 30_000,
+  });
 
   useEffect(() => {
     fetchMe();
@@ -22,9 +38,9 @@ export default function CustomerAccountPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <CustomerAccountLayout active="overview">
       <h1 className="text-2xl font-bold text-gray-900 mb-2">My Account</h1>
-      <p className="text-gray-500 text-sm mb-6">Manage your profile and orders</p>
+      <p className="text-gray-500 text-sm mb-6">Manage your profile, orders, and security.</p>
 
       <div className="card p-5 mb-6">
         <div className="flex items-center gap-3 mb-4">
@@ -35,6 +51,20 @@ export default function CustomerAccountPage() {
             <div className="font-bold text-gray-900">{customer.fullName}</div>
             <div className="text-sm text-gray-500">{customer.email}</div>
             {customer.phone && <div className="text-sm text-gray-500">{customer.phone}</div>}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-3">
+            <div className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">Wallet balance</div>
+            <div className="mt-1 font-extrabold text-gray-900">
+              {formatCurrency(walletData?.balance ?? 0, walletData?.currency ?? 'NGN')}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-3">
+            <div className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider">Orders</div>
+            <div className="mt-1 font-extrabold text-gray-900">
+              {ordersData?.meta?.total ?? 0}
+            </div>
           </div>
         </div>
         <Link
@@ -57,6 +87,24 @@ export default function CustomerAccountPage() {
           <ChevronRight className="w-5 h-5 text-gray-400" />
         </Link>
         <Link
+          to="/account/security"
+          className="flex items-center justify-between py-3 border-b border-gray-100 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-brand-500" /> Security
+          </span>
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </Link>
+        <Link
+          to="/account/addresses"
+          className="flex items-center justify-between py-3 border-b border-gray-100 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-brand-500" /> Address book
+          </span>
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </Link>
+        <Link
           to="/account/support"
           className="flex items-center justify-between py-3 border-b border-gray-100 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
         >
@@ -75,6 +123,6 @@ export default function CustomerAccountPage() {
           <ChevronRight className="w-5 h-5 text-gray-400" />
         </Link>
       </div>
-    </div>
+    </CustomerAccountLayout>
   );
 }
