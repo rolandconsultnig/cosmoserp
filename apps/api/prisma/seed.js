@@ -64,6 +64,19 @@ async function main() {
     console.log('✅ Tenant created: AfriNICT ERP Demo');
   }
 
+  // New schema: marketplace seller + Paystack transfer bank fields (demo / test values)
+  await prisma.tenant.update({
+    where: { id: tenant.id },
+    data: {
+      isMarketplaceSeller: true,
+      bankName: 'Guaranty Trust Bank (demo)',
+      bankAccountNumber: '0123456789',
+      bankAccountName: 'AfriNICT ERP Demo Ltd',
+      bankSortCode: '058',
+    },
+  });
+  console.log('✅ Tenant: marketplace seller + demo payout bank (bankSortCode 058)');
+
   const erpHash = await bcrypt.hash('Tobechi123@', ROUNDS);
   await prisma.user.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email: DEMO_ERP_EMAIL } },
@@ -79,6 +92,30 @@ async function main() {
     },
   });
   console.log(`✅ ERP user: ${DEMO_ERP_EMAIL}`);
+
+  // ── Tenant admin (ADMIN role — full ERP access except owner-only safeguards) ─
+  const DEMO_TENANT_ADMIN_EMAIL = 'tenant.admin@afrinict.net';
+  const tenantAdminHash = await bcrypt.hash('TenantAdmin123@', ROUNDS);
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: DEMO_TENANT_ADMIN_EMAIL } },
+    update: {
+      passwordHash: tenantAdminHash,
+      firstName: 'Tenant',
+      lastName: 'Administrator',
+      role: 'ADMIN',
+      isActive: true,
+    },
+    create: {
+      tenantId: tenant.id,
+      email: DEMO_TENANT_ADMIN_EMAIL,
+      passwordHash: tenantAdminHash,
+      firstName: 'Tenant',
+      lastName: 'Administrator',
+      role: 'ADMIN',
+      isActive: true,
+    },
+  });
+  console.log(`✅ ERP tenant admin: ${DEMO_TENANT_ADMIN_EMAIL}`);
 
   // ── POS user (Android / same tenant, for POS login) ─────────────────────────
   const posHash = await bcrypt.hash('PoS123@', ROUNDS);
@@ -97,11 +134,49 @@ async function main() {
   });
   console.log(`✅ POS user (Android): ${DEMO_POS_EMAIL}`);
 
-  // ── Logistics agent (LogisticsAgent) ─────────────────────────────────────────
+  // ── Logistics company + agent (new schema: company for auto-assign) ───────────
+  const DEMO_LOGISTICS_COMPANY_EMAIL = 'dispatch@afrinict.com';
+  const companyPassHash = await bcrypt.hash('LogisticsCo123@', ROUNDS);
+  const logisticsCompany = await prisma.logisticsCompany.upsert({
+    where: { email: DEMO_LOGISTICS_COMPANY_EMAIL },
+    update: {
+      name: 'Demo Dispatch Co',
+      phone: '08000000002',
+      password: companyPassHash,
+      contactPerson: 'Dispatch Admin',
+      city: 'Lagos',
+      state: 'Lagos',
+      coverageAreas: ['Lagos', 'Abuja'],
+      status: 'APPROVED',
+      isActive: true,
+    },
+    create: {
+      email: DEMO_LOGISTICS_COMPANY_EMAIL,
+      name: 'Demo Dispatch Co',
+      phone: '08000000002',
+      password: companyPassHash,
+      contactPerson: 'Dispatch Admin',
+      city: 'Lagos',
+      state: 'Lagos',
+      coverageAreas: ['Lagos', 'Abuja'],
+      status: 'APPROVED',
+      isActive: true,
+    },
+  });
+  console.log(`✅ Logistics company: ${DEMO_LOGISTICS_COMPANY_EMAIL}`);
+
   const logisticsHash = await bcrypt.hash('Driver123@', ROUNDS);
   await prisma.logisticsAgent.upsert({
     where: { email: DEMO_LOGISTICS_EMAIL },
-    update: { password: logisticsHash, firstName: 'Oga', lastName: 'Driver', status: 'ACTIVE' },
+    update: {
+      password: logisticsHash,
+      firstName: 'Oga',
+      lastName: 'Driver',
+      phone: '08000000001',
+      status: 'ACTIVE',
+      tenantId: tenant.id,
+      companyId: logisticsCompany.id,
+    },
     create: {
       email: DEMO_LOGISTICS_EMAIL,
       password: logisticsHash,
@@ -109,9 +184,11 @@ async function main() {
       lastName: 'Driver',
       phone: '08000000001',
       status: 'ACTIVE',
+      tenantId: tenant.id,
+      companyId: logisticsCompany.id,
     },
   });
-  console.log(`✅ Logistics agent: ${DEMO_LOGISTICS_EMAIL}`);
+  console.log(`✅ Logistics agent: ${DEMO_LOGISTICS_EMAIL} (company + tenant linked)`);
 
   // ── Product Categories (reference data) ──────────────────────────────────────
   const categories = [
@@ -135,9 +212,11 @@ async function main() {
   console.log('\n✅ Database seeded successfully!');
   console.log('\n📋 Access credentials:');
   console.log('   Admin:       sam@afrinict.net / Samolan123@');
-  console.log('   ERP:         tochi@afrinict.com / Tobechi123@');
+  console.log('   ERP (owner): tochi@afrinict.com / Tobechi123@');
+  console.log('   ERP (tenant admin): tenant.admin@afrinict.net / TenantAdmin123@');
   console.log('   POS (Android): andpos@afrinict.net / PoS123@');
-  console.log('   Logistics:   ogadriver@afrinict.com / Driver123@');
+  console.log('   Logistics co: dispatch@afrinict.com / LogisticsCo123@');
+  console.log('   Logistics agent: ogadriver@afrinict.com / Driver123@');
 }
 
 main()

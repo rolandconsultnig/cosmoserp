@@ -259,6 +259,16 @@ SMTP_USER=hello@cosmoserp.afrinict.com
 SMTP_PASS=your-mailbox-password
 MAIL_FROM=hello@cosmoserp.afrinict.com
 PLATFORM_EMAIL=hello@cosmoserp.afrinict.com
+# Public marketplace URL (used in logistics “track shipment” links in customer emails)
+MARKETPLACE_URL=https://market.yourdomain.com
+# Set to false to stop emailing buyers when delivery status changes (IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED)
+# LOGISTICS_CUSTOMER_EMAIL_NOTIFICATIONS=true
+# Email tenant `email` when a payroll run is approved (optional approval note included)
+# PAYROLL_APPROVAL_EMAIL_NOTIFICATIONS=true
+
+# Marketplace seller payouts (Paystack Transfer API) — seller tenants need bank account + Paystack bank_code in Tenant.bankSortCode
+# Paystack webhooks: https://YOUR_API_HOST/api/webhooks/paystack — full checklist **`docs/PAYSTACK-WEBHOOKS.md`**
+# Optional SMS for logistics (Termii or Twilio) — see apps/api/.env.example
 
 # GIG Logistics
 GIG_API_URL=https://api.giglogistics.com/v1
@@ -331,8 +341,11 @@ npm run build
 
 ### 10.2 Admin (served at `/admin`)
 
+Set **`VITE_ERP_URL`** before building so **Super Admin → Impersonate tenant** opens the correct ERP origin (e.g. `https://your-domain.com` or `http://localhost:3060` in dev). The app appends `/erp/impersonate`.
+
 ```bash
 cd /home/ubuntu/cosmoserp/apps/admin   # or: cd /root/cosmoserp/apps/admin
+# echo 'VITE_ERP_URL=https://your-domain.com' >> .env   # production
 npm run build
 ```
 

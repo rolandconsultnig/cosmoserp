@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const jwt = require('jsonwebtoken');
-const { authenticate } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser } = require('../middleware/auth.middleware');
+const { singlePodUpload } = require('../middleware/upload.middleware');
 const logistics = require('../controllers/logistics.controller');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cosmos-secret-key';
@@ -33,13 +34,26 @@ router.get('/track/:trackingOrId', logistics.trackDelivery);
 router.get('/providers', logistics.listAvailableProviders);
 
 // ── Seller / Tenant endpoints (needs ERP auth) ──
-router.post('/deliveries/request', authenticate, logistics.requestDelivery);
+router.get('/tenant/deliveries', authenticate, requireTenantUser, logistics.listTenantDeliveries);
+router.post('/deliveries/request', authenticate, requireTenantUser, logistics.requestDelivery);
 
 // ── Agent portal (needs agent auth) ──
 router.get('/agent/profile', authenticateAgent, logistics.getAgentProfile);
 router.patch('/agent/profile', authenticateAgent, logistics.updateAgentProfile);
 router.get('/agent/dashboard', authenticateAgent, logistics.getAgentDashboard);
 router.get('/agent/deliveries', authenticateAgent, logistics.getAgentDeliveries);
+router.post(
+  '/agent/deliveries/:id/proof',
+  authenticateAgent,
+  logistics.verifyAgentOwnsDelivery,
+  (req, res, next) => {
+    singlePodUpload(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
+      next();
+    });
+  },
+  logistics.uploadProofOfDelivery,
+);
 router.patch('/agent/deliveries/:id/status', authenticateAgent, logistics.updateDeliveryStatus);
 
 module.exports = router;

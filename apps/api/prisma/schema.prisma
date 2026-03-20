@@ -89,6 +89,7 @@ model Tenant {
   bankAccountNumber   String?
   bankAccountName     String?
   bankSortCode        String?
+  paystackRecipientCode String?        // cached Paystack transfer recipient code (NGN payouts)
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   onboardedByAgentId  String?
@@ -118,6 +119,8 @@ model Tenant {
   logisticsAgents   LogisticsAgent[]
   deliveries        Delivery[]
   kycDocumentFiles  KycDocument[]
+  accountingPeriods AccountingPeriod[]
+  marketplaceSellerPayouts MarketplaceSellerPayout[]
 
   @@index([kycStatus])
   @@index([subscriptionStatus])
@@ -261,6 +264,7 @@ model User {
   posCashierSales      POSSale[]       @relation("POSCashier")
   onboardedTenants     Tenant[]        @relation("OnboardedTenants")
   kycDocumentsUploaded KycDocument[]
+  closedAccountingPeriods AccountingPeriod[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -339,11 +343,14 @@ model JournalEntry {
   sourceId     String?
   createdById  String?
   postedAt     DateTime?
+  reversesEntryId String?    @unique
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  tenant Tenant        @relation(fields: [tenantId], references: [id])
-  lines  JournalLine[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  lines        JournalLine[]
+  reversesEntry JournalEntry? @relation("JournalReversals", fields: [reversesEntryId], references: [id])
+  reversedBy    JournalEntry[] @relation("JournalReversals")
 
   @@index([tenantId, date])
   @@index([sourceType, sourceId])
@@ -366,6 +373,26 @@ model JournalLine {
 
   journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account      Account      @relation(fields: [accountId], references: [id])
+}
+
+model AccountingPeriod {
+  id         String   @id @default(uuid())
+  tenantId   String
+  name       String
+  startDate  DateTime
+  endDate    DateTime
+  isClosed   Boolean  @default(false)
+  closedAt   DateTime?
+  closedById String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  closedBy User?  @relation(fields: [closedById], references: [id])
+
+  @@unique([tenantId, startDate])
+  @@index([tenantId, startDate])
+  @@index([tenantId, isClosed])
 }
 
 model TenantCurrency {
@@ -898,6 +925,8 @@ model Employee {
   phone             String?
   nin               String?
   bvn               String?
+  portalAccessToken         String?   @unique
+  portalAccessTokenExpiresAt DateTime?
   dateOfBirth       DateTime?
   gender            String?
   address           String?
@@ -1050,6 +1079,8 @@ model MarketplaceCustomer {
   wallet                     CustomerWallet?
   platformTickets            PlatformSupportTicket[]
   addresses                  MarketplaceCustomerAddress[]
+  transportBookings          TransportBooking[]
+  budgetPlans                BudgetPlan[]
 }
 
 model MarketplaceCustomerAddress {
@@ -1103,9 +1134,30 @@ model MarketplaceOrder {
   tenant     Tenant?                @relation(fields: [tenantId], references: [id])
   lines      MarketplaceOrderLine[]
   deliveries Delivery[]
+  sellerPayouts MarketplaceSellerPayout[]
 
   @@index([buyerEmail])
   @@index([status])
+}
+
+model MarketplaceSellerPayout {
+  id                   String   @id @default(uuid())
+  orderId              String
+  tenantId             String
+  amount               Decimal  @db.Decimal(18, 2)
+  currency             String   @default("NGN")
+  paystackReference    String?
+  paystackTransferCode String?
+  status               String   @default("PENDING")
+  errorMessage         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  order  MarketplaceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+
+  @@index([orderId])
+  @@index([tenantId])
 }
 
 enum MarketplaceOrderStatus {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/admin.controller');
+const marketplaceAdmin = require('../controllers/marketplaceAdmin.controller');
 const logistics = require('../controllers/logistics.controller');
 const platformSupport = require('../controllers/platformSupport.controller');
 const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
@@ -12,6 +13,11 @@ router.post('/nrs-logs/:id/retry', ctrl.retryNRSSubmission);
 router.get('/analytics', ctrl.getPlatformAnalytics);
 router.get('/audit-logs', ctrl.getAuditLogs);
 router.put('/listings/:id/moderate', ctrl.moderateListing);
+
+// Marketplace escrow & Paystack payouts (multi-seller)
+router.get('/marketplace/escrow-orders', marketplaceAdmin.listEscrowOrders);
+router.post('/marketplace/orders/:id/release-escrow', marketplaceAdmin.releaseEscrowAdmin);
+router.post('/marketplace/orders/:id/payout-paystack', marketplaceAdmin.executePaystackPayouts);
 router.post('/users', ctrl.createAdminUser);
 
 // Subscriptions & Billing
@@ -25,6 +31,7 @@ router.get('/tenants/:tenantId', ctrl.getTenantDetail);
 router.patch('/tenants/:tenantId/kyc', ctrl.adminUpdateKYC);
 router.post('/tenants/:tenantId/notes', ctrl.adminAddTenantNote);
 router.post('/tenants/:tenantId/toggle-active', ctrl.adminToggleTenantActive);
+router.post('/tenants/:tenantId/impersonate', ctrl.impersonateTenant);
 router.get('/tenants/:tenantId/audit-logs', ctrl.adminGetTenantAuditLogs);
 router.post('/tenants/:tenantId/users/:userId/toggle', ctrl.adminToggleTenantUserStatus);
 router.post('/tenants/:tenantId/suspend', ctrl.suspendTenant);

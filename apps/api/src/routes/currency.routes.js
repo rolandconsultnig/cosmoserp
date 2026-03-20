@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
 
-router.use(authenticate);
+router.use(authenticate, requireTenantUser);
 
 router.get('/', async (req, res) => {
   try {

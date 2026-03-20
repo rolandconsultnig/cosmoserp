@@ -134,18 +134,107 @@ async function getMyTenant(req, res) {
   }
 }
 
+/** Fields tenants may not change themselves (legal / registration identity). */
+const TENANT_SELF_SERVICE_LOCKED = new Set([
+  'businessName',
+  'tradingName',
+  'email',
+  'address',
+  'city',
+  'state',
+  'country',
+  'tin',
+  'rcNumber',
+  'businessType',
+  'nrsTaxpayerId',
+  'isMarketplaceSeller',
+  'kycStatus',
+  'kycDocuments',
+  'kycFormData',
+  'kycRejectionReason',
+  'subscriptionPlan',
+  'subscriptionStatus',
+  'trialEndsAt',
+  'subscriptionEndsAt',
+  'isActive',
+]);
+
+/** Fields allowed on PUT /tenants/me (logo also via POST /tenants/me/logo). */
+const TENANT_SELF_SERVICE_ALLOWED = [
+  'phone',
+  'website',
+  'industry',
+  'bankName',
+  'bankAccountNumber',
+  'bankAccountName',
+  'bankSortCode',
+  'logoUrl',
+];
+
 async function updateMyTenant(req, res) {
   try {
-    const { businessName, tradingName, phone, address, city, state, website, industry, bankName, bankAccountNumber, bankAccountName, bankSortCode } = req.body;
+    const body = req.body || {};
+    for (const key of Object.keys(body)) {
+      if (TENANT_SELF_SERVICE_LOCKED.has(key)) {
+        return res.status(422).json({
+          error:
+            'Business name, address, email, and other legal details cannot be changed here. Contact platform support to update your registration.',
+          code: 'TENANT_FIELD_LOCKED',
+          field: key,
+        });
+      }
+    }
+
+    const data = {};
+    for (const key of TENANT_SELF_SERVICE_ALLOWED) {
+      if (body[key] !== undefined) {
+        if (key === 'logoUrl') {
+          data.logoUrl = body.logoUrl === '' || body.logoUrl === null ? null : String(body.logoUrl).trim() || null;
+        } else {
+          data[key] = body[key];
+        }
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'No updatable fields provided', code: 'NO_CHANGES' });
+    }
+
     const tenant = await prisma.tenant.update({
       where: { id: req.tenantId },
-      data: { businessName, tradingName, phone, address, city, state, website, industry, bankName, bankAccountNumber, bankAccountName, bankSortCode },
+      data,
     });
     await createAuditLog({ tenantId: req.tenantId, userId: req.user.id, action: 'UPDATE', resource: 'Tenant', resourceId: req.tenantId, req });
     res.json({ data: tenant });
   } catch (error) {
     logger.error('Update tenant error:', error);
     res.status(500).json({ error: 'Failed to update tenant' });
+  }
+}
+
+async function uploadTenantLogo(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded', code: 'LOGO_FILE_REQUIRED' });
+    }
+    const publicUrl = `/uploads/tenant-logos/${req.tenantId}/${req.file.filename}`;
+    const tenant = await prisma.tenant.update({
+      where: { id: req.tenantId },
+      data: { logoUrl: publicUrl },
+    });
+    await createAuditLog({
+      tenantId: req.tenantId,
+      userId: req.user.id,
+      action: 'UPDATE',
+      resource: 'Tenant',
+      resourceId: req.tenantId,
+      newValues: { logoUrl: publicUrl },
+      req,
+    });
+    res.json({ data: { logoUrl: publicUrl, tenant } });
+  } catch (error) {
+    logger.error('Upload tenant logo error:', error);
+    res.status(500).json({ error: 'Failed to upload logo' });
   }
 }
 
@@ -255,4 +344,15 @@ async function toggleActive(req, res) {
   }
 }
 
-module.exports = { register, getMyTenant, updateMyTenant, submitKYC, list, getOne, updateKYCStatus, updateSubscription, toggleActive };
+module.exports = {
+  register,
+  getMyTenant,
+  updateMyTenant,
+  uploadTenantLogo,
+  submitKYC,
+  list,
+  getOne,
+  updateKYCStatus,
+  updateSubscription,
+  toggleActive,
+};

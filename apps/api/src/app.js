@@ -24,6 +24,7 @@ const employeeRoutes = require('./routes/employee.routes');
 const taxRoutes = require('./routes/tax.routes');
 const nrsRoutes = require('./routes/nrs.routes');
 const marketplaceRoutes = require('./routes/marketplace.routes');
+const marketplaceSellerRoutes = require('./routes/marketplaceSeller.routes');
 const adminRoutes = require('./routes/admin.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const reportRoutes = require('./routes/report.routes');
@@ -33,8 +34,10 @@ const posRoutes = require('./routes/pos.routes');
 const logisticsRoutes = require('./routes/logistics.routes');
 const agentRoutes = require('./routes/agent.routes');
 const crmRoutes = require('./routes/crm.routes');
+const employeePortalRoutes = require('./routes/employeePortal.routes');
+const paystackWebhookRoutes = require('./routes/paystackWebhook.routes');
 
-const { authenticate, requireRole } = require('./middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser } = require('./middleware/auth.middleware');
 
 const app = express();
 
@@ -59,6 +62,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(compression());
+// Paystack webhooks need raw body for HMAC (must be before express.json)
+app.use(
+  '/api/webhooks/paystack',
+  express.raw({
+    type: (req) => /^application\/json(;|$)/i.test(String(req.headers['content-type'] || '')),
+  }),
+  paystackWebhookRoutes,
+);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -72,6 +83,7 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
+  skip: (req) => req.path === '/api/webhooks/paystack' || String(req.originalUrl || '').includes('/webhooks/paystack'),
 });
 
 const authLimiter = rateLimit({
@@ -91,6 +103,7 @@ const uploadsPath = path.isAbsolute(UPLOAD_BASE) ? UPLOAD_BASE : path.join(proce
 app.use('/uploads', express.static(uploadsPath));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/employee-portal', employeePortalRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);
@@ -106,6 +119,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/tax', taxRoutes);
 app.use('/api/nrs', nrsRoutes);
+app.use('/api/seller/marketplace', marketplaceSellerRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -113,8 +127,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/pos', posRoutes);
 app.use('/api/logistics', logisticsRoutes);
-app.use('/api/agents', authenticate, requireRole('FIELD_AGENT'), agentRoutes);
-app.use('/api/crm', authenticate, requireRole('CRM_MANAGER'), crmRoutes);
+app.use('/api/agents', authenticate, requireTenantUser, requireRole('FIELD_AGENT'), agentRoutes);
+app.use('/api/crm', authenticate, requireTenantUser, requireRole('CRM_MANAGER'), crmRoutes);
 
 app.use((err, req, res, next) => {
   logger.error(err.stack);

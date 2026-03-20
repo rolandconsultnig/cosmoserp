@@ -1,16 +1,35 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Package, MapPin, Loader2, Copy, ExternalLink } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Package, MapPin, Loader2, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency } from '../lib/utils';
 import CustomerAccountLayout from '../components/CustomerAccountLayout';
 
 export default function CustomerOrderDetailPage() {
   const { id } = useParams();
+  const qc = useQueryClient();
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeErr, setDisputeErr] = useState('');
+
   const { data, isLoading } = useQuery({
     queryKey: ['customer-order', id],
     queryFn: () => api.get(`/marketplace/customer/orders/${id}`).then((r) => r.data.data),
     enabled: !!id,
+  });
+
+  const disputeMutation = useMutation({
+    mutationFn: (reason) => api.post(`/marketplace/customer/orders/${id}/dispute`, { reason }),
+    onSuccess: (res) => {
+      setDisputeReason('');
+      setDisputeErr('');
+      qc.setQueryData(['customer-order', id], (prev) => (prev ? { ...prev, ...res.data.data } : prev));
+      qc.invalidateQueries({ queryKey: ['customer-order', id] });
+      qc.invalidateQueries({ queryKey: ['customer-orders'] });
+    },
+    onError: (err) => {
+      setDisputeErr(err.response?.data?.error || err.message || 'Could not open dispute');
+    },
   });
 
   if (isLoading) {
@@ -47,6 +66,10 @@ export default function CustomerOrderDetailPage() {
     }
   };
 
+  const canOpenDispute =
+    order.paymentStatus === 'SUCCESS' &&
+    !['DISPUTED', 'CANCELLED', 'REFUNDED'].includes(order.status);
+
   return (
     <CustomerAccountLayout active="orders">
       <div className="flex items-center gap-2 mb-6">
@@ -80,6 +103,7 @@ export default function CustomerOrderDetailPage() {
           </div>
           <span className={`text-xs px-3 py-1 rounded-full ${
             order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
+            order.status === 'DISPUTED' ? 'bg-violet-100 text-violet-800' :
             order.status === 'CANCELLED' || order.status === 'REFUNDED' ? 'bg-red-100 text-red-700' :
             'bg-amber-100 text-amber-700'
           }`}>
@@ -127,6 +151,46 @@ export default function CustomerOrderDetailPage() {
             </div>
             <div className="text-sm text-gray-900 font-semibold">{order.buyerName}</div>
             <div className="text-sm text-gray-500">{deliveryAddress}</div>
+          </div>
+        )}
+
+        {order.status === 'DISPUTED' && (
+          <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50/80 p-4 flex gap-3">
+            <AlertTriangle className="w-5 h-5 text-violet-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-violet-900">Dispute in review</p>
+              <p className="text-xs text-violet-800/90 mt-1">
+                Support will contact you using your account email. You can still message us from Help.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {canOpenDispute && (
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Problem with this order?
+            </h3>
+            <p className="text-xs text-gray-500 mb-2">
+              Open a dispute if something is wrong (wrong item, not received, etc.). Payment is flagged for review.
+            </p>
+            <textarea
+              value={disputeReason}
+              onChange={(e) => { setDisputeReason(e.target.value); setDisputeErr(''); }}
+              rows={3}
+              placeholder="Describe the issue clearly…"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 mb-2"
+            />
+            {disputeErr && <p className="text-xs text-red-600 mb-2">{disputeErr}</p>}
+            <button
+              type="button"
+              disabled={disputeMutation.isPending || !disputeReason.trim()}
+              onClick={() => disputeMutation.mutate(disputeReason.trim())}
+              className="btn-outline inline-flex items-center gap-2 py-2 px-4 rounded-xl text-sm font-semibold border-amber-200 text-amber-900 hover:bg-amber-50 disabled:opacity-50"
+            >
+              {disputeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+              Open dispute
+            </button>
           </div>
         )}
 

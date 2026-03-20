@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { finalizePaidMarketplaceOrder } = require('../services/marketplaceOrderPayment.service');
 const { logger } = require('../utils/logger');
 const { generateOrderNumber, roundDecimal, slugify, paginate, paginatedResponse } = require('../utils/helpers');
 const { createAuditLog } = require('../middleware/audit.middleware');
@@ -261,7 +262,12 @@ async function createOrder(req, res) {
 
 async function initiatePayment(req, res) {
   try {
-    const order = await prisma.marketplaceOrder.findUnique({ where: { id: req.params.id } });
+    const buyerEmail = req.customer?.email;
+    if (!buyerEmail) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const order = await prisma.marketplaceOrder.findFirst({ where: { id: req.params.id, buyerEmail } });
     if (!order) return res.status(404).json({ error: 'Order not found' });
     if (order.paymentStatus === 'SUCCESS') return res.status(400).json({ error: 'Order already paid' });
 
@@ -305,6 +311,13 @@ async function verifyPayment(req, res) {
     const order = await prisma.marketplaceOrder.findFirst({ where: { paystackRef: reference } });
     if (!order) return res.status(404).json({ error: 'Order not found for this reference' });
 
+    if (order.paymentStatus === 'SUCCESS') {
+      return res.json({
+        data: { status: 'paid', orderId: order.id, orderNumber: order.orderNumber },
+        message: 'Order already confirmed.',
+      });
+    }
+
     let verified = false;
     const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY;
 
@@ -318,29 +331,7 @@ async function verifyPayment(req, res) {
     }
 
     if (verified) {
-      await prisma.$transaction(async (tx) => {
-        await tx.marketplaceOrder.update({
-          where: { id: order.id },
-          data: { paymentStatus: 'SUCCESS', status: 'CONFIRMED', escrowStatus: 'HELD', paidAt: new Date() },
-        });
-
-        // Create invoice for each seller
-        const lines = await tx.marketplaceOrderLine.findMany({ where: { orderId: order.id } });
-        const sellerGroups = lines.reduce((acc, l) => { acc[l.tenantId] = acc[l.tenantId] || []; acc[l.tenantId].push(l); return acc; }, {});
-
-        for (const [tenantId, sellerLines] of Object.entries(sellerGroups)) {
-          const stockUpdates = sellerLines.map((l) =>
-            tx.stockLevel.updateMany({ where: { product: { marketplaceListings: { some: { id: l.listingId } } } }, data: { quantity: { decrement: l.quantity } } })
-          );
-          await Promise.all(stockUpdates);
-
-          await tx.marketplaceListing.updateMany({
-            where: { id: { in: sellerLines.map((l) => l.listingId) } },
-            data: { soldCount: { increment: 1 } },
-          });
-        }
-      });
-
+      await finalizePaidMarketplaceOrder(order.id);
       res.json({ data: { status: 'paid', orderId: order.id, orderNumber: order.orderNumber }, message: 'Payment verified. Order confirmed.' });
     } else {
       res.status(400).json({ error: 'Payment verification failed' });
@@ -353,8 +344,13 @@ async function verifyPayment(req, res) {
 
 async function getOrder(req, res) {
   try {
-    const order = await prisma.marketplaceOrder.findUnique({
-      where: { id: req.params.id },
+    const buyerEmail = req.customer?.email;
+    if (!buyerEmail) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const order = await prisma.marketplaceOrder.findFirst({
+      where: { id: req.params.id, buyerEmail },
       include: { lines: { include: { listing: { select: { title: true, images: true, slug: true } } } } },
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });

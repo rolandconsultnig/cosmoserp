@@ -2,6 +2,9 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = new PrismaClient();
+const { logger } = require('../utils/logger');
+const emailService = require('../services/email.service');
+const smsService = require('../services/sms.service');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cosmos-secret-key';
 const JWT_EXPIRES = process.env.JWT_EXPIRES_IN || '8h';
@@ -15,6 +18,30 @@ function generateTrackingNumber() {
 
 function generateAgentCode() {
   return `AGT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+}
+
+/** Flatten MarketplaceOrder.deliveryAddress JSON for Delivery.deliveryAddress string field. */
+function stringifyMarketplaceDeliveryAddress(addr) {
+  if (addr == null) return '';
+  if (typeof addr === 'string') return addr.trim();
+  if (typeof addr === 'object') {
+    if (typeof addr.address === 'string' && addr.address.trim()) return addr.address.trim();
+    const parts = [
+      addr.line1,
+      addr.line2,
+      addr.street,
+      addr.city,
+      addr.state,
+      addr.postalCode,
+      addr.country,
+    ].filter((p) => p != null && String(p).trim() !== '');
+    if (parts.length) return parts.map((p) => String(p).trim()).join(', ');
+  }
+  try {
+    return JSON.stringify(addr);
+  } catch {
+    return '';
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -297,6 +324,27 @@ exports.updateDeliveryStatus = async (req, res) => {
 
     const updated = await prisma.delivery.update({ where: { id }, data: updateData });
 
+    if (delivery.status !== status) {
+      emailService.sendDeliveryStatusUpdateEmail(updated).catch((err) => {
+        logger.warn('Delivery customer notification email failed:', err.message);
+      });
+      const smsLabels = {
+        IN_TRANSIT: 'is on the way',
+        OUT_FOR_DELIVERY: 'is out for delivery',
+        DELIVERED: 'has been delivered',
+        FAILED: 'could not be completed — support may contact you',
+      };
+      const smsBit = smsLabels[status];
+      if (smsBit && updated.customerPhone) {
+        smsService
+          .sendSms(
+            updated.customerPhone,
+            `Cosmos Logistics: ${updated.trackingNumber} ${smsBit}.`,
+          )
+          .catch((err) => logger.warn('Delivery SMS failed:', err.message));
+      }
+    }
+
     // Update marketplace order status if linked
     if (delivery.orderId) {
       const orderStatus = status === 'DELIVERED' ? 'DELIVERED' : status === 'IN_TRANSIT' ? 'SHIPPED' : undefined;
@@ -352,7 +400,61 @@ exports.requestDelivery = async (req, res) => {
       deliveryFee, priority, notes, expectedDeliveryDate,
     } = req.body;
 
-    if (!customerName || !deliveryAddress) {
+    let resolvedOrderId = orderId || null;
+    let resolvedOrderRef = orderRef?.trim() || null;
+    let resolvedCustomerName = typeof customerName === 'string' ? customerName.trim() : '';
+    let resolvedCustomerPhone = typeof customerPhone === 'string' ? customerPhone.trim() : '';
+    let resolvedCustomerEmail = typeof customerEmail === 'string' ? customerEmail.trim() : '';
+    let resolvedDeliveryAddress = typeof deliveryAddress === 'string' ? deliveryAddress.trim() : '';
+    let resolvedCity = typeof city === 'string' ? city.trim() : '';
+    let resolvedState = typeof state === 'string' ? state.trim() : '';
+    let resolvedPackageDesc = typeof packageDescription === 'string' ? packageDescription.trim() : '';
+
+    if (resolvedOrderId) {
+      if (!tenantId) {
+        return res.status(400).json({ error: 'Tenant context required when linking a marketplace order' });
+      }
+      const mktOrder = await prisma.marketplaceOrder.findFirst({
+        where: {
+          id: resolvedOrderId,
+          lines: { some: { tenantId } },
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          buyerName: true,
+          buyerPhone: true,
+          buyerEmail: true,
+          deliveryAddress: true,
+          lines: {
+            where: { tenantId },
+            select: { productName: true, quantity: true },
+          },
+        },
+      });
+      if (!mktOrder) {
+        return res.status(404).json({ error: 'Marketplace order not found or not linked to your tenant' });
+      }
+      const addrObj = mktOrder.deliveryAddress;
+      if (!resolvedCustomerName) resolvedCustomerName = (mktOrder.buyerName || '').trim();
+      if (!resolvedCustomerPhone) resolvedCustomerPhone = (mktOrder.buyerPhone || '').trim();
+      if (!resolvedCustomerEmail) resolvedCustomerEmail = (mktOrder.buyerEmail || '').trim();
+      if (!resolvedDeliveryAddress) resolvedDeliveryAddress = stringifyMarketplaceDeliveryAddress(addrObj);
+      if (!resolvedCity && addrObj && typeof addrObj === 'object' && addrObj.city) {
+        resolvedCity = String(addrObj.city).trim();
+      }
+      if (!resolvedState && addrObj && typeof addrObj === 'object' && addrObj.state) {
+        resolvedState = String(addrObj.state).trim();
+      }
+      if (!resolvedOrderRef) resolvedOrderRef = mktOrder.orderNumber;
+      if (!resolvedPackageDesc && mktOrder.lines?.length) {
+        resolvedPackageDesc = mktOrder.lines
+          .map((l) => `${l.productName} ×${l.quantity}`)
+          .join(', ');
+      }
+    }
+
+    if (!resolvedCustomerName || !resolvedDeliveryAddress) {
       return res.status(400).json({ error: 'Customer name and delivery address are required' });
     }
 
@@ -361,22 +463,22 @@ exports.requestDelivery = async (req, res) => {
     const commission = fee * 0.15;
     const payout = fee - commission;
 
-    const delivery = await prisma.delivery.create({
+    let delivery = await prisma.delivery.create({
       data: {
         tenantId,
-        orderId: orderId || null,
-        orderRef: orderRef || null,
+        orderId: resolvedOrderId,
+        orderRef: resolvedOrderRef,
         invoiceRef: invoiceRef || null,
         trackingNumber,
         companyId: companyId || null,
-        customerName,
-        customerPhone,
-        customerEmail,
+        customerName: resolvedCustomerName,
+        customerPhone: resolvedCustomerPhone || null,
+        customerEmail: resolvedCustomerEmail || null,
         pickupAddress,
-        deliveryAddress,
-        city,
-        state,
-        packageDescription,
+        deliveryAddress: resolvedDeliveryAddress,
+        city: resolvedCity || null,
+        state: resolvedState || null,
+        packageDescription: resolvedPackageDesc || null,
         packageWeight: packageWeight || null,
         packageSize: packageSize || null,
         deliveryFee: fee,
@@ -388,10 +490,35 @@ exports.requestDelivery = async (req, res) => {
       },
     });
 
+    if (companyId && !delivery.agentId) {
+      const agents = await prisma.logisticsAgent.findMany({
+        where: { companyId, status: 'ACTIVE' },
+        select: {
+          id: true,
+          _count: {
+            select: {
+              deliveries: {
+                where: {
+                  status: { in: ['PENDING_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'] },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (agents.length) {
+        agents.sort((a, b) => a._count.deliveries - b._count.deliveries);
+        delivery = await prisma.delivery.update({
+          where: { id: delivery.id },
+          data: { agentId: agents[0].id },
+        });
+      }
+    }
+
     // Update marketplace order if linked
-    if (orderId) {
+    if (resolvedOrderId) {
       await prisma.marketplaceOrder.update({
-        where: { id: orderId },
+        where: { id: resolvedOrderId },
         data: {
           trackingNumber,
           logisticsProvider: companyId ? (await prisma.logisticsCompany.findUnique({ where: { id: companyId }, select: { name: true } }))?.name : 'Cosmos Logistics',
@@ -404,6 +531,70 @@ exports.requestDelivery = async (req, res) => {
   } catch (err) {
     console.error('Request delivery error:', err);
     res.status(500).json({ error: err.message || 'Failed to create delivery' });
+  }
+};
+
+/** ERP: deliveries created by this tenant (marketplace / manual requests). */
+exports.listTenantDeliveries = async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const skip = (page - 1) * limit;
+    const { status } = req.query;
+    const where = { tenantId };
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      prisma.delivery.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip,
+        include: {
+          agent: { select: { firstName: true, lastName: true, phone: true } },
+          company: { select: { name: true } },
+        },
+      }),
+      prisma.delivery.count({ where }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    res.json({ data, page, limit, total, totalPages });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to list deliveries' });
+  }
+};
+
+exports.verifyAgentOwnsDelivery = async (req, res, next) => {
+  try {
+    const delivery = await prisma.delivery.findFirst({
+      where: { id: req.params.id, agentId: req.agentId },
+    });
+    if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.uploadProofOfDelivery = async (req, res) => {
+  try {
+    const delivery = await prisma.delivery.findFirst({
+      where: { id: req.params.id, agentId: req.agentId },
+    });
+    if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
+    if (!req.file) return res.status(400).json({ error: 'File required (field name: file). PDF or image.' });
+
+    const { getPodFileUrl } = require('../middleware/upload.middleware');
+    const url = getPodFileUrl(delivery.id, req.file.filename);
+    const updated = await prisma.delivery.update({
+      where: { id: delivery.id },
+      data: { proofOfDelivery: url },
+    });
+    res.json({ data: { proofOfDelivery: url, delivery: updated } });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Upload failed' });
   }
 };
 

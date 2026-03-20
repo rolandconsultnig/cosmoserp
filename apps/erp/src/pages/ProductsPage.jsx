@@ -62,10 +62,91 @@ function CreateProductModal({ onClose }) {
   );
 }
 
+function AdjustStockModal({ product, onClose }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState('');
+  const { data: warehouses } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: () => api.get('/warehouses').then((r) => r.data.data),
+  });
+
+  const [form, setForm] = useState({ warehouseId: '', quantity: 0, type: 'ADJUSTMENT', notes: '' });
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const mutation = useMutation({
+    mutationFn: (payload) => api.post(`/products/${product.id}/stock-adjust`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries(['products']);
+      qc.invalidateQueries(['warehouses']);
+      qc.invalidateQueries(['warehouse-stock']);
+      qc.invalidateQueries(['stock-movements']);
+      onClose();
+    },
+    onError: (e) => setError(e.response?.data?.error || 'Failed'),
+  });
+
+  const canSubmit = form.warehouseId && Number.isFinite(parseInt(form.quantity, 10));
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Adjust Stock</h2>
+            <div className="text-xs text-slate-500 mt-0.5">{product.sku} — {product.name}</div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+        </div>
+
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm mb-3">{error}</div>}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="label">Warehouse *</label>
+            <select value={form.warehouseId} onChange={set('warehouseId')} className="input">
+              <option value="">— Select warehouse —</option>
+              {(warehouses || []).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Type</label>
+            <select value={form.type} onChange={set('type')} className="input">
+              {['ADJUSTMENT', 'IN', 'OUT', 'DAMAGE', 'RETURN'].map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Quantity *</label>
+            <input type="number" value={form.quantity} onChange={set('quantity')} className="input" />
+          </div>
+
+          <div className="col-span-2">
+            <label className="label">Notes</label>
+            <input value={form.notes} onChange={set('notes')} className="input" placeholder="Reason / reference…" />
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-5 justify-end">
+          <button onClick={onClose} className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
+          <button
+            onClick={() => mutation.mutate({ ...form, quantity: parseInt(form.quantity, 10) })}
+            disabled={mutation.isPending || !canSubmit}
+            className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+          >
+            {mutation.isPending ? 'Saving…' : 'Apply Adjustment'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [lowStock, setLowStock] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [adjustProduct, setAdjustProduct] = useState(null);
   const [page, setPage] = useState(1);
   const qc = useQueryClient();
 
@@ -85,6 +166,7 @@ export default function ProductsPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       {showCreate && <CreateProductModal onClose={() => setShowCreate(false)} />}
+      {adjustProduct && <AdjustStockModal product={adjustProduct} onClose={() => setAdjustProduct(null)} />}
       <div className="page-header">
         <div>
           <h1 className="page-title">Products & Inventory</h1>
@@ -119,16 +201,17 @@ export default function ProductsPage() {
                 <th className="text-right px-5 py-3 font-semibold">Total Stock</th>
                 <th className="text-left px-5 py-3 font-semibold">Reorder Point</th>
                 <th className="text-center px-5 py-3 font-semibold">Marketplace</th>
+                <th className="text-right px-5 py-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && [...Array(5)].map((_, i) => (
                 <tr key={i} className="border-b border-slate-50">
-                  {[...Array(7)].map((_, j) => <td key={j} className="px-5 py-3"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>)}
+                  {[...Array(8)].map((_, j) => <td key={j} className="px-5 py-3"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>)}
                 </tr>
               ))}
               {!isLoading && products.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-12 text-slate-400">
+                <tr><td colSpan={8} className="text-center py-12 text-slate-400">
                   No products found. <button onClick={() => setShowCreate(true)} className="text-blue-600">Add your first product</button>
                 </td></tr>
               )}
@@ -161,6 +244,15 @@ export default function ProductsPage() {
                         {p.isMarketplace
                           ? <ToggleRight className="w-6 h-6 text-green-500 mx-auto" />
                           : <ToggleLeft className="w-6 h-6 text-slate-300 mx-auto" />}
+                      </button>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <button
+                        onClick={() => setAdjustProduct(p)}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                        title="Adjust stock"
+                      >
+                        <Package className="w-4 h-4" /> Adjust
                       </button>
                     </td>
                   </tr>

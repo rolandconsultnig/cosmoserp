@@ -9,7 +9,13 @@ const SELL_LINKS  = [
   { label: 'Logistics Partners',  href: '/partners-login' },
   { label: 'NRS Compliance',      href: '#' },
 ];
-const HELP_LINKS  = ['Track Your Order', 'Returns & Refunds', 'Shipping Policy', 'Customer Protection', 'Contact Support'];
+const HELP_LINKS = [
+  { label: 'Track shipment', to: '/track' },
+  { label: 'Returns & Refunds', href: '#' },
+  { label: 'Shipping Policy', href: '#' },
+  { label: 'Customer Protection', href: '#' },
+  { label: 'Contact Support', href: '#' },
+];
 
 export default function Footer() {
   return (
@@ -78,7 +84,13 @@ export default function Footer() {
               <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wider">Help</h3>
               <ul className="space-y-2.5 text-sm">
                 {HELP_LINKS.map((l) => (
-                  <li key={l}><a href="#" className="text-gray-400 hover:text-amber-300 transition-colors">{l}</a></li>
+                  <li key={l.label}>
+                    {l.to ? (
+                      <Link to={l.to} className="text-gray-400 hover:text-amber-300 transition-colors">{l.label}</Link>
+                    ) : (
+                      <a href={l.href} className="text-gray-400 hover:text-amber-300 transition-colors">{l.label}</a>
+                    )}
+                  </li>
                 ))}
               </ul>
             </div>

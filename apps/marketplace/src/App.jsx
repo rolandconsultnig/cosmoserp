@@ -25,6 +25,7 @@ import CustomerSecurityPage from './pages/CustomerSecurityPage';
 import CustomerAddressesPage from './pages/CustomerAddressesPage';
 import CustomerTransportationPage from './pages/CustomerTransportationPage';
 import CustomerTrackGoodsPage from './pages/CustomerTrackGoodsPage';
+import PublicTrackPage from './pages/PublicTrackPage';
 import CustomerBudgetPage from './pages/CustomerBudgetPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import VerifyEmailSentPage from './pages/VerifyEmailSentPage';
@@ -79,6 +80,8 @@ export default function App() {
           <Route path="/verify-email-sent" element={<VerifyEmailSentPage />} />
           <Route path="/partners-login" element={<PartnersLoginPage />} />
           <Route path="/logistics" element={<LogisticsPartnersPage />} />
+          <Route path="/track" element={<PublicTrackPage />} />
+          <Route path="/track/:code" element={<PublicTrackPage />} />
           <Route path="/cart" element={<RequireShopper><CartPage /></RequireShopper>} />
           <Route path="/checkout" element={<RequireShopper><CheckoutPage /></RequireShopper>} />
           <Route path="/order/confirmation/:orderId" element={<RequireShopper><OrderConfirmationPage /></RequireShopper>} />

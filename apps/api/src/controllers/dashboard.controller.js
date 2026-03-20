@@ -16,6 +16,14 @@ async function getTenantDashboard(req, res) {
       totalCustomers, totalEmployees,
       recentInvoices, nrsStats,
       pendingPOs,
+      marketplaceFulfillmentCount,
+      marketplaceDisputedCount,
+      activeDeliveriesCount,
+      payrollPendingApproval,
+      posTxCountThisMonth,
+      posSalesMonth,
+      openPurchaseOrders,
+      openPurchaseOrderValue,
     ] = await Promise.all([
       prisma.invoice.aggregate({ where: { tenantId, status: 'PAID', issueDate: { gte: startOfMonth } }, _sum: { totalAmount: true } }),
       prisma.invoice.aggregate({ where: { tenantId, status: 'PAID', issueDate: { gte: startOfLastMonth, lte: endOfLastMonth } }, _sum: { totalAmount: true } }),
@@ -44,6 +52,48 @@ async function getTenantDashboard(req, res) {
       }),
       prisma.nRSLog.groupBy({ by: ['status'], where: { tenantId }, _count: true }),
       prisma.purchaseOrder.count({ where: { tenantId, status: 'DRAFT' } }),
+      prisma.marketplaceOrder.count({
+        where: {
+          lines: { some: { tenantId } },
+          paymentStatus: 'SUCCESS',
+          status: { in: ['CONFIRMED', 'PROCESSING'] },
+        },
+      }),
+      prisma.marketplaceOrder.count({
+        where: {
+          lines: { some: { tenantId } },
+          status: 'DISPUTED',
+        },
+      }),
+      prisma.delivery.count({
+        where: {
+          tenantId,
+          status: { in: ['PENDING_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'] },
+        },
+      }),
+      prisma.payrollRun.count({ where: { tenantId, status: 'PROCESSING' } }),
+      prisma.pOSSale.count({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: { gte: startOfMonth },
+        },
+      }),
+      prisma.pOSSale.aggregate({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: { gte: startOfMonth },
+        },
+        _sum: { totalAmount: true },
+      }),
+      prisma.purchaseOrder.count({
+        where: { tenantId, status: { in: ['SENT', 'PARTIAL'] } },
+      }),
+      prisma.purchaseOrder.aggregate({
+        where: { tenantId, status: { in: ['SENT', 'PARTIAL'] } },
+        _sum: { totalAmount: true },
+      }),
     ]);
 
     const thisMonthRevenue = parseFloat(totalRevenue._sum.totalAmount || 0);
@@ -75,6 +125,24 @@ async function getTenantDashboard(req, res) {
           pending: nrsStatusMap['PENDING'] || 0,
         },
         recentInvoices,
+        marketplace: {
+          fulfillmentQueue: marketplaceFulfillmentCount,
+          disputed: marketplaceDisputedCount,
+        },
+        logistics: {
+          activeDeliveries: activeDeliveriesCount,
+        },
+        payroll: {
+          pendingApproval: payrollPendingApproval,
+        },
+        pos: {
+          salesThisMonth: parseFloat(posSalesMonth._sum.totalAmount || 0),
+          transactionsThisMonth: posTxCountThisMonth,
+        },
+        procurement: {
+          openPOCount: openPurchaseOrders,
+          openPOValue: parseFloat(openPurchaseOrderValue._sum.totalAmount || 0),
+        },
       },
     });
   } catch (error) {

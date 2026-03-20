@@ -1,8 +1,8 @@
 const router = require('express').Router();
-const { authenticate } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser } = require('../middleware/auth.middleware');
 const pos = require('../controllers/pos.controller');
 
-router.use(authenticate);
+router.use(authenticate, requireTenantUser);
 
 router.post('/sale', pos.createSale);
 router.get('/sales', pos.listSales);

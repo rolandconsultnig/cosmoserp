@@ -3,12 +3,20 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Building2, Shield, Users, CheckCircle, XCircle,
-  ToggleLeft, ToggleRight, Loader2, FileText, Package, UserCheck,
-  Clock, Eye, Ban, MessageSquare, X, Calendar, Globe, Phone,
-  Mail, CreditCard, History, AlertTriangle, ChevronRight,
+  ToggleLeft, ToggleRight, Loader2, FileText,
+  Eye, Ban, MessageSquare, X, Calendar, Globe, Phone,
+  Mail, CreditCard, History, AlertTriangle, LogIn,
 } from 'lucide-react';
 import api from '../lib/api';
+import useAuthStore from '../store/authStore';
 import { formatDate, formatCurrency, getStatusColor, getPlanColor, cn } from '../lib/utils';
+
+function buildErpImpersonateUrl(accessToken) {
+  const raw = import.meta.env.VITE_ERP_URL || 'http://localhost:3060';
+  const trimmed = String(raw).replace(/\/$/, '');
+  const base = trimmed.endsWith('/erp') ? trimmed : `${trimmed}/erp`;
+  return `${base}/impersonate#token=${encodeURIComponent(accessToken)}`;
+}
 
 const KYC_COLORS = {
   PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -31,11 +39,15 @@ function InfoRow({ label, value, icon: Icon }) {
 export default function TenantDetailPage() {
   const { id } = useParams();
   const qc = useQueryClient();
+  const admin = useAuthStore((s) => s.admin);
   const [tab, setTab] = useState('info');
   const [rejectModal, setRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [noteModal, setNoteModal] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [impersonateModal, setImpersonateModal] = useState(false);
+  const [impersonateReason, setImpersonateReason] = useState('');
+  const [impersonateUserId, setImpersonateUserId] = useState('');
 
   const invalidateAll = () => {
     qc.invalidateQueries(['admin-tenant', id]);
@@ -77,6 +89,30 @@ export default function TenantDetailPage() {
     mutationFn: (userId) => api.post(`/admin/tenants/${id}/users/${userId}/toggle`),
     onSuccess: invalidateAll,
   });
+
+  const impersonateMutation = useMutation({
+    mutationFn: async ({ userId, reason }) => {
+      const body = {};
+      if (reason?.trim()) body.reason = reason.trim();
+      if (userId) body.userId = userId;
+      const { data } = await api.post(`/admin/tenants/${id}/impersonate`, body);
+      return data.data;
+    },
+    onSuccess: (payload) => {
+      window.open(buildErpImpersonateUrl(payload.accessToken), '_blank', 'noopener,noreferrer');
+      setImpersonateModal(false);
+      setImpersonateReason('');
+    },
+  });
+
+  const openImpersonateModal = (tenantUsers) => {
+    const users = tenantUsers || [];
+    const owner = users.find((u) => u.role === 'OWNER' && u.isActive);
+    const first = users.find((u) => u.isActive);
+    setImpersonateUserId((owner || first)?.id || '');
+    setImpersonateReason('');
+    setImpersonateModal(true);
+  };
 
   if (isLoading) {
     return (
@@ -428,6 +464,20 @@ export default function TenantDetailPage() {
             </div>
           </div>
 
+          {admin?.role === 'SUPER_ADMIN' && (
+            <div className="bg-white rounded-2xl border border-amber-200 p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <h2 className="text-[14px] font-bold text-slate-900 mb-1">ERP access</h2>
+              <p className="text-[11px] text-slate-500 mb-3">Open the tenant ERP in a new tab as a user. Session is short-lived and audited.</p>
+              <button
+                type="button"
+                onClick={() => openImpersonateModal(t.users)}
+                className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-2 bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200"
+              >
+                <LogIn className="w-4 h-4" /> Impersonate tenant (ERP)
+              </button>
+            </div>
+          )}
+
           {/* Activity Stats */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <h2 className="text-[14px] font-bold text-slate-900 mb-2">Activity Stats</h2>
@@ -496,6 +546,63 @@ export default function TenantDetailPage() {
                 Reject KYC
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Impersonate ERP Modal */}
+      {impersonateModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setImpersonateModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[16px] font-bold text-slate-900">Impersonate tenant</h3>
+              <button type="button" onClick={() => setImpersonateModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[13px] text-slate-500 mb-3">
+              Opens Cosmos ERP in a new browser tab. Choose the user to act as (defaults to owner). Optional reason is stored in the audit log.
+            </p>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">User</label>
+            {(t.users || []).filter((u) => u.isActive).length === 0 ? (
+              <p className="text-[13px] text-red-600 mb-3">No active users — enable a user first.</p>
+            ) : (
+              <select
+                value={impersonateUserId}
+                onChange={(e) => setImpersonateUserId(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-[13px] mb-3"
+              >
+                {(t.users || []).filter((u) => u.isActive).map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.firstName} {u.lastName} ({u.email}) — {u.role}
+                  </option>
+                ))}
+              </select>
+            )}
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Reason (optional)</label>
+            <textarea
+              value={impersonateReason}
+              onChange={(e) => setImpersonateReason(e.target.value)}
+              placeholder="e.g. Support ticket #1234"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-[13px] focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none h-20 mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setImpersonateModal(false)} className="px-4 py-2 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-100">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => impersonateMutation.mutate({ userId: impersonateUserId, reason: impersonateReason })}
+                disabled={!impersonateUserId || impersonateMutation.isPending}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-[13px] font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors"
+              >
+                {impersonateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+                Open ERP
+              </button>
+            </div>
+            {impersonateMutation.isError && (
+              <p className="text-[12px] text-red-600 mt-3">{impersonateMutation.error?.response?.data?.error || impersonateMutation.error?.message || 'Request failed'}</p>
+            )}
           </div>
         </div>
       )}

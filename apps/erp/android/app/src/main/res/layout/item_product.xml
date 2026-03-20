@@ -43,7 +43,7 @@
                 android:text="₦0.00"
                 android:textAppearance="?attr/textAppearanceBody2"
                 android:textColor="?attr/colorPrimary"
-                android:textStyle="black" />
+                android:textStyle="bold" />
 
             <!-- Stock Badge -->
             <TextView

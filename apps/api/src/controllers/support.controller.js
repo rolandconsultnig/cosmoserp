@@ -137,7 +137,7 @@ async function updateTicket(req, res) {
     if (slaDeadline !== undefined) data.slaDeadline = slaDeadline ? new Date(slaDeadline) : null;
 
     const ticket = await prisma.supportTicket.update({
-      where: { id: req.params.id },
+      where: { id: existing.id },
       data,
       include: {
         customer: { select: { id: true, name: true } },

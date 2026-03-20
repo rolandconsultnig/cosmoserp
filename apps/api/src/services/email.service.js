@@ -124,6 +124,114 @@ async function sendVerificationEmail(toEmail, fullName, token) {
 }
 
 /** Password reset email. resetLink should be the full URL to the portal's reset-password page with ?token=... */
+function getMarketplacePublicUrl() {
+  return (process.env.MARKETPLACE_URL || process.env.MARKET_URL || '').replace(/\/$/, '');
+}
+
+function getPublicApiBaseUrl() {
+  return (process.env.API_PUBLIC_URL || process.env.API_URL || '').replace(/\/$/, '');
+}
+
+/**
+ * Email buyer when a logistics delivery reaches a milestone (non-blocking from API).
+ * Set LOGISTICS_CUSTOMER_EMAIL_NOTIFICATIONS=false to disable.
+ */
+async function sendDeliveryStatusUpdateEmail(delivery) {
+  if (process.env.LOGISTICS_CUSTOMER_EMAIL_NOTIFICATIONS === 'false') {
+    return { status: 'skipped', reason: 'disabled' };
+  }
+  const to = (delivery.customerEmail || '').trim();
+  if (!to) return { status: 'skipped', reason: 'no_email' };
+
+  const milestones = ['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED'];
+  if (!milestones.includes(delivery.status)) {
+    return { status: 'skipped', reason: 'not_milestone' };
+  }
+
+  const copy = {
+    IN_TRANSIT: {
+      subject: 'Your shipment is on the way',
+      headline: 'In transit',
+      body: 'Your package has been picked up and is on the way to the delivery address.',
+    },
+    OUT_FOR_DELIVERY: {
+      subject: 'Out for delivery today',
+      headline: 'Almost there',
+      body: 'Your package is out for delivery. Please keep your phone available for the courier.',
+    },
+    DELIVERED: {
+      subject: 'Delivered — thank you',
+      headline: 'Delivered',
+      body: 'Your package has been marked as delivered. If something is wrong, contact the seller or support.',
+    },
+    FAILED: {
+      subject: 'Delivery update — action may be needed',
+      headline: 'Delivery issue',
+      body: delivery.failureReason
+        ? `We could not complete delivery: ${delivery.failureReason}`
+        : 'We could not complete this delivery. The sender or support may contact you with next steps.',
+    },
+  }[delivery.status];
+
+  const mkt = getMarketplacePublicUrl();
+  const apiBase = getPublicApiBaseUrl();
+  const trackUrl = mkt
+    ? `${mkt}/track/${encodeURIComponent(delivery.trackingNumber)}`
+    : (apiBase
+      ? `${apiBase}/api/logistics/track/${encodeURIComponent(delivery.trackingNumber)}`
+      : null);
+
+  const linkBlock = trackUrl
+    ? `<p><a href="${trackUrl}" style="color:#2563eb;font-weight:bold;">Track your shipment</a></p>`
+    : '';
+
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+  <h2>${copy.headline}</h2>
+  <p>Hi ${delivery.customerName || 'there'},</p>
+  <p>${copy.body}</p>
+  <p><strong>Tracking:</strong> ${delivery.trackingNumber}</p>
+  ${linkBlock}
+  <p style="margin-top:24px;color:#64748b;">— Cosmos Logistics (${PLATFORM_EMAIL})</p>
+  </body></html>`;
+
+  const text = `${copy.headline}\n\n${copy.body}\n\nTracking: ${delivery.trackingNumber}${trackUrl ? `\n\nTrack: ${trackUrl}` : ''}\n\n— Cosmos Logistics`;
+
+  return sendMail({ to, subject: copy.subject, text, html });
+}
+
+function escapeHtmlLite(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Notify tenant email when a payroll run is approved (opt-out: PAYROLL_APPROVAL_EMAIL_NOTIFICATIONS=false). */
+async function sendPayrollApprovalNotificationEmail(toEmail, tenantName, run, approvalNote) {
+  if (process.env.PAYROLL_APPROVAL_EMAIL_NOTIFICATIONS === 'false') {
+    return { status: 'skipped', reason: 'disabled' };
+  }
+  if (!toEmail?.trim()) return { status: 'skipped', reason: 'no_recipient' };
+
+  const period = run.period || `${run.month}/${run.year}`;
+  const net = formatCurrency(run.totalNet);
+  const noteBlock = approvalNote
+    ? `<p><strong>Approval note:</strong> ${escapeHtmlLite(approvalNote)}</p>`
+    : '';
+
+  const subject = `Payroll approved — ${period} (${tenantName || 'Cosmos ERP'})`;
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+  <h2>Payroll run approved</h2>
+  <p>A payroll run for <strong>${period}</strong> has been approved in Cosmos ERP.</p>
+  <p><strong>Total net pay:</strong> ${net}</p>
+  ${noteBlock}
+  <p style="margin-top:20px;color:#64748b;">You can download NIBSS / payslips from the Payroll screen. — ${PLATFORM_EMAIL}</p>
+  </body></html>`;
+  const text = `Payroll approved for ${period}. Total net: ${run.totalNet}.${approvalNote ? `\nNote: ${approvalNote}` : ''}`;
+  return sendMail({ to: toEmail.trim(), subject, text, html });
+}
+
 async function sendPasswordResetEmail(toEmail, name, resetLink, portalLabel) {
   const subject = `Reset your password – Cosmos ERP${portalLabel ? ` (${portalLabel})` : ''}`;
   const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
@@ -146,5 +254,7 @@ module.exports = {
   sendInvoiceEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendDeliveryStatusUpdateEmail,
+  sendPayrollApprovalNotificationEmail,
   PLATFORM_EMAIL,
 };

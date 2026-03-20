@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 
-router.use(authenticate);
+router.use(authenticate, requireTenantUser);
 
 router.get('/filings', async (req, res) => {
   try {

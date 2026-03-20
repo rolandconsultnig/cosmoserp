@@ -4,12 +4,13 @@ import {
   LayoutDashboard, FileText, FileCheck, Package, Users, Truck,
   Warehouse, ShoppingCart, UserSquare, DollarSign, Building2,
   Shield, BarChart3, Settings, LogOut, ChevronLeft, ChevronRight,
-  Bell, Search, Menu, X, Receipt, Headphones, Zap, ShieldCheck
+  Bell, Search, Menu, X, Receipt, Headphones, Zap, ShieldCheck, Store,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
 
-const navGroups = [
+function buildNavGroups(isMarketplaceSeller) {
+  const groups = [
   {
     label: 'Overview',
     items: [
@@ -25,6 +26,16 @@ const navGroups = [
       { to: '/customers',icon: Users,     label: 'Customers' },
     ],
   },
+  ];
+  if (isMarketplaceSeller) {
+    groups.push({
+      label: 'Marketplace',
+      items: [
+        { to: '/marketplace-orders', icon: Store, label: 'Market orders' },
+      ],
+    });
+  }
+  groups.push(
   {
     label: 'Inventory',
     items: [
@@ -32,6 +43,12 @@ const navGroups = [
       { to: '/warehouses', icon: Warehouse, label: 'Warehouses' },
       { to: '/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
       { to: '/suppliers', icon: Truck, label: 'Suppliers' },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { to: '/shipments', icon: Truck, label: 'Shipments' },
     ],
   },
   {
@@ -62,13 +79,16 @@ const navGroups = [
       { to: '/settings', icon: Settings, label: 'Settings' },
     ],
   },
-];
+  );
+  return groups;
+}
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, tenant, logout } = useAuthStore();
+  const { user, tenant, logout, impersonation } = useAuthStore();
   const navigate = useNavigate();
+  const navGroups = buildNavGroups(!!tenant?.isMarketplaceSeller);
 
   const handleLogout = async () => {
     await logout();
@@ -169,6 +189,11 @@ export default function AppLayout() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {impersonation?.impersonatedByAdminId && (
+          <div className="flex-shrink-0 bg-amber-500 text-amber-950 text-center text-xs font-bold py-2 px-4">
+            You are viewing this account as a tenant user — admin impersonation session. All actions are audited.
+          </div>
+        )}
         {/* Top bar */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center gap-4 px-4 flex-shrink-0">
           <button className="lg:hidden text-slate-500" onClick={() => setMobileOpen(true)}>

@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, FileText, Package, Users, AlertTriangle, ShieldCheck, ShieldX, Clock, ArrowRight } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, FileText, Package, Users, AlertTriangle, ShieldCheck, ShieldX, Clock,
+  ArrowRight, Truck, BarChart3, Banknote, ScanLine, ClipboardList,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
 import { formatCurrency, formatDate, getStatusColor, cn } from '../lib/utils';
@@ -104,6 +107,100 @@ export default function DashboardPage() {
           sub={`${d.customers || 0} customers`}
           icon={Users} iconBg="bg-green-600"
         />
+      </div>
+
+      {/* Module shortcuts: marketplace, logistics, reports (#86) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {tenant?.isMarketplaceSeller ? (
+          <Link
+            to="/marketplace-orders"
+            className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-4 flex items-center gap-3 transition hover:shadow-md"
+          >
+            <Package className="w-6 h-6 text-indigo-600" />
+            <div>
+              <div className="text-sm font-semibold text-slate-800">Marketplace</div>
+              <div className="text-xs text-slate-600">
+                {d.marketplace?.fulfillmentQueue || 0} to fulfill
+                {(d.marketplace?.disputed || 0) > 0 && (
+                  <span className="text-orange-700 font-medium"> · {d.marketplace.disputed} disputed</span>
+                )}
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+          </Link>
+        ) : (
+          <Link to="/products" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
+            <Package className="w-6 h-6 text-slate-400" />
+            <div>
+              <div className="text-sm font-semibold text-slate-800">Cosmos Market</div>
+              <div className="text-xs text-slate-500">Publish products to sell online</div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+          </Link>
+        )}
+        <Link to="/shipments" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
+          <Truck className="w-6 h-6 text-sky-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Shipments</div>
+            <div className="text-xs text-slate-600">{d.logistics?.activeDeliveries || 0} active deliveries</div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
+        <Link to="/reports" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
+          <BarChart3 className="w-6 h-6 text-emerald-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Reports</div>
+            <div className="text-xs text-slate-600">P&amp;L, balance sheet, CSV</div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
+      </div>
+
+      {/* Payroll / POS / Procurement (#86) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Link
+          to="/payroll"
+          className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition"
+        >
+          <Banknote className="w-6 h-6 text-violet-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Payroll</div>
+            <div className="text-xs text-slate-600">
+              {(d.payroll?.pendingApproval || 0) > 0
+                ? `${d.payroll.pendingApproval} run(s) awaiting approval`
+                : 'No runs pending approval'}
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
+        <Link
+          to="/pos"
+          className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition"
+        >
+          <ScanLine className="w-6 h-6 text-teal-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">POS</div>
+            <div className="text-xs text-slate-600">
+              {formatCurrency(d.pos?.salesThisMonth || 0)} this month
+              <span className="text-slate-400"> · {d.pos?.transactionsThisMonth || 0} sales</span>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
+        <Link
+          to="/purchase-orders"
+          className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition"
+        >
+          <ClipboardList className="w-6 h-6 text-orange-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Purchase orders</div>
+            <div className="text-xs text-slate-600">
+              {(d.procurement?.openPOCount || 0)} open (sent/partial)
+              <span className="text-slate-400"> · {formatCurrency(d.procurement?.openPOValue || 0)}</span>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
       </div>
 
       {/* NRS + Pending POs row */}

@@ -150,9 +150,28 @@ async function me(req, res) {
     }
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      include: { tenant: true },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        permissions: true,
+        isActive: true,
+        lastLoginAt: true,
+        createdAt: true,
+        tenantId: true,
+        tenant: true,
+      },
     });
-    res.json({ user, type: 'user' });
+    res.json({
+      user,
+      type: 'user',
+      impersonation: req.impersonatedByAdminId
+        ? { impersonatedByAdminId: req.impersonatedByAdminId }
+        : null,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch user' });
   }

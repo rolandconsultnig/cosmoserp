@@ -23,9 +23,15 @@
         </activity>
 
         <activity
+            android:name=".DashboardActivity"
+            android:label="Dashboard"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:exported="false" />
+
+        <activity
             android:name=".MainActivity"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
-            android:label="@string/title_activity_main"
+            android:label="Point of Sale"
             android:theme="@style/AppTheme.NoActionBar"
             android:launchMode="singleTask"
             android:exported="false" />

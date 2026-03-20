@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const support = require('../controllers/support.controller');
-const { authenticate } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser } = require('../middleware/auth.middleware');
 
-router.use(authenticate);
+router.use(authenticate, requireTenantUser);
 
 router.get('/stats', support.getStats);
 

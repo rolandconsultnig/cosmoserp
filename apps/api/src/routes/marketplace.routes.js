@@ -26,6 +26,7 @@ router.post('/customer/avatar', authenticateMarketplace, (req, res, next) => {
 }, customerCtrl.uploadAvatar);
 router.get('/customer/orders', authenticateMarketplace, customerCtrl.listMyOrders);
 router.get('/customer/orders/:id', authenticateMarketplace, customerCtrl.getMyOrder);
+router.post('/customer/orders/:id/dispute', authenticateMarketplace, customerCtrl.openOrderDispute);
 router.get('/customer/addresses', authenticateMarketplace, customerCtrl.listAddresses);
 router.post('/customer/addresses', authenticateMarketplace, customerCtrl.upsertAddress);
 router.put('/customer/addresses/:id', authenticateMarketplace, customerCtrl.upsertAddress);
@@ -62,9 +63,9 @@ router.get('/listings/:idOrSlug', ctrl.getListing);
 router.get('/stores/:tenantId', ctrl.getSellerStore);
 router.post('/listings/:id/reviews', ctrl.addReview);
 router.post('/orders', ctrl.createOrder);
-router.post('/orders/:id/pay', ctrl.initiatePayment);
+router.post('/orders/:id/pay', authenticateMarketplace, ctrl.initiatePayment);
 router.get('/orders/verify', ctrl.verifyPayment);
-router.get('/orders/:id', ctrl.getOrder);
+router.get('/orders/:id', authenticateMarketplace, ctrl.getOrder);
 router.get('/shipping-rates', ctrl.getShippingRates);
 
 module.exports = router;

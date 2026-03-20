@@ -1,8 +1,40 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, CheckCircle, Download, Loader2, BadgeCheck, Ban, FileSpreadsheet } from 'lucide-react';
+import { Play, CheckCircle, Download, Loader2, BadgeCheck, Ban, FileSpreadsheet, Printer } from 'lucide-react';
 import api from '../lib/api';
-import { formatCurrency, formatDate, getStatusColor, cn } from '../lib/utils';
+import { formatCurrency, getStatusColor, cn } from '../lib/utils';
+
+function apiOrigin() {
+  const raw = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+    ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '')
+    : '';
+  return raw || '';
+}
+
+async function openPayslipPrint(runId, payslipId) {
+  const token = localStorage.getItem('accessToken');
+  const path = `/payroll/${runId}/payslips/${payslipId}/print`;
+  const url = apiOrigin() ? `${apiOrigin()}${path}` : `/api${path}`;
+  try {
+    const res = await fetch(url, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      window.alert(err.error || `Could not open payslip (${res.status})`);
+      return;
+    }
+    const html = await res.text();
+    const w = window.open('', '_blank', 'noopener,noreferrer');
+    if (!w) {
+      window.alert('Allow pop-ups to view the payslip, or try again.');
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+  } catch (e) {
+    window.alert(e?.message || 'Failed to load payslip');
+  }
+}
 
 export default function PayrollPage() {
   const qc = useQueryClient();
@@ -11,6 +43,7 @@ export default function PayrollPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
   const [selectedRun, setSelectedRun] = useState(null);
+  const [approveNote, setApproveNote] = useState('');
 
   const { data: summary } = useQuery({
     queryKey: ['payroll-summary', year],
@@ -182,13 +215,29 @@ export default function PayrollPage() {
               </div>
 
               {/* Action buttons */}
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {runDetail.status === 'PROCESSING' && (
-                  <button onClick={() => approveMutation.mutate(runDetail.id)} disabled={approveMutation.isPending}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
-                    {approveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                    Approve Payroll
-                  </button>
+                  <div className="flex flex-col gap-2 w-full sm:w-auto">
+                    <div className="w-full max-w-md">
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">Approval note (optional — stored in audit log)</label>
+                      <textarea
+                        value={approveNote}
+                        onChange={(e) => setApproveNote(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. Board sign-off ref, finance ticket…"
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => approveMutation.mutate({ id: runDetail.id, note: approveNote })}
+                      disabled={approveMutation.isPending}
+                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition w-fit"
+                    >
+                      {approveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                      Approve Payroll
+                    </button>
+                  </div>
                 )}
                 {runDetail.status === 'APPROVED' && (
                   <button onClick={() => markPaidMutation.mutate(runDetail.id)} disabled={markPaidMutation.isPending}
@@ -231,6 +280,7 @@ export default function PayrollPage() {
                         <th className="text-right px-4 py-2 font-semibold">Pension</th>
                         <th className="text-right px-4 py-2 font-semibold">NHF</th>
                         <th className="text-right px-4 py-2 font-semibold">Net Pay</th>
+                        <th className="text-right px-4 py-2 font-semibold">Payslip</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -245,6 +295,15 @@ export default function PayrollPage() {
                           <td className="px-4 py-2.5 text-right text-orange-600">-{formatCurrency(slip.employeePension)}</td>
                           <td className="px-4 py-2.5 text-right text-orange-500">-{formatCurrency(slip.nhf)}</td>
                           <td className="px-4 py-2.5 text-right font-bold text-green-700">{formatCurrency(slip.netPay)}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => openPayslipPrint(runDetail.id, slip.id)}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                            >
+                              <Printer className="w-3.5 h-3.5" /> Print / PDF
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

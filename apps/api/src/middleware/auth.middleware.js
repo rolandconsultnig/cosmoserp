@@ -40,6 +40,19 @@ async function authenticate(req, res, next) {
       }
       req.user = user;
       req.tenantId = user.tenantId;
+
+      if (decoded.impersonatedByAdminId) {
+        const impersonator = await prisma.adminUser.findUnique({
+          where: { id: decoded.impersonatedByAdminId },
+        });
+        if (!impersonator || !impersonator.isActive) {
+          return res.status(401).json({
+            error: 'Impersonation is no longer valid',
+            code: 'IMPERSONATION_REVOKED',
+          });
+        }
+        req.impersonatedByAdminId = decoded.impersonatedByAdminId;
+      }
     }
     next();
   } catch (err) {
@@ -55,11 +68,35 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireTenantUser(req, res, next) {
+  if (req.isAdmin) return res.status(403).json({ error: 'Tenant user access required' });
+  if (!req.user || !req.tenantId) return res.status(401).json({ error: 'Authentication required' });
+  next();
+}
+
 function requireRole(...roles) {
   return (req, res, next) => {
     if (req.isAdmin) return next();
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ error: `Required role: ${roles.join(' or ')}` });
+    }
+    next();
+  };
+}
+
+function requirePermission(...required) {
+  return (req, res, next) => {
+    if (req.isAdmin) return next();
+    if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+
+    // Role-level overrides
+    if (req.user.role === 'OWNER') return next();
+    if (req.user.role === 'ADMIN') return next();
+
+    const perms = Array.isArray(req.user.permissions) ? req.user.permissions : [];
+    const ok = required.every((p) => perms.includes(p));
+    if (!ok) {
+      return res.status(403).json({ error: 'Insufficient permissions', code: 'PERMISSION_REQUIRED' });
     }
     next();
   };
@@ -85,4 +122,4 @@ function authenticateMarketplace(req, res, next) {
   });
 }
 
-module.exports = { authenticate, authenticateMarketplace, requireAdmin, requireRole, requireKYC };
+module.exports = { authenticate, authenticateMarketplace, requireAdmin, requireTenantUser, requireRole, requirePermission, requireKYC };

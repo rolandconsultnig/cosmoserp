@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/product.controller');
-const { authenticate, requireRole } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
 
-router.use(authenticate);
+router.use(authenticate, requireTenantUser);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);
 router.post('/', requireRole('OWNER','ADMIN','WAREHOUSE'), ctrl.create);

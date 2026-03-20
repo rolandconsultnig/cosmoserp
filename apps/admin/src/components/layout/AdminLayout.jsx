@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Shield, BarChart3, ClipboardList,
   Store, LogOut, ChevronLeft, ChevronRight, Bell, Activity, Truck,
-  CreditCard, Users, DollarSign, Briefcase, ShoppingCart, Headphones, MessageCircle, Settings,
+  CreditCard, Users, DollarSign, Briefcase, ShoppingCart, Headphones, MessageCircle, Settings, Lock,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
@@ -25,6 +25,7 @@ const NAV_SECTIONS = [
       { to: '/hr-payroll',  icon: Briefcase,    label: 'HR & Payroll' },
       { to: '/pos',         icon: ShoppingCart,  label: 'POS' },
       { to: '/marketplace', icon: Store,         label: 'Marketplace' },
+      { to: '/marketplace-escrow', icon: Lock,     label: 'Market Escrow' },
       { to: '/logistics',   icon: Truck,         label: 'Logistics' },
     ],
   },

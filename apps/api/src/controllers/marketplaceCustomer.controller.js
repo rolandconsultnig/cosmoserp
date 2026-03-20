@@ -264,6 +264,49 @@ async function getMyOrder(req, res) {
   }
 }
 
+/** Buyer-initiated dispute (mirrors seller flow; freezes escrow flag). */
+async function openOrderDispute(req, res) {
+  try {
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason) return res.status(400).json({ error: 'Reason is required' });
+
+    const order = await prisma.marketplaceOrder.findFirst({
+      where: { id: req.params.id, buyerEmail: req.customer.email },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status === 'DISPUTED') {
+      return res.status(400).json({ error: 'This order is already disputed' });
+    }
+    if (['CANCELLED', 'REFUNDED'].includes(order.status)) {
+      return res.status(400).json({ error: 'Cannot dispute this order' });
+    }
+    if (order.paymentStatus !== 'SUCCESS') {
+      return res.status(400).json({ error: 'Disputes are available after payment is completed' });
+    }
+
+    const stamp = new Date().toISOString();
+    const line = `[BUYER_DISPUTE ${stamp}] ${reason}`;
+    const notes = order.notes ? `${order.notes}\n${line}` : line;
+
+    const updated = await prisma.marketplaceOrder.update({
+      where: { id: order.id },
+      data: {
+        status: 'DISPUTED',
+        escrowStatus: 'DISPUTED',
+        notes,
+      },
+    });
+
+    res.json({
+      data: { id: updated.id, status: updated.status, escrowStatus: updated.escrowStatus },
+      message: 'Dispute opened. Our support team will review your case.',
+    });
+  } catch (error) {
+    logger.error('Marketplace customer openOrderDispute error:', error);
+    res.status(500).json({ error: 'Failed to open dispute' });
+  }
+}
+
 async function verifyEmail(req, res) {
   try {
     if (isMarketplaceEmailVerificationDisabled()) {
@@ -548,6 +591,7 @@ module.exports = {
   updateProfile,
   listMyOrders,
   getMyOrder,
+  openOrderDispute,
   listAddresses,
   upsertAddress,
   deleteAddress,

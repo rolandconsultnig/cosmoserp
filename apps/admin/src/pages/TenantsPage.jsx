@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Search, Building2, CheckCircle, XCircle, Loader2, ChevronRight,
-  SlidersHorizontal, Users, Shield, Clock, AlertTriangle, Eye,
-  ChevronLeft, X, ArrowUpDown, FileText, Ban, ToggleLeft, ToggleRight,
+  Users, Shield, Clock, AlertTriangle, Eye,
+  ChevronLeft, X, FileText, Ban, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate, getStatusColor, getPlanColor, cn } from '../lib/utils';

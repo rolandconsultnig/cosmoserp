@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, X, Loader2 } from 'lucide-react';
+import { Plus, Search, X, Loader2, KeyRound } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 
@@ -79,7 +79,11 @@ function EmployeeModal({ onClose }) {
 
         <div className="flex gap-3 mt-5 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
-          <button onClick={() => mutation.mutate({ ...form, grossSalary: parseFloat(form.grossSalary) })} disabled={mutation.isPending}
+          <button onClick={() => mutation.mutate({
+            ...form,
+            grossSalary: parseFloat(form.grossSalary),
+            employmentDate: form.hireDate || new Date().toISOString().split('T')[0],
+          })} disabled={mutation.isPending}
             className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
             {mutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Add Employee
           </button>
@@ -90,10 +94,24 @@ function EmployeeModal({ onClose }) {
 }
 
 export default function EmployeesPage() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState('');
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
+
+  const portalMut = useMutation({
+    mutationFn: (id) => api.post(`/employees/${id}/portal-access`),
+    onSuccess: (res) => {
+      qc.invalidateQueries(['employees']);
+      const token = res.data?.data?.token;
+      if (token) {
+        const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+        const url = `${window.location.origin}${base}/employee-portal?t=${encodeURIComponent(token)}`;
+        window.prompt('Employee portal link (90 days). Copy and send securely:', url);
+      }
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees', page, search, department],
@@ -131,11 +149,12 @@ export default function EmployeesPage() {
                 <th className="text-right px-5 py-3 font-semibold">Gross Salary</th>
                 <th className="text-left px-5 py-3 font-semibold">Hire Date</th>
                 <th className="text-left px-5 py-3 font-semibold">Bank</th>
+                <th className="text-right px-5 py-3 font-semibold">Portal</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && [...Array(5)].map((_, i) => (<tr key={i} className="border-b border-slate-50">{[...Array(7)].map((_, j) => <td key={j} className="px-5 py-3"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>)}</tr>))}
-              {!isLoading && employees.length === 0 && (<tr><td colSpan={7} className="text-center py-12 text-slate-400">No employees yet. <button onClick={() => setShowCreate(true)} className="text-blue-600">Add your first employee</button></td></tr>)}
+              {isLoading && [...Array(5)].map((_, i) => (<tr key={i} className="border-b border-slate-50">{[...Array(8)].map((_, j) => <td key={j} className="px-5 py-3"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>)}</tr>))}
+              {!isLoading && employees.length === 0 && (<tr><td colSpan={8} className="text-center py-12 text-slate-400">No employees yet. <button onClick={() => setShowCreate(true)} className="text-blue-600">Add your first employee</button></td></tr>)}
               {employees.map((emp) => (
                 <tr key={emp.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                   <td className="px-5 py-3">
@@ -153,8 +172,20 @@ export default function EmployeesPage() {
                   <td className="px-5 py-3"><div className="text-slate-700">{emp.jobTitle}</div><div className="text-xs text-slate-400">{emp.department}</div></td>
                   <td className="px-5 py-3"><span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', emp.employmentType === 'FULL_TIME' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600')}>{emp.employmentType?.replace('_', ' ')}</span></td>
                   <td className="px-5 py-3 text-right font-semibold">{formatCurrency(emp.grossSalary)}</td>
-                  <td className="px-5 py-3 text-slate-500">{formatDate(emp.hireDate)}</td>
+                  <td className="px-5 py-3 text-slate-500">{formatDate(emp.employmentDate || emp.hireDate)}</td>
                   <td className="px-5 py-3"><div className="text-slate-600 text-xs">{emp.bankName}</div><div className="text-xs text-slate-400 font-mono">{emp.bankAccountNumber ? '•••• ' + emp.bankAccountNumber.slice(-4) : '—'}</div></td>
+                  <td className="px-5 py-3 text-right">
+                    <button
+                      type="button"
+                      title="Generate 90-day portal link"
+                      disabled={portalMut.isPending || !emp.isActive}
+                      onClick={() => portalMut.mutate(emp.id)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+                    >
+                      {portalMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <KeyRound className="w-3 h-3" />}
+                      Link
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

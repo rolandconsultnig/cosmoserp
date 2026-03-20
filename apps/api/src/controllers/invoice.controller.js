@@ -6,6 +6,17 @@ const nrsService = require('../services/nrs.service');
 const pdfService = require('../services/pdf.service');
 const whatsappService = require('../services/whatsapp.service');
 
+/** Invoice header/amount is frozen after these statuses */
+const IMMUTABLE_INVOICE_STATUSES = ['PAID', 'CREDITED', 'CANCELLED'];
+/** Cannot record customer payments against these */
+const NON_PAYABLE_STATUSES = ['CANCELLED', 'CREDITED'];
+/** Cannot distribute / send as active invoice */
+const NON_SENDABLE_STATUSES = ['CANCELLED', 'CREDITED'];
+
+function num(v) {
+  return roundDecimal(parseFloat(v == null ? 0 : v));
+}
+
 async function list(req, res) {
   try {
     const { page, limit, status, customerId, from, to, search } = req.query;
@@ -123,7 +134,9 @@ async function create(req, res) {
       });
 
       if (quoteId) {
-        await tx.quote.update({ where: { id: quoteId }, data: { status: 'CONVERTED' } });
+        const quote = await tx.quote.findFirst({ where: { id: quoteId, tenantId: req.tenantId }, select: { id: true } });
+        if (!quote) throw new Error('Quote not found');
+        await tx.quote.update({ where: { id: quote.id }, data: { status: 'CONVERTED' } });
       }
 
       if (customer.creditLimit > 0) {
@@ -155,12 +168,30 @@ async function update(req, res) {
   try {
     const invoice = await prisma.invoice.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-    if (!['DRAFT'].includes(invoice.status)) {
-      return res.status(400).json({ error: 'Only draft invoices can be edited' });
+    if (IMMUTABLE_INVOICE_STATUSES.includes(invoice.status)) {
+      return res.status(409).json({
+        error: `Invoice is ${invoice.status} and cannot be modified`,
+        code: 'INVOICE_IMMUTABLE',
+      });
+    }
+    const data = {};
+    if (req.body.notes !== undefined) data.notes = req.body.notes;
+    if (req.body.terms !== undefined) data.terms = req.body.terms;
+    if (req.body.dueDate !== undefined) {
+      if (invoice.status !== 'DRAFT') {
+        return res.status(422).json({
+          error: 'Due date can only be changed while the invoice is in DRAFT',
+          code: 'DUE_DATE_LOCKED',
+        });
+      }
+      data.dueDate = new Date(req.body.dueDate);
+    }
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'No allowed fields to update', code: 'NO_CHANGES' });
     }
     const updated = await prisma.invoice.update({
       where: { id: invoice.id },
-      data: { notes: req.body.notes, terms: req.body.terms, dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined },
+      data,
       include: { lines: true, customer: true },
     });
     res.json({ data: updated });
@@ -177,6 +208,12 @@ async function sendInvoice(req, res) {
       include: { customer: true, lines: true },
     });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (NON_SENDABLE_STATUSES.includes(invoice.status)) {
+      return res.status(422).json({
+        error: 'Cannot send an invoice that is cancelled or credited',
+        code: 'INVOICE_NOT_SENDABLE',
+      });
+    }
 
     // Generate PDF
     const pdfPath = await pdfService.generateInvoicePDF(invoice, req.tenantId);
@@ -201,6 +238,12 @@ async function sendWhatsApp(req, res) {
       include: { customer: true },
     });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (NON_SENDABLE_STATUSES.includes(invoice.status)) {
+      return res.status(422).json({
+        error: 'Cannot send an invoice that is cancelled or credited',
+        code: 'INVOICE_NOT_SENDABLE',
+      });
+    }
     if (!invoice.customer.whatsapp) {
       return res.status(400).json({ error: 'Customer WhatsApp number not configured' });
     }
@@ -216,15 +259,51 @@ async function sendWhatsApp(req, res) {
 async function recordPayment(req, res) {
   try {
     const { amount, method, reference, paidAt, notes } = req.body;
-    const invoice = await prisma.invoice.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId },
+      include: { customer: true },
+    });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-    if (invoice.status === 'PAID') return res.status(400).json({ error: 'Invoice already paid' });
+    if (NON_PAYABLE_STATUSES.includes(invoice.status)) {
+      return res.status(422).json({
+        error: 'Cannot record payment on a cancelled or credited invoice',
+        code: 'INVOICE_NOT_PAYABLE',
+      });
+    }
 
-    const paymentAmount = roundDecimal(parseFloat(amount));
-    if (paymentAmount <= 0) return res.status(400).json({ error: 'Payment amount must be positive' });
+    const paymentAmount = num(amount);
+    if (paymentAmount <= 0) {
+      return res.status(422).json({ error: 'Payment amount must be positive', code: 'INVALID_PAYMENT_AMOUNT' });
+    }
 
-    const newAmountPaid = roundDecimal(parseFloat(invoice.amountPaid) + paymentAmount);
-    const newAmountDue = roundDecimal(parseFloat(invoice.totalAmount) - newAmountPaid);
+    const total = num(invoice.totalAmount);
+    const alreadyPaid = num(invoice.amountPaid);
+    /** Authoritative remaining balance (avoids stale amountDue) */
+    const maxPayable = roundDecimal(total - alreadyPaid);
+
+    if (invoice.status === 'PAID' || maxPayable <= 0) {
+      return res.status(409).json({
+        error: 'Invoice is already fully paid',
+        code: 'INVOICE_ALREADY_PAID',
+        amountDue: 0,
+        totalAmount: total,
+        amountPaid: alreadyPaid,
+      });
+    }
+
+    if (paymentAmount > maxPayable) {
+      return res.status(422).json({
+        error: 'Payment amount exceeds amount due',
+        code: 'PAYMENT_EXCEEDS_DUE',
+        amountDue: maxPayable,
+        attemptedAmount: paymentAmount,
+        totalAmount: total,
+        amountPaid: alreadyPaid,
+      });
+    }
+
+    const newAmountPaid = roundDecimal(alreadyPaid + paymentAmount);
+    const newAmountDue = roundDecimal(total - newAmountPaid);
     const newStatus = newAmountDue <= 0 ? 'PAID' : newAmountPaid > 0 ? 'PARTIAL' : invoice.status;
 
     await prisma.$transaction(async (tx) => {
@@ -265,6 +344,12 @@ async function submitToNRS(req, res) {
   try {
     const invoice = await prisma.invoice.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (['CANCELLED', 'CREDITED'].includes(invoice.status)) {
+      return res.status(422).json({
+        error: 'Cannot submit a cancelled or credited invoice to NRS',
+        code: 'INVOICE_NOT_NRS_ELIGIBLE',
+      });
+    }
     const result = await nrsService.submitInvoice(invoice.id, req.tenantId);
     res.json({ data: result });
   } catch (error) {

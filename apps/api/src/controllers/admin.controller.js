@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 const { createAuditLog } = require('../middleware/audit.middleware');
+const jwt = require('jsonwebtoken');
 
 async function getNRSLogs(req, res) {
   try {
@@ -34,6 +35,79 @@ async function getNRSLogs(req, res) {
     res.json(paginatedResponse(data, total, page, limit));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch NRS logs' });
+  }
+}
+
+async function impersonateTenant(req, res) {
+  try {
+    if (!process.env.JWT_SECRET) {
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
+    }
+
+    if (req.admin.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Only super administrators can impersonate tenant users' });
+    }
+
+    const tenantId = req.params.tenantId;
+    const { userId, reason } = req.body || {};
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { id: true, businessName: true, isActive: true } });
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    let user;
+    if (userId) {
+      user = await prisma.user.findFirst({
+        where: { id: userId, tenantId },
+        select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, tenantId: true },
+      });
+      if (!user) return res.status(404).json({ error: 'User not found for this tenant' });
+    } else {
+      user = await prisma.user.findFirst({
+        where: { tenantId, role: 'OWNER', isActive: true },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, tenantId: true },
+      });
+      if (!user) {
+        user = await prisma.user.findFirst({
+          where: { tenantId, isActive: true },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, tenantId: true },
+        });
+      }
+      if (!user) return res.status(404).json({ error: 'No active users found for this tenant' });
+    }
+
+    if (!user.isActive) return res.status(403).json({ error: 'Cannot impersonate an inactive user' });
+
+    const expiresIn = process.env.ADMIN_IMPERSONATION_EXPIRES_IN || '15m';
+    const accessToken = jwt.sign(
+      { id: user.id, tenantId: user.tenantId, role: user.role, type: 'user', impersonatedByAdminId: req.admin.id },
+      process.env.JWT_SECRET,
+      { expiresIn }
+    );
+
+    await createAuditLog({
+      adminUserId: req.admin.id,
+      tenantId,
+      action: 'IMPERSONATE',
+      resource: 'User',
+      resourceId: user.id,
+      newValues: { tenantId, userId: user.id, reason, expiresIn },
+      metadata: { impersonation: true, targetUserId: user.id, reason: reason || null },
+      req,
+    });
+
+    res.json({
+      data: {
+        accessToken,
+        expiresIn,
+        tenant: { id: tenant.id, businessName: tenant.businessName, isActive: tenant.isActive },
+        user,
+      },
+    });
+  } catch (error) {
+    logger.error('Impersonate tenant error:', error);
+    res.status(500).json({ error: 'Failed to impersonate tenant user' });
   }
 }
 
@@ -1143,4 +1217,5 @@ module.exports = {
   getSupportStats, listAllTickets, updateTicketStatus, addTicketComment, getTicketDetail, escalateTicket,
   listAdminUsers, updateAdminUser, getTenantUsers, toggleUserStatus,
   getPlatformSettings, updatePlatformSettings, updateFeatureFlags, updateMaintenanceMode,
+  impersonateTenant,
 };

@@ -466,6 +466,7 @@ export default function POSPage() {
   const { user, tenant } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+  const searchRef = useRef(null);
 
   /* ── Product catalog state ── */
   const [search, setSearch]             = useState('');
@@ -489,6 +490,7 @@ export default function POSPage() {
   /* ── Payment ── */
   const [payMethod, setPayMethod]         = useState('CASH');
   const [amountTendered, setAmountTendered] = useState('');
+  const [tenderTouched, setTenderTouched] = useState(false);
 
   /* ── Completed sale / receipt ── */
   const [completedSale, setCompletedSale] = useState(null);
@@ -572,6 +574,17 @@ export default function POSPage() {
   const canCharge     = cart.length > 0
     && (payMethod !== 'CASH' || tendered >= total);
 
+  const quickTenderOptions = (() => {
+    const t = Math.ceil(total);
+    if (!isFinite(t) || t <= 0) return [];
+    const opts = new Set([t, 100, 200, 500, 1000, 2000, 5000, 10000]);
+    // nearest rounding helpers
+    const roundTo = (n, step) => Math.ceil(n / step) * step;
+    opts.add(roundTo(t, 50));
+    opts.add(roundTo(t, 100));
+    return Array.from(opts).filter((n) => n >= t).sort((a, b) => a - b).slice(0, 6);
+  })();
+
   /* ══════════════════════════════════
      Cart operations
   ══════════════════════════════════ */
@@ -616,6 +629,7 @@ export default function POSPage() {
     setCustomerQuery('');
     setDiscountValue('');
     setAmountTendered('');
+    setTenderTouched(false);
     setPayMethod('CASH');
     setSaleError('');
     setQuotationSuccess(null);
@@ -708,10 +722,40 @@ export default function POSPage() {
      Auto-fill tendered with total (convenience)
   ══════════════════════════════════ */
   useEffect(() => {
-    if (payMethod === 'CASH' && amountTendered === '') {
-      setAmountTendered('');
+    if (payMethod !== 'CASH') return;
+    if (tenderTouched) return;
+    if (cart.length === 0) {
+      if (amountTendered !== '') setAmountTendered('');
+      return;
     }
-  }, [total, payMethod]);
+    if (amountTendered === '' && total > 0) {
+      setAmountTendered(String(Math.ceil(total)));
+    }
+  }, [total, payMethod, cart.length, amountTendered, tenderTouched]);
+
+  /* ══════════════════════════════════
+     Keyboard shortcuts
+     - F2: focus product search
+     - F9: charge
+     - Esc: clear search
+  ══════════════════════════════════ */
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === 'F9') {
+        e.preventDefault();
+        if (canCharge && !saleMutation.isPending) handleCharge();
+      }
+      if (e.key === 'Escape' && document.activeElement === searchRef.current) {
+        setSearch('');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [canCharge, saleMutation.isPending, handleCharge]);
 
   /* ══════════════════════════════════
      RENDER
@@ -730,6 +774,7 @@ export default function POSPage() {
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
+              ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search products or scan barcode…"
@@ -865,6 +910,7 @@ export default function POSPage() {
               </div>
               <p className="text-[14px] font-semibold text-slate-500">Cart is empty</p>
               <p className="text-[12px] text-slate-600 mt-1">Click a product to add it</p>
+              <p className="text-[11px] text-slate-700 mt-3">Shortcut: Press <span className="font-mono">F2</span> to focus search</p>
             </div>
           ) : (
             <div className="space-y-0.5 py-1">
@@ -885,7 +931,7 @@ export default function POSPage() {
         {cart.length > 0 && (
           <div
             className="flex-shrink-0 border-t px-4 pt-3 pb-4 space-y-3 overflow-y-auto"
-            style={{ borderColor: 'rgba(255,255,255,0.07)', maxHeight: '62%' }}
+            style={{ borderColor: 'rgba(255,255,255,0.07)', maxHeight: '62%', background: 'rgba(15,23,42,0.92)', backdropFilter: 'blur(10px)' }}
           >
 
             {/* Customer selector */}
@@ -1064,7 +1110,7 @@ export default function POSPage() {
                     type="number"
                     min={0}
                     value={amountTendered}
-                    onChange={(e) => setAmountTendered(e.target.value)}
+                    onChange={(e) => { setTenderTouched(true); setAmountTendered(e.target.value); }}
                     placeholder={`Min: ${formatCurrency(total)}`}
                     className="flex-1 px-3 py-2.5 text-[14px] font-bold rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 tabular-nums"
                     style={{
@@ -1075,18 +1121,43 @@ export default function POSPage() {
                   />
                   {/* Quick amount buttons */}
                   <div className="flex flex-col gap-1">
-                    {[Math.ceil(total / 1000) * 1000, Math.ceil(total / 5000) * 5000].map((amt) => (
+                    {[Math.ceil(total / 1000) * 1000, Math.ceil(total / 5000) * 5000].filter((n) => isFinite(n) && n > 0).map((amt) => (
                       <button
                         key={amt}
-                        onClick={() => setAmountTendered(String(amt))}
+                        type="button"
+                        onClick={() => { setTenderTouched(true); setAmountTendered(String(amt)); }}
                         className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all"
-                        style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.60)', border: '1px solid rgba(255,255,255,0.10)' }}
                       >
                         {(amt / 1000).toFixed(0)}k
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => { setTenderTouched(false); setAmountTendered(''); }}
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.10)' }}
+                    >
+                      Reset
+                    </button>
                   </div>
                 </div>
+
+                {quickTenderOptions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {quickTenderOptions.map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => { setTenderTouched(true); setAmountTendered(String(amt)); }}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-black border border-white/10 text-slate-200 hover:bg-white/10"
+                        title="Set tendered"
+                      >
+                        {formatCurrency(amt)}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Change due */}
                 {tendered > 0 && (
@@ -1203,13 +1274,27 @@ export default function POSPage() {
               {saleMutation.isPending ? (
                 <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
               ) : (
-                <><Zap className="w-5 h-5" /> Charge {formatCurrency(total)}</>
+                <><Zap className="w-5 h-5" /> Charge {formatCurrency(total)} <span className="text-[11px] font-black opacity-80">(F9)</span></>
               )}
             </button>
 
           </div>
         )}
       </div>
+
+      {/* Empty cart panel */}
+      {cart.length === 0 && (
+        <div className="flex flex-col items-center justify-center h-full text-[14px] text-slate-400">
+          <span className="text-[18px] font-bold mb-2">Your cart is empty</span>
+          <span className="text-[12px] opacity-80 mb-4">Press F2 to add items</span>
+          <button
+            onClick={() => searchRef.current?.focus()}
+            className="px-4 py-2 rounded-lg text-[12px] font-bold bg-white/20 hover:bg-white/30"
+          >
+            Add item
+          </button>
+        </div>
+      )}
 
       {/* ── Receipt modal ── */}
       {completedSale && (

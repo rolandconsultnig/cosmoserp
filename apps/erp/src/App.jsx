@@ -47,6 +47,10 @@ import LogisticsLayout from './components/layout/LogisticsLayout';
 import LogisticsDashboardPage from './pages/LogisticsDashboardPage';
 import LogisticsDeliveriesPage from './pages/LogisticsDeliveriesPage';
 import LogisticsProfilePage from './pages/LogisticsProfilePage';
+import ImpersonatePage from './pages/ImpersonatePage';
+import MarketplaceOrdersPage from './pages/MarketplaceOrdersPage';
+import TenantShipmentsPage from './pages/TenantShipmentsPage';
+import EmployeePortalPage from './pages/EmployeePortalPage';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -75,6 +79,8 @@ export default function App() {
       <Route path="/pos-login" element={<PublicRoute><POSLoginPage /></PublicRoute>} />
       <Route path="/logistics-login" element={<LogisticsLoginPage />} />
       <Route path="/logistics-register" element={<LogisticsRegisterPage />} />
+      <Route path="/impersonate" element={<ImpersonatePage />} />
+      <Route path="/employee-portal" element={<EmployeePortalPage />} />
       <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
@@ -83,6 +89,8 @@ export default function App() {
         <Route path="quotes" element={<QuotesPage />} />
         <Route path="quotes/new" element={<CreateQuotePage />} />
         <Route path="products" element={<ProductsPage />} />
+        <Route path="marketplace-orders" element={<MarketplaceOrdersPage />} />
+        <Route path="shipments" element={<TenantShipmentsPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />
         <Route path="warehouses" element={<WarehousesPage />} />

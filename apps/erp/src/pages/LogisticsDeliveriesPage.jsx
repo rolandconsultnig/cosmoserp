@@ -1,12 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Package, Search, MapPin, Clock, CheckCircle, Truck, Navigation,
-  AlertTriangle, ChevronLeft, ChevronRight, X, Send, Camera,
+  AlertTriangle, ChevronLeft, ChevronRight, X, Camera,
   Phone, RotateCcw, Loader2,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
 const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
+
+/** Resolve `/uploads/...` from API host (strip trailing `/api`). */
+function absoluteUploadUrl(relativePath) {
+  if (!relativePath) return '';
+  if (/^https?:\/\//i.test(relativePath)) return relativePath;
+  const raw = API_BASE || '';
+  const origin = raw.replace(/\/?api\/?$/i, '');
+  const p = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+  if (origin) return `${origin}${p}`;
+  if (typeof window !== 'undefined') return `${window.location.origin}${p}`;
+  return p;
+}
 
 function formatCurrency(v) {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(v || 0);
@@ -38,6 +50,8 @@ export default function LogisticsDeliveriesPage() {
   const [selected, setSelected] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [failReason, setFailReason] = useState('');
+  const [podUploading, setPodUploading] = useState(false);
+  const podInputRef = useRef(null);
   const limit = 20;
   const token = localStorage.getItem('logistics_token');
 
@@ -87,6 +101,37 @@ export default function LogisticsDeliveriesPage() {
       alert(err.message);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleProofUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selected?.id) return;
+    setPodUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(apiUrl(`/logistics/agent/deliveries/${selected.id}/proof`), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
+      const updated = json.data?.delivery;
+      const pod = json.data?.proofOfDelivery;
+      if (updated) {
+        setDeliveries((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+        setSelected((s) => (s?.id === updated.id ? { ...s, ...updated } : s));
+      } else if (pod) {
+        setDeliveries((prev) => prev.map((d) => (d.id === selected.id ? { ...d, proofOfDelivery: pod } : d)));
+        setSelected((s) => (s ? { ...s, proofOfDelivery: pod } : s));
+      }
+    } catch (err) {
+      alert(err.message || 'Upload failed');
+    } finally {
+      setPodUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -334,6 +379,52 @@ export default function LogisticsDeliveriesPage() {
                 <span className="font-bold text-blue-400">Your Payout</span>
                 <span className="font-black text-blue-400 tabular-nums">{formatCurrency(selected.agentPayout)}</span>
               </div>
+            </div>
+
+            {/* Proof of delivery */}
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.30)' }}>Proof of delivery</h3>
+              <input
+                ref={podInputRef}
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                className="hidden"
+                onChange={handleProofUpload}
+              />
+              {selected.proofOfDelivery ? (
+                <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'rgba(255,255,255,0.10)' }}>
+                  {/\.(jpe?g|png|gif|webp)(\?|$)/i.test(selected.proofOfDelivery) ? (
+                    <a href={absoluteUploadUrl(selected.proofOfDelivery)} target="_blank" rel="noreferrer">
+                      <img
+                        src={absoluteUploadUrl(selected.proofOfDelivery)}
+                        alt="Proof of delivery"
+                        className="w-full max-h-48 object-cover"
+                      />
+                    </a>
+                  ) : (
+                    <a
+                      href={absoluteUploadUrl(selected.proofOfDelivery)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block p-3 text-[12px] font-bold text-blue-400 hover:underline"
+                    >
+                      View uploaded file (PDF)
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.25)' }}>No proof uploaded yet.</p>
+              )}
+              <button
+                type="button"
+                disabled={podUploading}
+                onClick={() => podInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-bold transition-all disabled:opacity-50"
+                style={{ background: 'rgba(99,102,241,0.12)', color: '#A5B4FC', border: '1px solid rgba(99,102,241,0.25)' }}
+              >
+                {podUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                {selected.proofOfDelivery ? 'Replace proof' : 'Upload photo / PDF'}
+              </button>
             </div>
 
             {/* Status update actions */}

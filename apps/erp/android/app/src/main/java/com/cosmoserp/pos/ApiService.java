@@ -20,6 +20,9 @@ public interface ApiService {
             @Query("search") String search
     );
 
+    @POST("api/products")
+    Call<Product> createProduct(@Body Product product);
+
     @POST("api/products/{id}/stock-adjust")
     Call<Void> adjustStock(
             @Path("id") String productId,
@@ -46,4 +49,38 @@ public interface ApiService {
     Call<EndOfDayResponse> getEndOfDay(
             @Query("date") String date
     );
+
+    @POST("api/pos/sale")
+    Call<SaleCreateResponse> createSale(@Body SaleRequest request);
+
+    @POST("api/pos/sales/{id}/send-receipt")
+    Call<Void> sendReceipt(@Path("id") String saleId, @Body ReceiptActionRequest request);
+
+    @POST("api/pos/sales/{id}/create-invoice")
+    Call<Void> createInvoice(@Path("id") String saleId, @Body ReceiptActionRequest request);
+
+    @GET("api/pos/stats")
+    Call<DashboardStatsResponse> getStats();
+
+    // New Endpoints for Parity
+    @GET("api/invoices")
+    Call<InvoiceListResponse> getInvoices(
+            @Query("page") int page,
+            @Query("limit") int limit
+    );
+
+    @GET("api/quotes")
+    Call<QuoteListResponse> getQuotes(
+            @Query("page") int page,
+            @Query("limit") int limit
+    );
+
+    @GET("api/employees")
+    Call<EmployeeListResponse> getEmployees();
+
+    @GET("api/payroll")
+    Call<PayrollListResponse> getPayroll();
+
+    @GET("api/tenants/me")
+    Call<TenantResponse> getTenantProfile();
 }

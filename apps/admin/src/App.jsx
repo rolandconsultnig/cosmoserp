@@ -12,6 +12,7 @@ import NRSMonitorPage from './pages/NRSMonitorPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import MarketplaceModerationPage from './pages/MarketplaceModerationPage';
+import MarketplaceEscrowPage from './pages/MarketplaceEscrowPage';
 import LogisticsPage from './pages/LogisticsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import UsersManagementPage from './pages/UsersManagementPage';
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="audit-logs" element={<AuditLogsPage />} />
         <Route path="marketplace" element={<MarketplaceModerationPage />} />
+        <Route path="marketplace-escrow" element={<MarketplaceEscrowPage />} />
         <Route path="logistics" element={<LogisticsPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="users" element={<UsersManagementPage />} />
