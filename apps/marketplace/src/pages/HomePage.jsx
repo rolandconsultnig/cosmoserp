@@ -5,6 +5,8 @@ import { Search, Shield, Truck, CreditCard, Star, ArrowRight, ShoppingBag, Award
 import api from '../lib/api';
 import { formatCurrency } from '../lib/utils';
 import useCartStore from '../store/cartStore';
+import Seo from '../components/Seo';
+import { getSiteUrl } from '../lib/siteConfig';
 
 /* Hero carousel images (right-to-left scroll). Use commerce/warehouse style placeholders. */
 const HERO_SLIDES = [
@@ -150,6 +152,26 @@ export default function HomePage() {
 
   return (
     <div>
+      <Seo
+        fullTitle="Cosmos Market — Buy from Nigerian Businesses"
+        description="Shop verified Nigerian sellers with secure escrow, nationwide delivery, and NRS tax receipts. Electronics, fashion, food, agriculture, and more."
+        canonicalPath="/"
+        type="website"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'Cosmos Market',
+          url: getSiteUrl() || 'https://cosmoserp.com.ng',
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: {
+              '@type': 'EntryPoint',
+              urlTemplate: `${getSiteUrl() || 'https://cosmoserp.com.ng'}/products?search={search_term_string}`,
+            },
+            'query-input': 'required name=search_term_string',
+          },
+        }}
+      />
       {/* Hero: Amazon-style image carousel (scroll right to left) with search overlay */}
       <section className="relative w-full overflow-hidden bg-gray-900" style={{ minHeight: '380px' }}>
         <div

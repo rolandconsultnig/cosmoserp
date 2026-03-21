@@ -5,6 +5,7 @@ import { Search, SlidersHorizontal, Star, ShoppingBag, X, ChevronRight } from 'l
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
 import useCartStore from '../store/cartStore';
+import Seo from '../components/Seo';
 
 const CATEGORIES = [
   'Electronics', 'Fashion & Apparel', 'Food & Beverages', 'Agriculture',
@@ -135,8 +136,19 @@ export default function ListingsPage() {
 
   const setAndResetPage = (fn) => { fn(); setPage(1); };
 
+  const qs = new URLSearchParams();
+  if (search) qs.set('search', search);
+  if (category) qs.set('category', category);
+  if (sort) qs.set('sort', sort);
+  const listPath = `/products${qs.toString() ? `?${qs.toString()}` : ''}`;
+  const listTitle = search
+    ? `Search: ${search}`
+    : category || 'All products';
+  const listDesc = `Browse ${listTitle.toLowerCase()} on Cosmos Market. Verified Nigerian sellers, secure checkout, and delivery options.`;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <Seo title={listTitle} description={listDesc} canonicalPath={listPath} type="website" />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-xs text-gray-500 mb-5">
         <Link to="/" className="hover:text-brand-600">Home</Link>

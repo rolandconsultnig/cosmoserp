@@ -27,6 +27,38 @@ model Platform {
   updatedAt          DateTime @updatedAt
 }
 
+/// Anonymous page views from the public site (marketplace, etc.) for admin analytics.
+model SiteVisit {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  path            String   @db.VarChar(2048)
+  referrer        String?  @db.VarChar(2048)
+  pageTitle       String?  @db.VarChar(500)
+  sessionId       String?  @db.VarChar(64)
+  ip              String   @db.VarChar(45)
+  userAgent       String?  @db.Text
+  browserName     String?  @db.VarChar(64)
+  browserVersion  String?  @db.VarChar(32)
+  osName          String?  @db.VarChar(64)
+  osVersion       String?  @db.VarChar(32)
+  deviceType      String?  @db.VarChar(32)
+  deviceVendor    String?  @db.VarChar(64)
+  deviceModel     String?  @db.VarChar(64)
+  countryCode     String?  @db.VarChar(2)
+  countryName     String?  @db.VarChar(100)
+  region          String?  @db.VarChar(128)
+  city            String?  @db.VarChar(128)
+  latitude        Float?
+  longitude       Float?
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([countryCode])
+  @@index([deviceType])
+  @@index([browserName])
+  @@index([osName])
+}
+
 model AdminUser {
   id           String     @id @default(uuid())
   email        String     @unique

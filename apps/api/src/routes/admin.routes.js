@@ -4,6 +4,7 @@ const ctrl = require('../controllers/admin.controller');
 const marketplaceAdmin = require('../controllers/marketplaceAdmin.controller');
 const logistics = require('../controllers/logistics.controller');
 const platformSupport = require('../controllers/platformSupport.controller');
+const siteVisit = require('../controllers/siteVisit.controller');
 const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
 
 router.use(authenticate, requireAdmin);
@@ -11,6 +12,8 @@ router.get('/nrs-logs', ctrl.getNRSLogs);
 router.get('/nrs-stats', ctrl.getNRSStats);
 router.post('/nrs-logs/:id/retry', ctrl.retryNRSSubmission);
 router.get('/analytics', ctrl.getPlatformAnalytics);
+router.get('/site-visits/stats', siteVisit.getSiteVisitStats);
+router.get('/site-visits', siteVisit.listSiteVisits);
 router.get('/audit-logs', ctrl.getAuditLogs);
 router.put('/listings/:id/moderate', ctrl.moderateListing);
 

@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Building2, Shield, BarChart3, ClipboardList,
   Store, LogOut, ChevronLeft, ChevronRight, Bell, Activity, Truck,
   CreditCard, Users, DollarSign, Briefcase, ShoppingCart, Headphones, MessageCircle, Settings, Lock,
+  MousePointerClick,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
@@ -14,6 +15,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/analytics',     icon: BarChart3,       label: 'Analytics' },
+      { to: '/visitor-analytics', icon: MousePointerClick, label: 'Site visits' },
       { to: '/tenants',       icon: Building2,       label: 'Tenants & KYC' },
       { to: '/subscriptions', icon: CreditCard,      label: 'Subscriptions' },
     ],

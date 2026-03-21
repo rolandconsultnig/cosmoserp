@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Loader2, MapPin, Truck, Building2, Phone, ChevronLeft } from 'lucide-react';
+import Seo from '../components/Seo';
 
 const apiBase = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
   ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '')
@@ -51,6 +52,11 @@ export default function PublicTrackPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-10">
+      <Seo
+        title={activeCode ? `Track ${activeCode} | CosmosERP` : 'Track shipment | CosmosERP'}
+        description="Track your CosmosERP shipment with your tracking number."
+        path={activeCode ? `/track/${encodeURIComponent(activeCode)}` : '/track'}
+      />
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-6">
         <ChevronLeft className="w-4 h-4" /> Back to shop
       </Link>

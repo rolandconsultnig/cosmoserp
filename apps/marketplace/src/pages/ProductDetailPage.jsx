@@ -6,6 +6,8 @@ import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
 import useCartStore from '../store/cartStore';
 import useShopperAuthStore from '../store/shopperAuthStore';
+import Seo from '../components/Seo';
+import { absoluteUrl, getSiteUrl } from '../lib/siteConfig';
 
 function StarPicker({ value, onChange, size = 'w-6 h-6' }) {
   return (
@@ -88,8 +90,44 @@ export default function ProductDetailPage() {
   const inStock    = totalStock > 0;
   const reviews    = product.reviews || [];
 
+  const plainDesc = (product.description || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+  const metaDesc = plainDesc || `Buy ${product.name} on Cosmos Market. ${inStock ? 'In stock.' : 'Check availability.'} Secure escrow and delivery.`;
+  const productUrl = `${getSiteUrl() || ''}/products/${id}`;
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: (product.description || product.name).replace(/\s+/g, ' ').trim().slice(0, 5000),
+    sku: product.sku || product.id,
+    image: product.imageUrl ? [absoluteUrl(product.imageUrl)] : undefined,
+    brand: product.seller?.businessName
+      ? { '@type': 'Brand', name: product.seller.tradingName || product.seller.businessName }
+      : undefined,
+    offers: {
+      '@type': 'Offer',
+      url: productUrl,
+      priceCurrency: product.currency || 'NGN',
+      price: String(product.sellingPrice ?? ''),
+      availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      seller: product.seller?.businessName
+        ? { '@type': 'Organization', name: product.seller.tradingName || product.seller.businessName }
+        : undefined,
+    },
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <Seo
+        title={product.name}
+        description={metaDesc}
+        canonicalPath={`/products/${id}`}
+        imageUrl={product.imageUrl}
+        type="product"
+        jsonLd={productJsonLd}
+      />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-xs text-gray-500 mb-5">
         <Link to="/" className="hover:text-brand-600 transition-colors">Home</Link>

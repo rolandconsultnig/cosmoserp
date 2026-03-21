@@ -10,6 +10,7 @@ import TenantsPage from './pages/TenantsPage';
 import TenantDetailPage from './pages/TenantDetailPage';
 import NRSMonitorPage from './pages/NRSMonitorPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import VisitorAnalyticsPage from './pages/VisitorAnalyticsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import MarketplaceModerationPage from './pages/MarketplaceModerationPage';
 import MarketplaceEscrowPage from './pages/MarketplaceEscrowPage';
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="tenants/:id" element={<TenantDetailPage />} />
         <Route path="nrs-monitor" element={<NRSMonitorPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="visitor-analytics" element={<VisitorAnalyticsPage />} />
         <Route path="audit-logs" element={<AuditLogsPage />} />
         <Route path="marketplace" element={<MarketplaceModerationPage />} />
         <Route path="marketplace-escrow" element={<MarketplaceEscrowPage />} />

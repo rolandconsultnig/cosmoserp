@@ -1,0 +1,15 @@
+# Cosmos Market - default production domain in sitemap; change if you use another host.
+User-agent: *
+Allow: /
+
+# Reduce indexing of transactional / auth surfaces (optional; search engines often ignore cart anyway)
+Disallow: /cart
+Disallow: /checkout
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /account/
+
+Sitemap: https://cosmoserp.com.ng/sitemap.xml

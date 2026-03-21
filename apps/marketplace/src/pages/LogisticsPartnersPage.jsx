@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../lib/api';
 import { Truck } from 'lucide-react';
+import Seo from '../components/Seo';
 
 export default function LogisticsPartnersPage() {
   const [providers, setProviders] = useState([]);
@@ -25,6 +26,12 @@ export default function LogisticsPartnersPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-12">
+      <Seo
+        title="Logistics partners"
+        description="Delivery partners integrated with Cosmos Market: GIG, Kobo360, Terminal Africa, and more for nationwide shipping in Nigeria."
+        canonicalPath="/logistics"
+        type="website"
+      />
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Truck className="w-6 h-6" /> Logistics Partners
       </h1>

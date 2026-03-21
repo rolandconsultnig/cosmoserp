@@ -5,6 +5,8 @@ import { MapPin, Shield, ShoppingBag, Star } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
 import useCartStore from '../store/cartStore';
+import Seo from '../components/Seo';
+import { getSiteUrl } from '../lib/siteConfig';
 
 function StarRow({ rating, count }) {
   if (!rating || rating <= 0) return null;
@@ -89,8 +91,22 @@ export default function StorefrontPage() {
     );
   }
 
+  const storeName = seller.tradingName || seller.businessName || 'Seller';
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <Seo
+        title={`${storeName} — Official store`}
+        description={`Shop products from ${storeName} on Cosmos Market. KYC-verified seller, secure payments, nationwide delivery.`}
+        canonicalPath={`/store/${tenantId}`}
+        type="website"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Store',
+          name: storeName,
+          url: `${getSiteUrl() || 'https://cosmoserp.com.ng'}/store/${tenantId}`,
+        }}
+      />
       <div className="card p-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>

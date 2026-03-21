@@ -36,6 +36,7 @@ const agentRoutes = require('./routes/agent.routes');
 const crmRoutes = require('./routes/crm.routes');
 const employeePortalRoutes = require('./routes/employeePortal.routes');
 const paystackWebhookRoutes = require('./routes/paystackWebhook.routes');
+const publicRoutes = require('./routes/public.routes');
 
 const { authenticate, requireRole, requireTenantUser } = require('./middleware/auth.middleware');
 
@@ -73,6 +74,15 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+const visitCollectLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 400,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many visit events.' },
+});
+app.use('/api/public', visitCollectLimiter, publicRoutes);
+
 app.use(morgan('combined', {
   stream: { write: (msg) => logger.http(msg.trim()) },
 }));
@@ -83,7 +93,12 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
-  skip: (req) => req.path === '/api/webhooks/paystack' || String(req.originalUrl || '').includes('/webhooks/paystack'),
+  skip: (req) => {
+    const url = String(req.originalUrl || req.url || '');
+    if (url.includes('/webhooks/paystack')) return true;
+    if (url.startsWith('/api/public')) return true;
+    return false;
+  },
 });
 
 const authLimiter = rateLimit({

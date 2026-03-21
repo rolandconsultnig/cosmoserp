@@ -30,6 +30,7 @@ import CustomerBudgetPage from './pages/CustomerBudgetPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import VerifyEmailSentPage from './pages/VerifyEmailSentPage';
 import useShopperAuthStore from './store/shopperAuthStore';
+import VisitTracker from './components/VisitTracker';
 
 // When user hits /erp/* on the marketplace, redirect once: /erp/partners-login -> /partners-login; others -> ERP app
 function RedirectToErp() {
@@ -64,6 +65,7 @@ function RequireShopper({ children }) {
 export default function App() {
   return (
     <div className="min-h-screen flex flex-col">
+      <VisitTracker />
       <Navbar />
       <main className="flex-1">
         <Routes>

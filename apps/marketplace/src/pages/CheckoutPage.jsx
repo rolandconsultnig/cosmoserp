@@ -6,6 +6,7 @@ import api from '../lib/api';
 import { formatCurrency } from '../lib/utils';
 import useCartStore from '../store/cartStore';
 import useShopperAuthStore from '../store/shopperAuthStore';
+import Seo from '../components/Seo';
 
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
@@ -65,6 +66,7 @@ export default function CheckoutPage() {
   if (items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-24 text-center">
+        <Seo title="Checkout" description="Checkout on Cosmos Market." canonicalPath="/checkout" noindex />
         <ShoppingBag className="w-14 h-14 text-gray-200 mx-auto mb-5" />
         <h2 className="text-xl font-bold text-gray-900 mb-2">Nothing to checkout</h2>
         <Link to="/products" className="text-brand-600 font-medium hover:underline text-sm">Browse products →</Link>
@@ -86,6 +88,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
+      <Seo title="Checkout" description="Complete your Cosmos Market order with delivery details and secure payment." canonicalPath="/checkout" noindex />
       {/* Header */}
       <div className="flex items-center gap-3 mb-7">
         <Link to="/cart" className="text-brand-600 hover:text-brand-800 text-sm font-medium">← Cart</Link>
