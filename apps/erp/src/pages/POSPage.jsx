@@ -2,13 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
-  Search, Package, Plus, Minus, Trash2, User, UserCheck,
+  Search, Package, Plus, Minus, User, UserCheck,
   CreditCard, Banknote, Smartphone, CheckCircle, Printer,
   RotateCcw, X, ShoppingCart, Tag, Percent, Hash,
   ChevronDown, Loader2, AlertCircle, Zap, Receipt, FileText, Mail, MessageCircle,
+  Star, Award, QrCode,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
+import { MAX_QUICK_PICKS, readQuickPickIdsFromStorage, writeQuickPickIdsToStorage } from '../lib/posQuickPicks';
 import useAuthStore from '../store/authStore';
 
 /* ══════════════════════════════════════════════════════════
@@ -45,16 +47,26 @@ function genReceiptNo() {
 ══════════════════════════════════════════════════════════ */
 
 /* ── Product card ─────────────────────────────────────── */
-function ProductCard({ product, onAdd, justAdded }) {
+function ProductCard({ product, onAdd, justAdded, isQuickPick, onToggleQuickPick }) {
   const pal   = getPalette(product.name);
   const stock = product.totalStock ?? product.stockQuantity ?? product.stock ?? null;
-  const low   = stock !== null && stock > 0 && stock <= (product.reorderPoint || 10);
+  const low   = stock !== null && stock > 1 && stock <= (product.reorderPoint || 10);
+  const lastOne = stock !== null && stock === 1;
   const out   = stock !== null && stock <= 0;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={out ? -1 : 0}
+      aria-disabled={out}
       onClick={() => !out && onAdd(product)}
-      disabled={out}
+      onKeyDown={(e) => {
+        if (out) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onAdd(product);
+        }
+      }}
       className={cn(
         'relative rounded-xl text-left transition-all duration-150 overflow-hidden w-full',
         'border group focus:outline-none focus:ring-2 focus:ring-emerald-500',
@@ -69,6 +81,26 @@ function ProductCard({ product, onAdd, justAdded }) {
           : '0 1px 4px rgba(0,0,0,0.06)',
       }}
     >
+      {onToggleQuickPick && (
+        <button
+          type="button"
+          title={isQuickPick ? 'Remove from quick picks' : 'Add to quick picks'}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleQuickPick(product.id);
+          }}
+          className={cn(
+            'absolute top-1.5 left-1.5 z-20 w-7 h-7 rounded-lg flex items-center justify-center transition-all shadow-sm',
+            isQuickPick
+              ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
+              : 'bg-white/90 text-slate-400 hover:text-amber-600 hover:bg-white border border-slate-200/80',
+          )}
+        >
+          <Star className={cn('w-4 h-4', isQuickPick && 'fill-current')} strokeWidth={2} />
+        </button>
+      )}
+
       {/* Added flash overlay */}
       {justAdded && (
         <div className="absolute inset-0 bg-emerald-400/10 flex items-center justify-center z-10 rounded-xl pointer-events-none">
@@ -112,15 +144,16 @@ function ProductCard({ product, onAdd, justAdded }) {
         {stock !== null && (
           <div className={cn(
             'mt-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold',
-            out  ? 'bg-red-100 text-red-600'
-                 : low ? 'bg-amber-100 text-amber-700'
-                       : 'bg-emerald-100 text-emerald-700',
+            out ? 'bg-red-100 text-red-600'
+              : lastOne ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-300'
+                : low ? 'bg-amber-100 text-amber-700'
+                  : 'bg-emerald-100 text-emerald-700',
           )}>
-            {out ? 'Out of stock' : low ? `Low: ${stock}` : `${stock} in stock`}
+            {out ? 'Out of stock' : lastOne ? 'Last in stock' : low ? `Low: ${stock}` : `${stock} in stock`}
           </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -129,6 +162,7 @@ function CartRow({ item, onQty, onRemove, onPriceEdit }) {
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput]     = useState(String(item.unitPrice));
   const priceRef = useRef();
+  const touchStartX = useRef(null);
 
   const commitPrice = () => {
     const v = parseFloat(priceInput);
@@ -143,12 +177,27 @@ function CartRow({ item, onQty, onRemove, onPriceEdit }) {
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all"
+      className="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all select-none touch-pan-y"
       style={{ background: 'rgba(255,255,255,0.05)', marginBottom: 4 }}
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(e) => {
+        if (touchStartX.current == null) return;
+        const endX = e.changedTouches[0]?.clientX;
+        if (endX != null && endX - touchStartX.current < -56) onRemove(item.cartId);
+        touchStartX.current = null;
+      }}
     >
       {/* Name + price */}
       <div className="flex-1 min-w-0">
         <p className="text-[12px] font-semibold text-white truncate" title={item.name}>{item.name}</p>
+        {item.stockHint === 'last' && (
+          <p className="text-[9px] font-bold text-rose-400 mt-0.5 uppercase tracking-wide">Last unit in stock</p>
+        )}
+        {item.stockHint === 'low' && (
+          <p className="text-[9px] font-bold text-amber-400/90 mt-0.5">Low stock at sale time</p>
+        )}
         <div className="flex items-center gap-1 mt-0.5">
           {editingPrice ? (
             <input
@@ -205,12 +254,14 @@ function CartRow({ item, onQty, onRemove, onPriceEdit }) {
         </p>
       </div>
 
-      {/* Delete */}
+      {/* Delete line — red X + swipe-left to remove */}
       <button
+        type="button"
+        title="Remove line"
         onClick={() => onRemove(item.cartId)}
-        className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all text-slate-600 hover:text-red-400 hover:bg-red-500/10"
+        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all bg-red-500/15 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/25"
       >
-        <Trash2 className="w-3.5 h-3.5" />
+        <X className="w-4 h-4 stroke-[2.5]" />
       </button>
     </div>
   );
@@ -482,6 +533,12 @@ export default function POSPage() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showCustomerDrop, setShowCustomerDrop] = useState(false);
   const customerRef = useRef();
+  const qrFileInputRef = useRef(null);
+
+  /* Quick picks (localStorage) + loyalty keypad */
+  const [quickPickIds, setQuickPickIds] = useState([]);
+  const [loyaltyOpen, setLoyaltyOpen] = useState(false);
+  const [loyaltyDigits, setLoyaltyDigits] = useState('');
 
   /* ── Discount ── */
   const [discountType, setDiscountType]   = useState('percent'); // 'percent' | 'amount'
@@ -508,6 +565,14 @@ export default function POSPage() {
   /* ══════════════════════════════════
      Data fetching
   ══════════════════════════════════ */
+  useEffect(() => {
+    setQuickPickIds(readQuickPickIdsFromStorage());
+  }, []);
+
+  useEffect(() => {
+    writeQuickPickIdsToStorage(quickPickIds);
+  }, [quickPickIds]);
+
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ['pos-products', search],
     queryFn: () =>
@@ -544,18 +609,12 @@ export default function POSPage() {
 
   const customers    = customersData?.data || [];
 
-  /* Pre-add product when navigating from dashboard with state.addProductId */
+  const quickPickProducts = quickPickIds
+    .map((id) => allProducts.find((p) => p.id === id))
+    .filter(Boolean);
+
   const pendingAddId = location.state?.addProductId;
   const lastAppliedAddRef = useRef(null);
-  useEffect(() => {
-    if (!pendingAddId || allProducts.length === 0 || lastAppliedAddRef.current === pendingAddId) return;
-    const product = allProducts.find((p) => p.id === pendingAddId);
-    if (product) {
-      lastAppliedAddRef.current = pendingAddId;
-      addToCart(product);
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [pendingAddId, allProducts, addToCart, navigate, location.pathname]);
 
   /* ══════════════════════════════════
      Cart calculations
@@ -588,7 +647,22 @@ export default function POSPage() {
   /* ══════════════════════════════════
      Cart operations
   ══════════════════════════════════ */
+  const toggleQuickPick = useCallback((productId) => {
+    setQuickPickIds((prev) => {
+      const idx = prev.indexOf(productId);
+      if (idx >= 0) return prev.filter((id) => id !== productId);
+      if (prev.length >= MAX_QUICK_PICKS) return prev;
+      return [...prev, productId];
+    });
+  }, []);
+
   const addToCart = useCallback((product) => {
+    const stock = product.totalStock ?? product.stockQuantity ?? product.stock ?? null;
+    const reorder = product.reorderPoint || 10;
+    let stockHint = null;
+    if (stock === 1) stockHint = 'last';
+    else if (stock !== null && stock > 0 && stock <= reorder) stockHint = 'low';
+
     setCart((prev) => {
       const existing = prev.find((i) => i.productId === product.id);
       if (existing) {
@@ -603,11 +677,23 @@ export default function POSPage() {
         unit:      product.unit || 'unit',
         unitPrice: product.sellingPrice,
         qty:       1,
+        stockHint,
       }];
     });
     setJustAdded(product.id);
     setTimeout(() => setJustAdded(null), 900);
   }, []);
+
+  /* Pre-add product when navigating from dashboard with state.addProductId (after addToCart exists) */
+  useEffect(() => {
+    if (!pendingAddId || allProducts.length === 0 || lastAppliedAddRef.current === pendingAddId) return;
+    const product = allProducts.find((p) => p.id === pendingAddId);
+    if (product) {
+      lastAppliedAddRef.current = pendingAddId;
+      addToCart(product);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [pendingAddId, allProducts, addToCart, navigate, location.pathname]);
 
   const updateQty = useCallback((cartId, delta) => {
     setCart((prev) =>
@@ -777,6 +863,13 @@ export default function POSPage() {
               ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' || e.shiftKey || productsLoading) return;
+                if (products.length !== 1) return;
+                e.preventDefault();
+                addToCart(products[0]);
+                setSearch('');
+              }}
               placeholder="Search products or scan barcode…"
               className="w-full pl-9 pr-4 py-2 text-[13px] border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
             />
@@ -826,6 +919,47 @@ export default function POSPage() {
           </div>
         )}
 
+        {/* Quick-pick grid — one-touch items (★ on any product to pin, max 12) */}
+        <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="w-3.5 h-3.5 text-amber-500" />
+            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Quick picks</span>
+            <span className="text-[10px] text-slate-400">Tap ★ on a product</span>
+          </div>
+          {quickPickProducts.length === 0 ? (
+            <p className="text-[11px] text-slate-400 py-1">No quick picks yet — star your frequent items (e.g. Small Coffee).</p>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              {quickPickProducts.map((p) => {
+                const stock = p.totalStock ?? p.stockQuantity ?? p.stock ?? null;
+                const out = stock !== null && stock <= 0;
+                const lastOne = stock === 1;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={out}
+                    onClick={() => !out && addToCart(p)}
+                    title={p.name}
+                    className={cn(
+                      'flex-shrink-0 min-w-[100px] max-w-[140px] px-2.5 py-2 rounded-xl border text-left transition-all',
+                      out
+                        ? 'opacity-40 cursor-not-allowed border-slate-200 bg-slate-50'
+                        : 'border-amber-200 bg-amber-50/80 hover:bg-amber-100 hover:border-amber-300 active:scale-95',
+                    )}
+                  >
+                    <p className="text-[11px] font-bold text-slate-800 line-clamp-2 leading-tight">{p.name}</p>
+                    <p className="text-[10px] font-semibold text-emerald-700 mt-0.5">{formatCurrency(p.sellingPrice)}</p>
+                    {lastOne && (
+                      <span className="mt-1 inline-block text-[9px] font-bold text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded">Last</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Product grid */}
         <div className="flex-1 overflow-y-auto p-4">
           {productsLoading ? (
@@ -856,6 +990,8 @@ export default function POSPage() {
                   product={p}
                   onAdd={addToCart}
                   justAdded={justAdded === p.id}
+                  isQuickPick={quickPickIds.includes(p.id)}
+                  onToggleQuickPick={toggleQuickPick}
                 />
               ))}
             </div>
@@ -887,6 +1023,9 @@ export default function POSPage() {
                 {cart.reduce((s, i) => s + i.qty, 0)}
               </span>
             )}
+            <span className="hidden sm:inline text-[9px] text-slate-500 ml-1" title="Touch: swipe line left to remove">
+              · Swipe left = remove line
+            </span>
           </div>
           {cart.length > 0 && (
             <button
@@ -936,9 +1075,39 @@ export default function POSPage() {
 
             {/* Customer selector */}
             <div ref={customerRef} className="relative">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Customer
-              </label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  Customer
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLoyaltyDigits(''); setLoyaltyOpen(true); }}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border border-violet-500/30"
+                    title="Look up by phone (loyalty / rewards)"
+                  >
+                    <Award className="w-3 h-3" /> Loyalty
+                  </button>
+                  <input
+                    ref={qrFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={() => {
+                      /* Placeholder: wire ZXing / device scanner app later */
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => qrFileInputRef.current?.click()}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-600/50 text-slate-200 hover:bg-slate-600 border border-white/10"
+                    title="Open camera for QR (or use a scanner that types the code into search)"
+                  >
+                    <QrCode className="w-3 h-3" /> QR
+                  </button>
+                </div>
+              </div>
               {selectedCustomer ? (
                 <div
                   className="flex items-center gap-2 px-3 py-2 rounded-xl"
@@ -1293,6 +1462,76 @@ export default function POSPage() {
           >
             Add item
           </button>
+        </div>
+      )}
+
+      {/* ── Loyalty lookup (phone keypad) ── */}
+      {loyaltyOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="loyalty-title"
+          onClick={(e) => e.target === e.currentTarget && setLoyaltyOpen(false)}
+        >
+          <div
+            className="w-full max-w-[280px] rounded-2xl border border-slate-600 shadow-2xl overflow-hidden"
+            style={{ background: '#1e293b' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <h2 id="loyalty-title" className="text-[13px] font-bold text-white flex items-center gap-2">
+                <Award className="w-4 h-4 text-violet-400" /> Loyalty / phone
+              </h2>
+              <button
+                type="button"
+                onClick={() => setLoyaltyOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div
+                className="text-center text-[20px] font-mono font-bold tracking-widest text-white py-2 rounded-xl bg-black/25 border border-white/10 min-h-[44px]"
+              >
+                {loyaltyDigits || '—'}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'CLR', '0', '⌫'].map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      if (k === 'CLR') setLoyaltyDigits('');
+                      else if (k === '⌫') setLoyaltyDigits((d) => d.slice(0, -1));
+                      else if (loyaltyDigits.replace(/\D/g, '').length < 15) setLoyaltyDigits((d) => d + k);
+                    }}
+                    className="py-3 rounded-xl text-[15px] font-bold bg-white/10 text-white hover:bg-white/20 border border-white/10"
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const digits = loyaltyDigits.replace(/\D/g, '');
+                  if (digits.length < 1) return;
+                  setCustomerQuery(digits);
+                  setShowCustomerDrop(true);
+                  setLoyaltyOpen(false);
+                }}
+                className="w-full py-3 rounded-xl text-[13px] font-bold bg-violet-600 text-white hover:bg-violet-500"
+              >
+                Find customer
+              </button>
+              <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+                Enter phone number, then Find — matches your customer list. QR button uses camera when supported; dedicated scanners can type into search.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

@@ -36,10 +36,10 @@ function OnlineDot() {
 }
 
 const navItems = [
-  { to: '/pos/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/pos/terminal',  icon: ShoppingCart,    label: 'New Sale' },
-  { to: '/pos/history',   icon: History,         label: 'Sales History' },
-  { to: '/pos/end-of-day', icon: CalendarCheck,  label: 'End of Day' },
+  { to: '/pos/dashboard', icon: LayoutDashboard, label: 'Dashboard', hint: 'Stats & product browse' },
+  { to: '/pos/terminal',  icon: ShoppingCart,    label: 'New Sale', hint: 'Cart, quick picks, loyalty' },
+  { to: '/pos/history',   icon: History,         label: 'Sales History', hint: null },
+  { to: '/pos/end-of-day', icon: CalendarCheck,  label: 'End of Day', hint: null },
 ];
 
 export default function POSLayout() {
@@ -111,7 +111,7 @@ export default function POSLayout() {
             Sales Center
           </div>
         )}
-        {navItems.map(({ to, icon: Icon, label }) => (
+        {navItems.map(({ to, icon: Icon, label, hint }) => (
           <NavLink
             key={to}
             to={to}
@@ -126,10 +126,28 @@ export default function POSLayout() {
               ? { background: 'rgba(16,185,129,0.15)', color: '#34D399' }
               : {}}
             onClick={() => mobile && setMobileOpen(false)}
-            title={collapsed && !mobile ? label : undefined}
+            title={collapsed && !mobile ? (hint ? `${label} — ${hint}` : label) : undefined}
           >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {(!collapsed || mobile) && <span>{label}</span>}
+            {({ isActive }) => (
+              <>
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {(!collapsed || mobile) && (
+                  <span className="flex flex-col items-start min-w-0 leading-tight">
+                    <span>{label}</span>
+                    {hint && (
+                      <span
+                        className={cn(
+                          'text-[9px] font-normal truncate max-w-[11rem]',
+                          isActive ? 'text-emerald-200/75' : 'text-slate-500',
+                        )}
+                      >
+                        {hint}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

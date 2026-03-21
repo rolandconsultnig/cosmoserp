@@ -1,7 +1,7 @@
 # CosmosERP ΓÇö Production Server Setup (Ubuntu)
 
 Step-by-step configuration manual for running CosmosERP on **Ubuntu** with **Nginx**, **PostgreSQL**, and **Node.js**.  
-Server IP used in this guide: **13.53.33.62** (replace with your EC2/public IP if different).
+Production reference: **13.53.33.63** and domain **cosmoserp.com.ng** — see **`docs/NGINX-COSMOSERP-COM-NG.md`** for Nginx + SSL. Replace IP/domain in examples if yours differ.
 
 ---
 
@@ -41,7 +41,7 @@ Server IP used in this guide: **13.53.33.62** (replace with your EC2/public IP i
 From your machine (use your key path and IP):
 
 ```bash
-ssh -i /path/to/your-key.pem ubuntu@13.53.33.62
+ssh -i /path/to/your-key.pem ubuntu@13.53.33.63
 ```
 
 ---
@@ -209,13 +209,17 @@ Replace placeholders as needed:
 - **JWT / Encryption**: Use the values you generated in [Section 8.1](#81-generate-jwt-and-encryption-secrets-production).
 - **Paystack, NRS, email, etc.**: Replace with real or placeholder values as needed.
 
-**Full `.env` content for production (server IP 13.53.33.62, production DB):**
+**Full `.env` content for production (domain **cosmoserp.com.ng** / IP **13.53.33.63**, production DB):**
 
 ```env
 # Server
 NODE_ENV=production
 PORT=5133
-API_URL=http://13.53.33.62
+API_URL=https://cosmoserp.com.ng
+API_PUBLIC_URL=https://cosmoserp.com.ng
+ERP_URL=https://cosmoserp.com.ng
+MARKETPLACE_URL=https://cosmoserp.com.ng
+ADMIN_URL=https://cosmoserp.com.ng
 
 # Database (PostgreSQL ΓÇö production: cosmos_user / cosmos_db)
 DATABASE_URL=postgresql://cosmos_user:Samolan123@localhost:5432/cosmos_db
@@ -425,6 +429,8 @@ On **AWS EC2**, open the same ports (22, 80, 443) in the instance **Security Gro
 
 ## 13. Install and Configure Nginx
 
+**Domain `cosmoserp.com.ng` on Ubuntu `13.53.33.63`:** use the ready-made file **`docs/nginx-cosmoserp-cosmoserp.com.ng.conf`** and the checklist **`docs/NGINX-COSMOSERP-COM-NG.md`** (DNS, UFW, Certbot, `.env` URLs).
+
 ### 13.1 Install Nginx
 
 ```bash
@@ -434,7 +440,7 @@ sudo systemctl enable nginx
 
 ### 13.2 Create Nginx Configuration
 
-Create a new site config (replace `13.53.33.62` with your domain if you use one later):
+Create a new site config (use **`server_name`** with your domain + IP, e.g. `cosmoserp.com.ng www.cosmoserp.com.ng 13.53.33.63`):
 
 ```bash
 sudo nano /etc/nginx/sites-available/cosmoserp
@@ -442,10 +448,10 @@ sudo nano /etc/nginx/sites-available/cosmoserp
 
 Paste the configuration below. It assumes:
 
-- **Marketplace** (primary) at `http://13.53.33.62/`
-- **Admin** at `http://13.53.33.62/admin`
-- **ERP** at `http://13.53.33.62/erp`
-- **API** at `http://13.53.33.62/api` (proxied to `localhost:5133`). Replace `/home/ubuntu/cosmoserp` with your repo path (e.g. `/root/cosmoserp`).
+- **Marketplace** (primary) at `https://cosmoserp.com.ng/` (or `http://13.53.33.63/` before SSL)
+- **Admin** at `.../admin`
+- **ERP** at `.../erp`
+- **API** at `.../api` (proxied to `localhost:5133`). Replace `/home/ubuntu/cosmoserp` with your repo path (e.g. `/root/cosmoserp`).
 
 **Nginx configuration:**  
 Set `root`/`alias` to your repo path (e.g. `/root/cosmoserp` if you cloned as root). The API must be running on **port 5133** (set `PORT=5133` in `apps/api/.env`).
@@ -453,12 +459,12 @@ Set `root`/`alias` to your repo path (e.g. `/root/cosmoserp` if you cloned as ro
 ```nginx
 # CosmosERP — Production
 # Ports: 80 (this server), 5133 (API — internal only, proxied below)
-# Replace 13.53.33.62 with your server IP or domain
+# Example server_name: domain + IP (see docs/nginx-cosmoserp-cosmoserp.com.ng.conf)
 
 server {
     listen 80;
     listen [::]:80;
-    server_name 13.53.33.62;
+    server_name cosmoserp.com.ng www.cosmoserp.com.ng 13.53.33.63;
 
     root /home/ubuntu/cosmoserp/apps/marketplace/dist;
     index index.html;
@@ -550,27 +556,29 @@ Start the apps first: API on 5133, Marketplace dev on 5173, ERP dev on 3060, Adm
 
 ## 14. SSL (Optional) with Let's Encrypt
 
-If you have a **domain** pointing to `13.53.33.62`, you can add HTTPS:
+**Full guide:** **`docs/LETS-ENCRYPT.md`** (DNS, Nginx, Certbot, API `.env` https URLs, renewal, Paystack webhook).
+
+If **DNS** points your domain to this server, install Certbot and run:
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d yourdomain.com
+sudo certbot --nginx -d cosmoserp.com.ng -d www.cosmoserp.com.ng --email you@example.com --agree-tos -n
 ```
 
-Then in Nginx config use `server_name yourdomain.com;` and rely on CertbotΓÇÖs HTTPS server block. Restart/reload Nginx as instructed by Certbot.
+If Certbot errors, see **`docs/CERTBOT-TROUBLESHOOTING-COSMOSERP.md`**. See also **`docs/NGINX-COSMOSERP-COM-NG.md`**.
 
 ---
 
 ## 15. Verification and URLs
 
-Open in a browser (use your domain instead of IP if you configured SSL). Replace `13.53.33.63` with your server IP (e.g. `13.53.33.62` if different):
+Open in a browser (**HTTPS** after Certbot, or **http://13.53.33.63** before DNS/SSL):
 
 | App        | URL                              |
 |-----------|-----------------------------------|
-| Marketplace (primary) | http://13.53.33.63/        |
-| Admin     | http://13.53.33.63/admin          |
-| ERP       | http://13.53.33.63/erp             |
-| API       | http://13.53.33.63/api/...        |
+| Marketplace (primary) | `https://cosmoserp.com.ng/`        |
+| Admin     | `https://cosmoserp.com.ng/admin/`   |
+| ERP       | `https://cosmoserp.com.ng/erp/`    |
+| API       | `https://cosmoserp.com.ng/api/...` |
 
 - **ERP**: Register a tenant and log in.
 - **Admin**: Log in with `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD` from `.env` (change password after first login).
