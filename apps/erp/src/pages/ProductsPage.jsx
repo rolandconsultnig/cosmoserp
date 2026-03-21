@@ -52,8 +52,34 @@ function CreateProductModal({ onClose }) {
         </div>
         <div className="flex gap-3 mt-5 justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50">Cancel</button>
-          <button onClick={() => mutation.mutate({ ...form, costPrice: parseFloat(form.costPrice), sellingPrice: parseFloat(form.sellingPrice), initialStock: parseInt(initialStock) || 0, warehouseId })}
-            disabled={mutation.isPending} className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">
+          <button
+            onClick={() => {
+              setError('');
+              const cp = parseFloat(form.costPrice);
+              const sp = parseFloat(form.sellingPrice);
+              if (!Number.isFinite(cp) || cp < 0 || !Number.isFinite(sp) || sp < 0) {
+                setError('Enter valid cost and selling prices (numbers ≥ 0).');
+                return;
+              }
+              const init = Math.max(0, parseInt(initialStock, 10) || 0);
+              const wh = warehouseId == null ? '' : String(warehouseId).trim();
+              if (init > 0 && !wh) {
+                setError('Select a warehouse when adding initial stock, or set initial stock to 0.');
+                return;
+              }
+              mutation.mutate({
+                ...form,
+                sku: form.sku.trim(),
+                name: form.name.trim(),
+                costPrice: cp,
+                sellingPrice: sp,
+                initialStock: init,
+                warehouseId: wh || undefined,
+              });
+            }}
+            disabled={mutation.isPending}
+            className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+          >
             {mutation.isPending ? 'Saving…' : 'Create Product'}
           </button>
         </div>

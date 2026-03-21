@@ -30,12 +30,18 @@ async function list(req, res) {
       prisma.product.count({ where }),
     ]);
 
+    const normalized = data.map((p) => ({
+      ...p,
+      images: Array.isArray(p.images) ? p.images : [],
+      stockLevels: Array.isArray(p.stockLevels) ? p.stockLevels : [],
+    }));
+
     // Filter low stock products
-    let filteredData = data;
+    let filteredData = normalized;
     if (lowStock === 'true') {
-      filteredData = data.filter((p) => {
-        const totalStock = p.stockLevels.reduce((sum, sl) => sum + sl.quantity, 0);
-        return totalStock <= p.reorderPoint;
+      filteredData = normalized.filter((p) => {
+        const totalStock = p.stockLevels.reduce((sum, sl) => sum + (sl.quantity || 0), 0);
+        return totalStock <= (p.reorderPoint ?? 0);
       });
     }
 
@@ -66,34 +72,92 @@ async function getOne(req, res) {
 
 async function create(req, res) {
   try {
-    const { sku, name, description, categoryId, unit, costPrice, sellingPrice, currency, vatRate, whtRate, reorderPoint, reorderQty, barcode, weight, dimensions, hscode, initialStock, warehouseId } = req.body;
-    if (!sku || !name || costPrice === undefined || sellingPrice === undefined) {
-      return res.status(400).json({ error: 'SKU, name, cost price, and selling price are required' });
+    const body = req.body || {};
+    const {
+      sku, name, description, categoryId, unit, costPrice, sellingPrice, currency, vatRate, whtRate,
+      reorderPoint, reorderQty, barcode, weight, dimensions, hscode, initialStock: rawInitial,
+      warehouseId: rawWarehouseId,
+    } = body;
+
+    const skuTrim = sku != null ? String(sku).trim() : '';
+    const nameTrim = name != null ? String(name).trim() : '';
+    if (!skuTrim || !nameTrim) {
+      return res.status(400).json({ error: 'SKU and product name are required' });
     }
 
-    const existing = await prisma.product.findUnique({ where: { tenantId_sku: { tenantId: req.tenantId, sku } } });
-    if (existing) return res.status(409).json({ error: `Product with SKU "${sku}" already exists` });
+    const cp = parseFloat(costPrice);
+    const sp = parseFloat(sellingPrice);
+    if (!Number.isFinite(cp) || cp < 0 || !Number.isFinite(sp) || sp < 0) {
+      return res.status(400).json({ error: 'Enter valid cost price and selling price (numbers ≥ 0)' });
+    }
+
+    const initialStock = Math.max(0, parseInt(rawInitial, 10) || 0);
+    const warehouseId = rawWarehouseId && String(rawWarehouseId).trim() ? String(rawWarehouseId).trim() : null;
+
+    if (initialStock > 0 && !warehouseId) {
+      return res.status(400).json({ error: 'Select a warehouse when adding initial stock, or set initial stock to 0' });
+    }
+
+    if (warehouseId) {
+      const wh = await prisma.warehouse.findFirst({
+        where: { id: warehouseId, tenantId: req.tenantId },
+        select: { id: true },
+      });
+      if (!wh) return res.status(400).json({ error: 'Warehouse not found for your business' });
+    }
+
+    const existing = await prisma.product.findUnique({
+      where: { tenantId_sku: { tenantId: req.tenantId, sku: skuTrim } },
+    });
+    if (existing) return res.status(409).json({ error: `Product with SKU "${skuTrim}" already exists` });
+
+    const vatParsed = vatRate !== undefined && vatRate !== '' ? parseFloat(vatRate) : NaN;
+    const whtParsed = whtRate !== undefined && whtRate !== '' ? parseFloat(whtRate) : NaN;
+    const vat = Number.isFinite(vatParsed) ? vatParsed : 0.075;
+    const wht = Number.isFinite(whtParsed) ? whtParsed : 0;
+
+    let dims = undefined;
+    if (dimensions != null && dimensions !== '' && typeof dimensions === 'object' && !Array.isArray(dimensions)) {
+      dims = dimensions;
+    }
+
+    let weightVal = undefined;
+    if (weight !== undefined && weight !== null && weight !== '') {
+      const wn = parseFloat(weight);
+      if (Number.isFinite(wn)) weightVal = wn;
+    }
+
+    const images = Array.isArray(body.images) ? body.images.filter((x) => typeof x === 'string') : [];
 
     const product = await prisma.$transaction(async (tx) => {
       const p = await tx.product.create({
         data: {
           tenantId: req.tenantId,
-          sku, name, description, categoryId,
-          unit: unit || 'piece',
-          costPrice: parseFloat(costPrice),
-          sellingPrice: parseFloat(sellingPrice),
-          currency: currency || 'NGN',
-          vatRate: vatRate !== undefined ? parseFloat(vatRate) : 0.075,
-          whtRate: whtRate !== undefined ? parseFloat(whtRate) : 0,
-          reorderPoint: reorderPoint || 10,
-          reorderQty: reorderQty || 50,
-          barcode, weight, dimensions, hscode,
+          sku: skuTrim,
+          name: nameTrim,
+          description: description != null && String(description).trim() ? String(description).trim() : null,
+          categoryId: categoryId && String(categoryId).trim() ? String(categoryId).trim() : null,
+          unit: unit ? String(unit) : 'piece',
+          costPrice: cp,
+          sellingPrice: sp,
+          currency: currency ? String(currency) : 'NGN',
+          vatRate: vat,
+          whtRate: wht,
+          reorderPoint: reorderPoint != null ? Math.max(0, parseInt(reorderPoint, 10) || 10) : 10,
+          reorderQty: reorderQty != null ? Math.max(0, parseInt(reorderQty, 10) || 50) : 50,
+          barcode: barcode != null && String(barcode).trim() ? String(barcode).trim() : null,
+          weight: weightVal,
+          dimensions: dims,
+          hscode: hscode != null && String(hscode).trim() ? String(hscode).trim() : null,
+          images,
         },
         include: { stockLevels: true },
       });
 
       if (initialStock > 0 && warehouseId) {
-        await tx.stockLevel.create({ data: { tenantId: req.tenantId, productId: p.id, warehouseId, quantity: initialStock } });
+        await tx.stockLevel.create({
+          data: { tenantId: req.tenantId, productId: p.id, warehouseId, quantity: initialStock },
+        });
         await tx.stockMovement.create({
           data: {
             tenantId: req.tenantId,
@@ -102,17 +166,31 @@ async function create(req, res) {
             type: 'OPENING_STOCK',
             quantity: initialStock,
             reference: 'OPENING',
-            createdById: req.user.id,
+            createdById: req.user?.id || null,
           },
         });
       }
       return p;
     });
 
-    await createAuditLog({ tenantId: req.tenantId, userId: req.user.id, action: 'CREATE', resource: 'Product', resourceId: product.id, newValues: { sku, name }, req });
+    await createAuditLog({
+      tenantId: req.tenantId,
+      userId: req.user.id,
+      action: 'CREATE',
+      resource: 'Product',
+      resourceId: product.id,
+      newValues: { sku: skuTrim, name: nameTrim },
+      req,
+    });
     res.status(201).json({ data: product });
   } catch (error) {
     logger.error('Create product error:', error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'A product with this SKU or barcode already exists' });
+    }
+    if (error.code === 'P2003') {
+      return res.status(400).json({ error: 'Invalid category or related record' });
+    }
     res.status(500).json({ error: 'Failed to create product' });
   }
 }

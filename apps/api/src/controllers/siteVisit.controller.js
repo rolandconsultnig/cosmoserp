@@ -65,13 +65,22 @@ function periodToFrom(period) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
+function isSiteVisitMissingError(e) {
+  const msg = String(e.message || e.meta?.message || '');
+  const code = e.code;
+  if (code === 'P2021' || code === 'P2010') return true;
+  if (!/SiteVisit|site_visit/i.test(msg)) return false;
+  return /does not exist|Unknown model|not exist in the current database|relation.*does not exist/i.test(msg);
+}
+
 async function getSiteVisitStats(req, res) {
   try {
     const { period = '30d' } = req.query;
     const from = periodToFrom(String(period));
 
+    // All breakdowns via SQL — avoids Prisma groupBy + orderBy edge cases in production.
     const [
-      totalVisits,
+      totalRow,
       uniqueSessionsRow,
       byDay,
       byBrowser,
@@ -80,7 +89,9 @@ async function getSiteVisitStats(req, res) {
       byCountry,
       topPaths,
     ] = await Promise.all([
-      prisma.siteVisit.count({ where: { createdAt: { gte: from } } }),
+      prisma.$queryRaw`
+        SELECT COUNT(*)::int AS c FROM "SiteVisit" WHERE "createdAt" >= ${from}
+      `,
       prisma.$queryRaw`
         SELECT COUNT(DISTINCT "sessionId")::int AS c
         FROM "SiteVisit"
@@ -91,45 +102,51 @@ async function getSiteVisitStats(req, res) {
         FROM "SiteVisit"
         WHERE "createdAt" >= ${from}
         GROUP BY DATE("createdAt")
-        ORDER BY date ASC
+        ORDER BY DATE("createdAt") ASC
       `,
-      prisma.siteVisit.groupBy({
-        by: ['browserName'],
-        where: { createdAt: { gte: from } },
-        _count: true,
-        orderBy: { _count: { browserName: 'desc' } },
-        take: 12,
-      }),
-      prisma.siteVisit.groupBy({
-        by: ['osName'],
-        where: { createdAt: { gte: from } },
-        _count: true,
-        orderBy: { _count: { osName: 'desc' } },
-        take: 12,
-      }),
-      prisma.siteVisit.groupBy({
-        by: ['deviceType'],
-        where: { createdAt: { gte: from } },
-        _count: true,
-        orderBy: { _count: { deviceType: 'desc' } },
-        take: 10,
-      }),
-      prisma.siteVisit.groupBy({
-        by: ['countryCode'],
-        where: { createdAt: { gte: from } },
-        _count: true,
-        orderBy: { _count: { countryCode: 'desc' } },
-        take: 15,
-      }),
-      prisma.siteVisit.groupBy({
-        by: ['path'],
-        where: { createdAt: { gte: from } },
-        _count: true,
-        orderBy: { _count: { path: 'desc' } },
-        take: 20,
-      }),
+      prisma.$queryRaw`
+        SELECT "browserName", COUNT(*)::int AS cnt
+        FROM "SiteVisit"
+        WHERE "createdAt" >= ${from}
+        GROUP BY "browserName"
+        ORDER BY cnt DESC
+        LIMIT 12
+      `,
+      prisma.$queryRaw`
+        SELECT "osName", COUNT(*)::int AS cnt
+        FROM "SiteVisit"
+        WHERE "createdAt" >= ${from}
+        GROUP BY "osName"
+        ORDER BY cnt DESC
+        LIMIT 12
+      `,
+      prisma.$queryRaw`
+        SELECT "deviceType", COUNT(*)::int AS cnt
+        FROM "SiteVisit"
+        WHERE "createdAt" >= ${from}
+        GROUP BY "deviceType"
+        ORDER BY cnt DESC
+        LIMIT 10
+      `,
+      prisma.$queryRaw`
+        SELECT "countryCode", COUNT(*)::int AS cnt
+        FROM "SiteVisit"
+        WHERE "createdAt" >= ${from}
+        GROUP BY "countryCode"
+        ORDER BY cnt DESC
+        LIMIT 15
+      `,
+      prisma.$queryRaw`
+        SELECT "path", COUNT(*)::int AS cnt
+        FROM "SiteVisit"
+        WHERE "createdAt" >= ${from}
+        GROUP BY "path"
+        ORDER BY cnt DESC
+        LIMIT 20
+      `,
     ]);
 
+    const totalVisits = Number(totalRow?.[0]?.c ?? 0);
     const uniqueSessions = Number(uniqueSessionsRow?.[0]?.c ?? 0);
 
     const mapDay = (r) => ({
@@ -148,33 +165,38 @@ async function getSiteVisitStats(req, res) {
         visitsByDay: (byDay || []).map(mapDay),
         byBrowser: (byBrowser || []).map((b) => ({
           name: label(b.browserName),
-          count: b._count,
+          count: Number(b.cnt),
         })),
         byOs: (byOs || []).map((b) => ({
           name: label(b.osName),
-          count: b._count,
+          count: Number(b.cnt),
         })),
         byDevice: (byDevice || []).map((b) => ({
           name: label(b.deviceType),
-          count: b._count,
+          count: Number(b.cnt),
         })),
         byCountry: (byCountry || []).map((b) => {
           const code = b.countryCode;
           return {
             code: code || '—',
             name: (code && COUNTRY_NAMES[code]) || code || 'Unknown',
-            count: b._count,
+            count: Number(b.cnt),
           };
         }),
         topPaths: (topPaths || []).map((p) => ({
           path: p.path,
-          count: p._count,
+          count: Number(p.cnt),
         })),
       },
     });
   } catch (e) {
     logger.error('getSiteVisitStats error:', e);
-    res.status(500).json({ error: 'Failed to load visit stats' });
+    const missing = isSiteVisitMissingError(e);
+    res.status(missing ? 503 : 500).json({
+      error: missing
+        ? 'Visitor analytics requires the SiteVisit table. On the server run: cd apps/api && npx prisma migrate deploy && restart the API'
+        : 'Failed to load visit stats',
+    });
   }
 }
 
@@ -241,7 +263,12 @@ async function listSiteVisits(req, res) {
     res.json(paginatedResponse(data, total, page, limit));
   } catch (e) {
     logger.error('listSiteVisits error:', e);
-    res.status(500).json({ error: 'Failed to list visits' });
+    const missing = isSiteVisitMissingError(e);
+    res.status(missing ? 503 : 500).json({
+      error: missing
+        ? 'Visitor analytics requires the SiteVisit table. On the server run: cd apps/api && npx prisma migrate deploy && restart the API'
+        : 'Failed to list visits',
+    });
   }
 }
 

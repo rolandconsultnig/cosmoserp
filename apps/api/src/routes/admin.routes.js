@@ -16,8 +16,11 @@ router.get('/site-visits/stats', siteVisit.getSiteVisitStats);
 router.get('/site-visits', siteVisit.listSiteVisits);
 router.get('/audit-logs', ctrl.getAuditLogs);
 router.put('/listings/:id/moderate', ctrl.moderateListing);
+router.post('/marketplace/listings/:id/moderate', ctrl.moderateListing);
 
-// Marketplace escrow & Paystack payouts (multi-seller)
+// Marketplace moderation + escrow & Paystack payouts
+router.get('/marketplace/listings', marketplaceAdmin.listMarketplaceListings);
+router.get('/marketplace/stats', marketplaceAdmin.getMarketplaceStats);
 router.get('/marketplace/escrow-orders', marketplaceAdmin.listEscrowOrders);
 router.post('/marketplace/orders/:id/release-escrow', marketplaceAdmin.releaseEscrowAdmin);
 router.post('/marketplace/orders/:id/payout-paystack', marketplaceAdmin.executePaystackPayouts);

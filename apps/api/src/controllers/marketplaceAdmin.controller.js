@@ -2,6 +2,119 @@ const prisma = require('../config/prisma');
 const paystackTransfer = require('../services/paystackTransfer.service');
 const { logger } = require('../utils/logger');
 const { createAuditLog } = require('../middleware/audit.middleware');
+const { paginate, paginatedResponse } = require('../utils/helpers');
+
+function mapAdminListing(listing, statusFilter) {
+  const inactive = !listing.isActive;
+  let marketplaceStatus = 'APPROVED';
+  if (inactive) {
+    marketplaceStatus = statusFilter === 'REJECTED' ? 'REJECTED' : 'PENDING';
+  }
+  return {
+    id: listing.id,
+    tenantId: listing.tenantId,
+    name: listing.title,
+    title: listing.title,
+    description: listing.description,
+    sellingPrice: parseFloat(listing.price),
+    price: parseFloat(listing.price),
+    sku: listing.product?.sku ?? null,
+    unit: listing.product?.unit ?? 'piece',
+    imageUrl: listing.images?.[0] ?? null,
+    images: listing.images || [],
+    category: listing.category,
+    tenant: listing.product?.tenant || null,
+    marketplaceStatus,
+    marketplaceListedAt: listing.publishedAt,
+    updatedAt: listing.updatedAt,
+    createdAt: listing.createdAt,
+    isActive: listing.isActive,
+    slug: listing.slug,
+    stock: listing.stock,
+  };
+}
+
+async function listMarketplaceListings(req, res) {
+  try {
+    const { page, limit, search, status } = req.query;
+    const { take, skip } = paginate(page, limit);
+    const statusFilter = String(status || '').toUpperCase();
+
+    const where = {};
+    if (statusFilter === 'APPROVED') {
+      where.isActive = true;
+    } else if (statusFilter === 'PENDING' || statusFilter === 'REJECTED') {
+      where.isActive = false;
+    }
+
+    if (search && String(search).trim()) {
+      const s = String(search).trim();
+      where.OR = [
+        { title: { contains: s, mode: 'insensitive' } },
+        { description: { contains: s, mode: 'insensitive' } },
+        { slug: { contains: s, mode: 'insensitive' } },
+        { product: { sku: { contains: s, mode: 'insensitive' } } },
+        { product: { name: { contains: s, mode: 'insensitive' } } },
+        { product: { tenant: { businessName: { contains: s, mode: 'insensitive' } } } },
+        { product: { tenant: { tradingName: { contains: s, mode: 'insensitive' } } } },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      prisma.marketplaceListing.findMany({
+        where,
+        take,
+        skip,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          category: { select: { id: true, name: true } },
+          product: {
+            select: {
+              sku: true,
+              unit: true,
+              name: true,
+              tenant: { select: { id: true, businessName: true, tradingName: true } },
+            },
+          },
+        },
+      }),
+      prisma.marketplaceListing.count({ where }),
+    ]);
+
+    const data = rows.map((r) => mapAdminListing(r, statusFilter));
+    res.json(paginatedResponse(data, total, page, limit));
+  } catch (e) {
+    logger.error('listMarketplaceListings', e);
+    res.status(500).json({ error: 'Failed to list marketplace listings' });
+  }
+}
+
+async function getMarketplaceStats(req, res) {
+  try {
+    const [total, approved, inactive, gmvAgg] = await Promise.all([
+      prisma.marketplaceListing.count(),
+      prisma.marketplaceListing.count({ where: { isActive: true } }),
+      prisma.marketplaceListing.count({ where: { isActive: false } }),
+      prisma.marketplaceOrder.aggregate({
+        where: { paymentStatus: 'SUCCESS' },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+    const gmv = parseFloat(gmvAgg._sum.totalAmount || 0);
+    res.json({
+      data: {
+        pending: inactive,
+        approved,
+        rejected: inactive,
+        totalListings: total,
+        gmv,
+      },
+    });
+  } catch (e) {
+    logger.error('getMarketplaceStats', e);
+    res.status(500).json({ error: 'Failed to load marketplace stats' });
+  }
+}
 
 async function listEscrowOrders(req, res) {
   try {
@@ -194,4 +307,6 @@ module.exports = {
   listEscrowOrders,
   releaseEscrowAdmin,
   executePaystackPayouts,
+  listMarketplaceListings,
+  getMarketplaceStats,
 };
