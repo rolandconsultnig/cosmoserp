@@ -1,6 +1,6 @@
 {
   "name": "@cosmos/erp",
-  "version": "1.0.0",
+  "version": "1.0.4.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,11 @@
     "preview": "vite preview",
     "cap:sync": "npm run build:android && npx cap sync android",
     "cap:open:android": "npx cap open android",
-    "cap:run:android": "npx cap run android"
+    "cap:run:android": "npx cap run android",
+    "figma:sync": "node figma-sync.js",
+    "figma:export": "node figma-export.js",
+    "figma:tokens": "node figma-tokens.js",
+    "design:build": "npm run figma:tokens && npm run build"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.0",

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './store/authStore';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
+import MobileLoginPage from './components/MobileLoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -42,6 +43,7 @@ import CrmDashboardPage from './pages/CrmDashboardPage';
 import FieldAgentLayout from './components/layout/FieldAgentLayout';
 import POSLayout from './components/layout/POSLayout';
 import POSPage from './pages/POSPage';
+import MobilePOSScreen from './components/MobilePOSScreen';
 import POSLoginPage from './pages/POSLoginPage';
 import POSDashboardPage from './pages/POSDashboardPage';
 import POSSalesHistoryPage from './pages/POSSalesHistoryPage';
@@ -87,7 +89,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+      <Route path="/login" element={<PublicRoute><MobileLoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
@@ -141,7 +143,7 @@ export default function App() {
       <Route path="/pos" element={<PrivateRoute><POSLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/pos/dashboard" replace />} />
         <Route path="dashboard" element={<POSDashboardPage />} />
-        <Route path="terminal" element={<POSPage />} />
+        <Route path="terminal" element={<MobilePOSScreen />} />
         <Route path="history" element={<POSSalesHistoryPage />} />
         <Route path="end-of-day" element={<POSEndOfDayPage />} />
       </Route>

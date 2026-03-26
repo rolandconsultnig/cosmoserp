@@ -1,6 +1,6 @@
 {
   "appId": "com.cosmoserp.pos",
-  "appName": "Cosmos POS",
+  "appName": "Cosmos v1.0.4.3",
   "webDir": "dist",
   "android": {
     "allowMixedContent": true

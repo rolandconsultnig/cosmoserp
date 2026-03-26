@@ -1,0 +1,182 @@
+/* Figma Design Tokens CSS Variables for Cosmos ERP */
+/* Sync this file with Figma Design Tokens plugin */
+
+:root {
+  /* Primary Colors */
+  --figma-primary-50: #eff6ff;
+  --figma-primary-100: #dbeafe;
+  --figma-primary-500: #1a56db;
+  --figma-primary-600: #1d4ed8;
+  --figma-primary-700: #1e40af;
+  --figma-primary-800: #1e3a8a;
+  --figma-primary-900: #1e3066;
+
+  /* Nigerian Brand Colors */
+  --figma-nigeria-green: #008751;
+  --figma-nigeria-white: #FFFFFF;
+
+  /* Semantic Colors */
+  --figma-success: #10b981;
+  --figma-warning: #f59e0b;
+  --figma-error: #ef4444;
+  --figma-info: #3b82f6;
+
+  /* Neutral Colors */
+  --figma-neutral-50: #f8fafc;
+  --figma-neutral-100: #f1f5f9;
+  --figma-neutral-200: #e2e8f0;
+  --figma-neutral-300: #cbd5e1;
+  --figma-neutral-400: #94a3b8;
+  --figma-neutral-500: #64748b;
+  --figma-neutral-600: #475569;
+  --figma-neutral-700: #334155;
+  --figma-neutral-800: #1e293b;
+  --figma-neutral-900: #0f172a;
+
+  /* Spacing */
+  --figma-spacing-xs: 4px;
+  --figma-spacing-sm: 8px;
+  --figma-spacing-md: 16px;
+  --figma-spacing-lg: 24px;
+  --figma-spacing-xl: 32px;
+  --figma-spacing-2xl: 48px;
+  --figma-spacing-3xl: 64px;
+
+  /* Typography */
+  --figma-font-sans: 'Inter', system-ui, sans-serif;
+  --figma-font-mono: 'JetBrains Mono', monospace;
+
+  --figma-text-xs: 12px;
+  --figma-text-sm: 14px;
+  --figma-text-base: 16px;
+  --figma-text-lg: 18px;
+  --figma-text-xl: 20px;
+  --figma-text-2xl: 24px;
+  --figma-text-3xl: 30px;
+
+  --figma-font-normal: 400;
+  --figma-font-medium: 500;
+  --figma-font-semibold: 600;
+  --figma-font-bold: 700;
+
+  /* Border Radius */
+  --figma-radius-sm: 4px;
+  --figma-radius-md: 8px;
+  --figma-radius-lg: 12px;
+  --figma-radius-xl: 16px;
+  --figma-radius-full: 9999px;
+
+  /* Shadows */
+  --figma-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --figma-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --figma-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --figma-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+
+  /* Component Specific */
+  --figma-button-primary-bg: var(--figma-primary-600);
+  --figma-button-primary-hover: var(--figma-primary-700);
+  --figma-button-primary-text: white;
+
+  --figma-card-bg: white;
+  --figma-card-border: var(--figma-neutral-200);
+  --figma-card-shadow: var(--figma-shadow-sm);
+
+  --figma-input-border: var(--figma-neutral-300);
+  --figma-input-focus: var(--figma-primary-500);
+  --figma-input-error: var(--figma-error);
+
+  --figma-sidebar-bg: var(--figma-neutral-50);
+  --figma-sidebar-border: var(--figma-neutral-200);
+  --figma-sidebar-width: 256px;
+}
+
+/* Figma Component Classes */
+.figma-button-primary {
+  background-color: var(--figma-button-primary-bg);
+  color: var(--figma-button-primary-text);
+  border-radius: var(--figma-radius-md);
+  padding: var(--figma-spacing-sm) var(--figma-spacing-lg);
+  font-weight: var(--figma-font-semibold);
+  font-size: var(--figma-text-sm);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.figma-button-primary:hover {
+  background-color: var(--figma-button-primary-hover);
+}
+
+.figma-button-primary:disabled {
+  background-color: var(--figma-neutral-300);
+  color: var(--figma-neutral-500);
+  cursor: not-allowed;
+}
+
+.figma-card {
+  background-color: var(--figma-card-bg);
+  border: 1px solid var(--figma-card-border);
+  border-radius: var(--figma-radius-lg);
+  padding: var(--figma-spacing-lg);
+  box-shadow: var(--figma-card-shadow);
+}
+
+.figma-input {
+  background-color: white;
+  border: 1px solid var(--figma-input-border);
+  border-radius: var(--figma-radius-md);
+  padding: var(--figma-spacing-sm) var(--figma-spacing-md);
+  font-size: var(--figma-text-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.figma-input:focus {
+  outline: none;
+  border-color: var(--figma-input-focus);
+  box-shadow: 0 0 0 2px var(--figma-input-focus);
+}
+
+.figma-input.error {
+  border-color: var(--figma-input-error);
+}
+
+.figma-sidebar {
+  background-color: var(--figma-sidebar-bg);
+  width: var(--figma-sidebar-width);
+  border-right: 1px solid var(--figma-sidebar-border);
+}
+
+.figma-nav-item {
+  padding: var(--figma-spacing-sm) var(--figma-spacing-md);
+  border-radius: var(--figma-radius-md);
+  color: var(--figma-neutral-600);
+  font-size: var(--figma-text-sm);
+  font-weight: var(--figma-font-medium);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+}
+
+.figma-nav-item:hover,
+.figma-nav-item.active {
+  background-color: var(--figma-primary-50);
+  color: var(--figma-primary-700);
+}
+
+/* Responsive Breakpoints (matching Figma frames) */
+@media (max-width: 767px) {
+  :root {
+    --figma-sidebar-width: 100%;
+    --figma-spacing-lg: 16px;
+    --figma-spacing-xl: 24px;
+  }
+}
+
+/* Dark Mode Support (if designed in Figma) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --figma-card-bg: var(--figma-neutral-800);
+    --figma-card-border: var(--figma-neutral-700);
+    --figma-sidebar-bg: var(--figma-neutral-900);
+    --figma-sidebar-border: var(--figma-neutral-700);
+  }
+}

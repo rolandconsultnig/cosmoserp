@@ -10,7 +10,41 @@ export function formatCurrency(amount, currency = 'NGN') {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount || 0);
+}
+
+// Additional currency formatting functions for Nigerian context
+export function formatNaira(amount) {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount || 0);
+}
+
+export function formatNairaCompact(amount) {
+  if (amount >= 1000000) {
+    return `₦${(amount / 1000000).toFixed(1)}M`;
+  } else if (amount >= 1000) {
+    return `₦${(amount / 1000).toFixed(1)}K`;
+  }
+  return formatNaira(amount);
+}
+
+export function formatNairaNoDecimals(amount) {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
+}
+
+// Function to validate Naira amounts
+export function isValidNairaAmount(amount) {
+  return typeof amount === 'number' && amount >= 0 && Number.isFinite(amount);
 }
 
 export function formatDate(date) {

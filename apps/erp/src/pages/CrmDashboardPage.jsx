@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Building2, CheckCircle2, XCircle, Loader2, Search, MapPin, Plus, ArrowRightCircle } from 'lucide-react';
 import api from '../lib/api';
-import { formatDate } from '../lib/utils';
+import { formatDate, formatCurrency } from '../lib/utils';
 
 export default function CrmDashboardPage() {
   const qc = useQueryClient();
@@ -256,7 +256,7 @@ export default function CrmDashboardPage() {
                     {l.firstName} {l.lastName || ''} {l.company ? <span className="text-slate-500 font-normal">· {l.company}</span> : null}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    {l.email || '—'} {l.phone ? `· ${l.phone}` : ''} {l.estimatedValue ? `· Value ₦${Number(l.estimatedValue).toLocaleString()}` : ''}
+                    {l.email || '—'} {l.phone ? `· ${l.phone}` : ''} {l.estimatedValue ? `· Value ${formatCurrency(l.estimatedValue)}` : ''}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
