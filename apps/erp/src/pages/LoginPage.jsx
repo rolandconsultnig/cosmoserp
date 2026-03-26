@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Headphones } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import { LOGO_URL } from '../lib/branding';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -43,7 +44,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <img src="/logo.png" alt="Cosmos ERP" className="h-[23px] md:h-[26px] lg:h-[28px] w-auto object-contain" />
+            <img src={LOGO_URL} alt="Cosmos ERP" className="h-[23px] md:h-[26px] lg:h-[28px] w-auto object-contain" />
             <div>
               <div className="font-bold text-slate-900 text-lg leading-tight">Cosmos ERP</div>
               <div className="text-xs text-slate-500">Nigerian Business Management</div>
@@ -63,6 +64,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
               <input
+                id="erp-login-email"
                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="Email"
@@ -101,6 +103,24 @@ export default function LoginPage() {
             </p>
           </div>
 
+        </div>
+
+        {/* Support & on-boarding staff: same ERP login — button centers attention below the card */}
+        <div className="mt-6 flex flex-col items-center justify-center text-center px-2">
+          <button
+            type="button"
+            onClick={() => {
+              document.getElementById('erp-login-email')?.focus({ preventScroll: false });
+              document.getElementById('erp-login-email')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-white hover:bg-blue-50 text-slate-900 font-semibold text-sm px-6 py-3 shadow-lg border border-slate-200 transition-colors w-full max-w-sm"
+          >
+            <Headphones className="w-4 h-4 shrink-0 text-green-700" aria-hidden />
+            Support &amp; On-boarding Agents — Sign in
+          </button>
+          <p className="text-blue-100/90 text-xs mt-2 max-w-md">
+            Use your Cosmos staff email and password in the form above, then click <strong className="text-white">Sign In</strong>.
+          </p>
         </div>
 
         <p className="text-center text-blue-200 text-xs mt-6">

@@ -11,6 +11,12 @@ import api from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { formatDate, formatCurrency, getStatusColor, getPlanColor, cn } from '../lib/utils';
 
+function tenantLogoSrc(logoUrl) {
+  if (!logoUrl) return null;
+  if (String(logoUrl).startsWith('http')) return logoUrl;
+  return logoUrl;
+}
+
 function buildErpImpersonateUrl(accessToken) {
   const raw = import.meta.env.VITE_ERP_URL || 'http://localhost:3060';
   const trimmed = String(raw).replace(/\/$/, '');
@@ -90,6 +96,20 @@ export default function TenantDetailPage() {
     onSuccess: invalidateAll,
   });
 
+  const logoMutation = useMutation({
+    mutationFn: (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return api.post(`/admin/tenants/${id}/logo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
+    onSuccess: () => invalidateAll(),
+  });
+
+  const clearLogoMutation = useMutation({
+    mutationFn: () => api.delete(`/admin/tenants/${id}/logo`),
+    onSuccess: () => invalidateAll(),
+  });
+
   const impersonateMutation = useMutation({
     mutationFn: async ({ userId, reason }) => {
       const body = {};
@@ -154,6 +174,13 @@ export default function TenantDetailPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
+            {t.logoUrl && (
+              <img
+                src={tenantLogoSrc(t.logoUrl)}
+                alt=""
+                className="w-8 h-8 rounded-lg object-contain bg-white border border-slate-200"
+              />
+            )}
             <h1 className="text-[22px] font-black text-slate-900 tracking-tight truncate">{t.tradingName || t.businessName}</h1>
             {!t.isActive && <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-md">DISABLED</span>}
           </div>
@@ -399,6 +426,45 @@ export default function TenantDetailPage() {
 
         {/* Right panel */}
         <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <h2 className="text-[14px] font-bold text-slate-900 mb-2">Tenant branding</h2>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+                {t.logoUrl ? (
+                  <img src={tenantLogoSrc(t.logoUrl)} alt="" className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <Building2 className="w-6 h-6 text-slate-300" />
+                )}
+              </div>
+              <div className="flex-1">
+                <label className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-[12px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer disabled:opacity-50">
+                  {logoMutation.isPending ? 'Uploading…' : 'Upload logo'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={logoMutation.isPending}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (f) logoMutation.mutate(f);
+                    }}
+                  />
+                </label>
+                {t.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => clearLogoMutation.mutate()}
+                    disabled={clearLogoMutation.isPending}
+                    className="ml-2 inline-flex items-center justify-center px-3 py-2 rounded-xl text-[12px] font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {clearLogoMutation.isPending ? 'Removing…' : 'Remove'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* KYC Actions */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div className="flex items-center gap-2 mb-4">

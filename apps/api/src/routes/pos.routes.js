@@ -5,6 +5,7 @@ const pos = require('../controllers/pos.controller');
 router.use(authenticate, requireTenantUser);
 
 router.post('/sale', pos.createSale);
+router.post('/offline-sync', pos.syncOfflineSales);
 router.get('/sales', pos.listSales);
 router.get('/sales/:id', pos.getSale);
 router.post('/sales/:id/void', pos.voidSale);

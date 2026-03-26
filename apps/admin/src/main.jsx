@@ -9,10 +9,14 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000, refetchOnWindowFocus: false } },
 });
 
+// Must match Vite `base`: dev uses `/`, production build uses `/admin/`
+const rawBase = import.meta.env.BASE_URL || '/';
+const routerBasename = rawBase === '/' ? '/' : rawBase.replace(/\/$/, '') || '/';
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename="/admin" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter basename={routerBasename} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <App />
       </BrowserRouter>
     </QueryClientProvider>

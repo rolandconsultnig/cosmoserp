@@ -5,9 +5,12 @@ import {
   Warehouse, ShoppingCart, UserSquare, DollarSign, Building2,
   Shield, BarChart3, Settings, LogOut, ChevronLeft, ChevronRight,
   Bell, Search, Menu, X, Receipt, Headphones, Zap, ShieldCheck, Store,
+  Layers, Wrench, CalendarDays, Palmtree, UserX, CalendarClock, Mail, BookOpen,
+  WalletCards, Percent,
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
+import { LOGO_URL } from '../../lib/branding';
 
 function buildNavGroups(isMarketplaceSeller) {
   const groups = [
@@ -15,12 +18,14 @@ function buildNavGroups(isMarketplaceSeller) {
     label: 'Overview',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
     ],
   },
   {
     label: 'Sales',
     items: [
       { to: '/pos',      icon: Zap,       label: 'Point of Sale', highlight: true },
+      { to: '/promotion-pricing', icon: Percent, label: 'Promotion & pricing' },
       { to: '/invoices', icon: FileText,  label: 'Invoices' },
       { to: '/quotes',   icon: FileCheck, label: 'Quotations' },
       { to: '/customers',icon: Users,     label: 'Customers' },
@@ -40,6 +45,7 @@ function buildNavGroups(isMarketplaceSeller) {
     label: 'Inventory',
     items: [
       { to: '/products', icon: Package, label: 'Products' },
+      { to: '/stock', icon: Layers, label: 'Stock & valuation' },
       { to: '/warehouses', icon: Warehouse, label: 'Warehouses' },
       { to: '/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
       { to: '/suppliers', icon: Truck, label: 'Suppliers' },
@@ -49,18 +55,27 @@ function buildNavGroups(isMarketplaceSeller) {
     label: 'Operations',
     items: [
       { to: '/shipments', icon: Truck, label: 'Shipments' },
+      { to: '/projects', icon: Receipt, label: 'Projects' },
+      { to: '/tasks', icon: Search, label: 'Tasks' },
     ],
   },
   {
     label: 'HR & Payroll',
     items: [
       { to: '/employees', icon: UserSquare, label: 'Employees' },
+      { to: '/attendance', icon: CalendarClock, label: 'Attendance & shifts' },
+      { to: '/leave-management', icon: Palmtree, label: 'Leave' },
+      { to: '/termination-workflow', icon: UserX, label: 'Termination' },
+      { to: '/staff-portal', icon: UserSquare, label: 'Staff Portal' },
+      { to: '/departments', icon: Users, label: 'Departments' },
+      { to: '/announcements', icon: Bell, label: 'Announcements' },
       { to: '/payroll', icon: DollarSign, label: 'Payroll' },
     ],
   },
   {
     label: 'Finance',
     items: [
+      { to: '/transactions-hub', icon: WalletCards, label: 'Transactions hub' },
       { to: '/finance', icon: Building2, label: 'Chart of Accounts' },
       { to: '/nrs', icon: Shield, label: 'NRS / Tax' },
       { to: '/reports', icon: BarChart3, label: 'Reports' },
@@ -69,12 +84,16 @@ function buildNavGroups(isMarketplaceSeller) {
   {
     label: 'Customer Care',
     items: [
+      { to: '/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
+      { to: '/mailbox', icon: Mail, label: 'Mailbox' },
       { to: '/support', icon: Headphones, label: 'Support & Calls' },
     ],
   },
   {
     label: 'Account',
     items: [
+      { to: '/alerts', icon: Bell, label: 'Alerts' },
+      { to: '/utilities', icon: Wrench, label: 'Utilities' },
       { to: '/kyc', icon: ShieldCheck, label: 'KYC Verification' },
       { to: '/settings', icon: Settings, label: 'Settings' },
     ],
@@ -102,7 +121,7 @@ export default function AppLayout() {
     )}>
       {/* Logo */}
       <div className={cn('flex items-center h-16 border-b border-slate-200 px-4', collapsed && !mobile ? 'justify-center' : 'gap-3')}>
-        <img src="/logo.png" alt="Cosmos ERP" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
+        <img src={LOGO_URL} alt="Cosmos ERP" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-bold text-slate-900 text-sm leading-tight">Cosmos ERP</div>

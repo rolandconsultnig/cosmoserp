@@ -36,6 +36,7 @@ export default function AuditLogsPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [entityFilter, setEntityFilter] = useState('');
   const [page, setPage]               = useState(1);
+  const [selected, setSelected] = useState(null);
 
   const hasFilters = search || tenantSearch || actionFilter || entityFilter;
   const clearFilters = () => {
@@ -53,7 +54,7 @@ export default function AuditLogsPage() {
           search: search || undefined,
           tenantSearch: tenantSearch || undefined,
           action: actionFilter || undefined,
-          entity: entityFilter || undefined,
+          resource: entityFilter || undefined,
         },
       }).then((r) => r.data),
     keepPreviousData: true,
@@ -182,7 +183,7 @@ export default function AuditLogsPage() {
               )}
 
               {logs.map((log) => (
-                <tr key={log.id} className="table-row">
+                <tr key={log.id} className="table-row cursor-pointer" onClick={() => setSelected(log)}>
                   <td className="table-cell text-[11px] text-slate-500 whitespace-nowrap font-mono">
                     {formatDateTime(log.createdAt)}
                   </td>
@@ -254,6 +255,79 @@ export default function AuditLogsPage() {
           </div>
         )}
       </div>
+
+      {selected && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-xl border border-slate-200" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-[14px] font-black text-slate-900">Audit log details</h3>
+              </div>
+              <button onClick={() => setSelected(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">When</div>
+                <div className="text-[13px] font-semibold text-slate-900 font-mono">{formatDateTime(selected.createdAt)}</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">IP / User Agent</div>
+                <div className="text-[13px] text-slate-700 font-mono">{selected.ipAddress || '—'}</div>
+                <div className="text-[12px] text-slate-500 break-words">{selected.userAgent || '—'}</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tenant</div>
+                <div className="text-[13px] font-semibold text-slate-900">{selected.tenant?.tradingName || selected.tenant?.businessName || 'Platform'}</div>
+                {selected.tenant?.id && <div className="text-[11px] text-slate-400 font-mono">{selected.tenant.id}</div>}
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actor</div>
+                <div className="text-[13px] font-semibold text-slate-900">
+                  {selected.user
+                    ? `${selected.user.firstName || ''} ${selected.user.lastName || ''}`.trim() || selected.user.email
+                    : selected.adminUser
+                      ? `${selected.adminUser.firstName || ''} ${selected.adminUser.lastName || ''}`.trim() || selected.adminUser.email
+                      : 'System'}
+                </div>
+                <div className="text-[12px] text-slate-500 font-mono">{selected.user?.email || selected.adminUser?.email || '—'}</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</div>
+                <div className="text-[13px] font-black text-slate-900">{selected.action}</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Resource</div>
+                <div className="text-[13px] font-semibold text-slate-900">{selected.resource}</div>
+                <div className="text-[11px] text-slate-400 font-mono break-all">{selected.resourceId || '—'}</div>
+              </div>
+            </div>
+
+            <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Old values</div>
+                <pre className="text-[11px] text-slate-700 whitespace-pre-wrap break-words font-mono max-h-48 overflow-auto">{selected.oldValues ? JSON.stringify(selected.oldValues, null, 2) : '—'}</pre>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">New values</div>
+                <pre className="text-[11px] text-slate-700 whitespace-pre-wrap break-words font-mono max-h-48 overflow-auto">{selected.newValues ? JSON.stringify(selected.newValues, null, 2) : '—'}</pre>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Metadata</div>
+                <pre className="text-[11px] text-slate-700 whitespace-pre-wrap break-words font-mono max-h-48 overflow-auto">{selected.metadata ? JSON.stringify(selected.metadata, null, 2) : '—'}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

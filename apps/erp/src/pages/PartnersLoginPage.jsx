@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Truck, Headphones, Users, ArrowRight } from 'lucide-react';
+import { Truck, Users, ArrowRight, Building2 } from 'lucide-react';
 
 const PARTNER_OPTIONS = [
   {
@@ -10,14 +10,6 @@ const PARTNER_OPTIONS = [
     registerHref: '/logistics-register',
     icon: Truck,
     iconBg: 'bg-blue-600',
-  },
-  {
-    id: 'agents',
-    title: 'Support & On-boarding Agents',
-    description: 'Customer care and on-boarding agents. Sign in to manage support tickets, call logs and customer interactions.',
-    href: '/agent-login',
-    icon: Headphones,
-    iconBg: 'bg-green-600',
   },
   {
     id: 'pos',
@@ -37,7 +29,7 @@ export default function PartnersLoginPage() {
           <div className="bg-gray-800 px-6 py-5">
             <h1 className="text-lg font-bold text-white">Partners Portal</h1>
             <p className="text-gray-300 text-sm mt-1">
-              On-boarding agents, logistics agents, and other parts of the Cosmos process. Choose your portal below.
+              Logistics partners, POS staff, and other parts of the Cosmos process. Choose your portal below.
             </p>
           </div>
 
@@ -73,9 +65,15 @@ export default function PartnersLoginPage() {
             ))}
           </div>
         </div>
-        <p className="text-center text-gray-500 text-xs mt-4">
-          Not a partner? <Link to="/login" className="text-blue-600 hover:underline">Business / Seller login</Link>
-        </p>
+        <div className="flex justify-center mt-6">
+          <Link
+            to="/login"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm font-semibold px-8 py-3 shadow-md border border-gray-700 transition-colors"
+          >
+            <Building2 className="w-4 h-4" aria-hidden />
+            ERP login
+          </Link>
+        </div>
       </div>
     </div>
   );

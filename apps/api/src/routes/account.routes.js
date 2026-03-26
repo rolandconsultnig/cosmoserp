@@ -469,4 +469,144 @@ router.get('/trial-balance', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (r
   }
 });
 
+/**
+ * Unified transactions hub:
+ * merges posted journals, invoices, payments, payroll runs, and purchase orders.
+ */
+router.get('/transactions-hub', requireRole('OWNER', 'ADMIN', 'ACCOUNTANT'), async (req, res) => {
+  try {
+    const { from, to, q, kind, limit } = req.query;
+    const take = Math.min(Math.max(parseInt(limit, 10) || 250, 1), 1000);
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const qText = String(q || '').trim().toLowerCase();
+    const kindFilter = kind ? String(kind).toUpperCase() : null;
+
+    const inRange = (d) => {
+      const date = d ? new Date(d) : null;
+      if (!date || Number.isNaN(date.valueOf())) return false;
+      if (fromDate && date < fromDate) return false;
+      if (toDate && date > toDate) return false;
+      return true;
+    };
+
+    const [journals, invoices, payments, payrollRuns, purchaseOrders] = await Promise.all([
+      prisma.journalEntry.findMany({
+        where: { tenantId: req.tenantId, status: 'POSTED' },
+        orderBy: { date: 'desc' },
+        take,
+      }),
+      prisma.invoice.findMany({
+        where: { tenantId: req.tenantId },
+        select: { id: true, invoiceNumber: true, status: true, totalAmount: true, createdAt: true, dueDate: true },
+        orderBy: { createdAt: 'desc' },
+        take,
+      }),
+      prisma.payment.findMany({
+        where: { tenantId: req.tenantId },
+        select: { id: true, amount: true, method: true, reference: true, paidAt: true, createdAt: true, invoiceId: true },
+        orderBy: { paidAt: 'desc' },
+        take,
+      }),
+      prisma.payrollRun.findMany({
+        where: { tenantId: req.tenantId },
+        select: { id: true, period: true, status: true, totalNet: true, processedAt: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take,
+      }),
+      prisma.purchaseOrder.findMany({
+        where: { tenantId: req.tenantId },
+        select: { id: true, poNumber: true, status: true, totalAmount: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take,
+      }),
+    ]);
+
+    let rows = [
+      ...journals.map((j) => ({
+        id: `journal:${j.id}`,
+        kind: 'JOURNAL',
+        date: j.date,
+        reference: j.reference || j.id,
+        status: j.status,
+        amount: null,
+        currency: j.currency || 'NGN',
+        description: j.description || '',
+        sourceId: j.id,
+      })),
+      ...invoices.map((i) => ({
+        id: `invoice:${i.id}`,
+        kind: 'INVOICE',
+        date: i.createdAt,
+        reference: i.invoiceNumber || i.id,
+        status: i.status,
+        amount: parseFloat(i.totalAmount || 0),
+        currency: 'NGN',
+        description: i.dueDate ? `Due ${new Date(i.dueDate).toISOString().slice(0, 10)}` : '',
+        sourceId: i.id,
+      })),
+      ...payments.map((p) => ({
+        id: `payment:${p.id}`,
+        kind: 'PAYMENT',
+        date: p.paidAt || p.createdAt,
+        reference: p.reference || p.id,
+        status: p.method || 'PAID',
+        amount: parseFloat(p.amount || 0),
+        currency: 'NGN',
+        description: p.invoiceId ? `Invoice ${p.invoiceId}` : '',
+        sourceId: p.id,
+      })),
+      ...payrollRuns.map((r) => ({
+        id: `payroll:${r.id}`,
+        kind: 'PAYROLL',
+        date: r.processedAt || r.createdAt,
+        reference: r.period || r.id,
+        status: r.status,
+        amount: parseFloat(r.totalNet || 0),
+        currency: 'NGN',
+        description: 'Payroll run',
+        sourceId: r.id,
+      })),
+      ...purchaseOrders.map((p) => ({
+        id: `po:${p.id}`,
+        kind: 'PURCHASE_ORDER',
+        date: p.createdAt,
+        reference: p.poNumber || p.id,
+        status: p.status,
+        amount: parseFloat(p.totalAmount || 0),
+        currency: 'NGN',
+        description: 'Purchase order',
+        sourceId: p.id,
+      })),
+    ];
+
+    rows = rows.filter((r) => inRange(r.date));
+    if (kindFilter) rows = rows.filter((r) => r.kind === kindFilter);
+    if (qText) {
+      rows = rows.filter((r) =>
+        [r.reference, r.status, r.description, r.kind]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(qText))
+      );
+    }
+    rows.sort((a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf());
+
+    const totalsByKind = rows.reduce((acc, r) => {
+      if (r.amount === null || Number.isNaN(r.amount)) return acc;
+      acc[r.kind] = (acc[r.kind] || 0) + r.amount;
+      return acc;
+    }, {});
+
+    res.json({
+      data: {
+        rows: rows.slice(0, take),
+        totalsByKind,
+        totalRows: rows.length,
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to build transactions hub' });
+  }
+});
+
 module.exports = router;

@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { LOGO_URL } from '../../lib/branding';
 import useAuthStore from '../../store/authStore';
 
 const navItems = [
@@ -49,7 +50,7 @@ export default function FieldAgentLayout() {
       )}
     >
       <div className={cn('flex items-center h-14 border-b border-emerald-800 px-3', collapsed && !mobile ? 'justify-center' : 'gap-2.5')}>
-        <img src="/logo.png" alt="Cosmos" className="h-8 w-auto object-contain flex-shrink-0" />
+        <img src={LOGO_URL} alt="Cosmos" className="h-8 w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-bold text-white text-sm">Field Agent</div>

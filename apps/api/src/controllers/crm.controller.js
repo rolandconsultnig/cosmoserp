@@ -139,10 +139,168 @@ async function updateBusinessKYC(req, res) {
   }
 }
 
+async function listLeads(req, res) {
+  try {
+    const { stage, search } = req.query;
+    const where = { tenantId: req.tenantId };
+    if (stage) where.stage = String(stage).toUpperCase();
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const rows = await prisma.lead.findMany({
+      where,
+      orderBy: [{ convertedAt: 'asc' }, { createdAt: 'desc' }],
+      take: 500,
+    });
+    res.json({ data: rows });
+  } catch (error) {
+    logger.error('CRM listLeads error:', error);
+    res.status(500).json({ error: 'Failed to load leads' });
+  }
+}
+
+async function createLead(req, res) {
+  try {
+    const firstName = String(req.body?.firstName || '').trim();
+    if (!firstName) return res.status(400).json({ error: 'firstName is required' });
+
+    const row = await prisma.lead.create({
+      data: {
+        tenantId: req.tenantId,
+        firstName,
+        lastName: req.body?.lastName ? String(req.body.lastName).trim() : null,
+        company: req.body?.company ? String(req.body.company).trim() : null,
+        email: req.body?.email ? String(req.body.email).trim().toLowerCase() : null,
+        phone: req.body?.phone ? String(req.body.phone).trim() : null,
+        source: req.body?.source ? String(req.body.source).trim() : null,
+        stage: req.body?.stage ? String(req.body.stage).toUpperCase() : 'NEW',
+        estimatedValue: req.body?.estimatedValue ? parseFloat(req.body.estimatedValue) : null,
+        nextFollowUpAt: req.body?.nextFollowUpAt ? new Date(req.body.nextFollowUpAt) : null,
+        notes: req.body?.notes ? String(req.body.notes).trim() : null,
+        assignedToId: req.body?.assignedToId ? String(req.body.assignedToId) : null,
+        createdById: req.user.id,
+      },
+    });
+
+    await createAuditLog({
+      tenantId: req.tenantId,
+      userId: req.user.id,
+      action: 'CRM_CREATE_LEAD',
+      resource: 'Lead',
+      resourceId: row.id,
+      newValues: row,
+      req,
+    });
+    res.status(201).json({ data: row });
+  } catch (error) {
+    logger.error('CRM createLead error:', error);
+    res.status(500).json({ error: 'Failed to create lead' });
+  }
+}
+
+async function updateLead(req, res) {
+  try {
+    const leadId = String(req.params.id);
+    const existing = await prisma.lead.findFirst({
+      where: { id: leadId, tenantId: req.tenantId },
+    });
+    if (!existing) return res.status(404).json({ error: 'Lead not found' });
+
+    const payload = {};
+    const fields = ['firstName', 'lastName', 'company', 'email', 'phone', 'source', 'notes', 'assignedToId'];
+    fields.forEach((k) => {
+      if (req.body?.[k] !== undefined) {
+        payload[k] = req.body[k] === '' ? null : String(req.body[k]).trim();
+      }
+    });
+    if (req.body?.email !== undefined && payload.email) payload.email = payload.email.toLowerCase();
+    if (req.body?.estimatedValue !== undefined) payload.estimatedValue = req.body.estimatedValue ? parseFloat(req.body.estimatedValue) : null;
+    if (req.body?.nextFollowUpAt !== undefined) payload.nextFollowUpAt = req.body.nextFollowUpAt ? new Date(req.body.nextFollowUpAt) : null;
+    if (req.body?.stage !== undefined) payload.stage = String(req.body.stage).toUpperCase();
+
+    const updated = await prisma.lead.update({ where: { id: existing.id }, data: payload });
+    await createAuditLog({
+      tenantId: req.tenantId,
+      userId: req.user.id,
+      action: 'CRM_UPDATE_LEAD',
+      resource: 'Lead',
+      resourceId: existing.id,
+      oldValues: existing,
+      newValues: payload,
+      req,
+    });
+    res.json({ data: updated });
+  } catch (error) {
+    logger.error('CRM updateLead error:', error);
+    res.status(500).json({ error: 'Failed to update lead' });
+  }
+}
+
+async function convertLead(req, res) {
+  try {
+    const leadId = String(req.params.id);
+    const lead = await prisma.lead.findFirst({
+      where: { id: leadId, tenantId: req.tenantId },
+    });
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if (lead.convertedAt) return res.status(400).json({ error: 'Lead already converted' });
+
+    let customer = null;
+    if (lead.company || lead.firstName || lead.email || lead.phone) {
+      customer = await prisma.customer.create({
+        data: {
+          tenantId: req.tenantId,
+          name: lead.company || `${lead.firstName}${lead.lastName ? ` ${lead.lastName}` : ''}`,
+          email: lead.email || null,
+          phone: lead.phone || null,
+          address: null,
+          city: null,
+          state: null,
+          country: null,
+          tin: null,
+        },
+      });
+    }
+
+    const updated = await prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        stage: 'WON',
+        convertedAt: new Date(),
+        convertedById: req.user.id,
+      },
+    });
+
+    await createAuditLog({
+      tenantId: req.tenantId,
+      userId: req.user.id,
+      action: 'CRM_CONVERT_LEAD',
+      resource: 'Lead',
+      resourceId: lead.id,
+      newValues: { customerId: customer?.id || null },
+      req,
+    });
+    res.json({ data: { lead: updated, customer } });
+  } catch (error) {
+    logger.error('CRM convertLead error:', error);
+    res.status(500).json({ error: 'Failed to convert lead' });
+  }
+}
+
 module.exports = {
   getDashboard,
   listAgents,
   listBusinesses,
   updateBusinessKYC,
+  listLeads,
+  createLead,
+  updateLead,
+  convertLead,
 };
 

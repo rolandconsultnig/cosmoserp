@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import api from '../lib/api';
+import { LOGO_URL } from '../lib/branding';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -29,7 +30,7 @@ export default function ForgotPasswordPage() {
       <div className="relative w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="flex items-center gap-3 mb-8">
-            <img src="/logo.png" alt="Cosmos ERP" className="h-10 w-auto object-contain" />
+            <img src={LOGO_URL} alt="Cosmos ERP" className="h-10 w-auto object-contain" />
             <div>
               <div className="font-bold text-slate-900 text-lg leading-tight">Cosmos ERP</div>
               <div className="text-xs text-slate-500">Reset your password</div>

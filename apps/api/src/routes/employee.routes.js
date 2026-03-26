@@ -9,5 +9,6 @@ router.get('/:id', ctrl.getOne);
 router.post('/', requireRole('OWNER','ADMIN','HR'), ctrl.create);
 router.put('/:id', requireRole('OWNER','ADMIN','HR'), ctrl.update);
 router.post('/:id/portal-access', requireRole('OWNER', 'ADMIN', 'HR'), ctrl.issuePortalAccess);
+router.post('/:id/link-user', requireRole('OWNER', 'ADMIN', 'HR'), ctrl.linkUser);
 
 module.exports = router;

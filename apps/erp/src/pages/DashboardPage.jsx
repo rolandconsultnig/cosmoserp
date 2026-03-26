@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   TrendingUp, TrendingDown, FileText, Package, Users, AlertTriangle, ShieldCheck, ShieldX, Clock,
-  ArrowRight, Truck, BarChart3, Banknote, ScanLine, ClipboardList,
+  ArrowRight, Truck, BarChart3, Banknote, ScanLine, ClipboardList, Layers, Bell, CalendarDays,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
@@ -109,8 +109,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Module shortcuts: marketplace, logistics, reports (#86) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Module shortcuts: marketplace, logistics, reports, stock, alerts */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tenant?.isMarketplaceSeller ? (
           <Link
             to="/marketplace-orders"
@@ -151,6 +151,30 @@ export default function DashboardPage() {
           <div>
             <div className="text-sm font-semibold text-slate-800">Reports</div>
             <div className="text-xs text-slate-600">P&amp;L, balance sheet, CSV</div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
+        <Link to="/stock" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
+          <Layers className="w-6 h-6 text-violet-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Stock &amp; valuation</div>
+            <div className="text-xs text-slate-600">All warehouses · reorder view</div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
+        <Link to="/alerts" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
+          <Bell className="w-6 h-6 text-amber-500" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Alerts</div>
+            <div className="text-xs text-slate-600">KYC · inventory · payroll</div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
+        <Link to="/calendar" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
+          <CalendarDays className="w-6 h-6 text-sky-600" />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Calendar</div>
+            <div className="text-xs text-slate-600">Tasks · projects · announcements</div>
           </div>
           <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
         </Link>

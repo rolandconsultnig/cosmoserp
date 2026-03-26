@@ -39,6 +39,40 @@ async function list(req, res) {
   }
 }
 
+async function linkUser(req, res) {
+  try {
+    const employee = await prisma.employee.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
+    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+
+    const userId = req.body?.userId ? String(req.body.userId) : null;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId, tenantId: req.tenantId, isActive: true },
+      select: { id: true },
+    });
+    if (!user) return res.status(400).json({ error: 'User not found' });
+
+    const updated = await prisma.employee.update({
+      where: { id: employee.id },
+      data: { userId: user.id },
+    });
+
+    const { portalAccessToken, portalAccessTokenExpiresAt, ...safe } = updated;
+    res.json({
+      data: {
+        ...safe,
+        portalAccessActive: Boolean(
+          portalAccessToken && portalAccessTokenExpiresAt && new Date(portalAccessTokenExpiresAt) > new Date(),
+        ),
+      },
+    });
+  } catch (error) {
+    if (error?.code === 'P2002') return res.status(409).json({ error: 'This user is already linked to another employee' });
+    res.status(500).json({ error: 'Failed to link user' });
+  }
+}
+
 async function getOne(req, res) {
   try {
     const employee = await prisma.employee.findFirst({
@@ -153,4 +187,4 @@ async function issuePortalAccess(req, res) {
   }
 }
 
-module.exports = { list, getOne, create, update, issuePortalAccess };
+module.exports = { list, linkUser, getOne, create, update, issuePortalAccess };

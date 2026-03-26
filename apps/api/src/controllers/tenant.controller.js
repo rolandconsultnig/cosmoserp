@@ -169,6 +169,7 @@ const TENANT_SELF_SERVICE_ALLOWED = [
   'bankAccountName',
   'bankSortCode',
   'logoUrl',
+  'invoiceTemplate',
 ];
 
 async function updateMyTenant(req, res) {

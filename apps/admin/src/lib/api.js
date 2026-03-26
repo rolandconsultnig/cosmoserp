@@ -5,6 +5,21 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+function adminLoginUrl() {
+  const raw = import.meta.env.BASE_URL || '/';
+  const prefix = raw === '/' ? '' : raw.replace(/\/$/, '');
+  const loginPath = prefix ? `${prefix}/login` : '/login';
+  return `${window.location.origin}${loginPath}`;
+}
+
+function isAdminAuthPublicPath(pathname) {
+  return (
+    pathname.endsWith('/login') ||
+    pathname.includes('/forgot-password') ||
+    pathname.includes('/reset-password')
+  );
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('admin_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -16,9 +31,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('admin_token');
-      const adminLoginPath = `${window.location.origin}/admin/login`;
-      if (!window.location.pathname.startsWith('/admin/login')) {
-        window.location.href = adminLoginPath;
+      if (!isAdminAuthPublicPath(window.location.pathname)) {
+        window.location.href = adminLoginUrl();
       }
     }
     return Promise.reject(error);

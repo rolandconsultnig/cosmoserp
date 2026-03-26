@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Save, Loader2, Plus, ImageIcon, Trash2 } from 'lucide-react';
+import { Save, Loader2, Plus, ImageIcon, Trash2, Users, UserPlus, ScrollText, Copy, Check } from 'lucide-react';
 import api from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { cn } from '../lib/utils';
@@ -23,6 +23,7 @@ export default function SettingsPage() {
     bankAccountNumber: '',
     bankAccountName: '',
     bankSortCode: '',
+    invoiceTemplate: 'CLASSIC',
   });
   const [userForm, setUserForm] = useState({ firstName: user?.firstName || '', lastName: user?.lastName || '', phone: user?.phone || '', email: user?.email || '', currentPassword: '', newPassword: '' });
   const [error, setError] = useState('');
@@ -40,6 +41,7 @@ export default function SettingsPage() {
       bankAccountNumber: tenant.bankAccountNumber || '',
       bankAccountName: tenant.bankAccountName || '',
       bankSortCode: tenant.bankSortCode || '',
+      invoiceTemplate: tenant.invoiceTemplate || 'CLASSIC',
     });
   }, [tenant]);
 
@@ -80,6 +82,7 @@ export default function SettingsPage() {
     mutationFn: (d) => api.post('/users', d),
     onSuccess: () => {
       qc.invalidateQueries(['users']);
+      qc.invalidateQueries(['audit-logs']);
       setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'STAFF', permissions: [] });
       setSuccess('User created.');
       setTimeout(() => setSuccess(''), 3000);
@@ -91,15 +94,53 @@ export default function SettingsPage() {
     mutationFn: ({ id, ...body }) => api.put(`/users/${id}`, body),
     onSuccess: () => {
       qc.invalidateQueries(['users']);
+      qc.invalidateQueries(['audit-logs']);
       setSuccess('User updated.');
       setTimeout(() => setSuccess(''), 3000);
     },
     onError: (e) => setError(e.response?.data?.error || 'Failed to update user'),
   });
 
+  const bulkInviteMutation = useMutation({
+    mutationFn: (invites) => api.post('/users/bulk-invite', { invites }),
+    onSuccess: (res) => {
+      qc.invalidateQueries(['users']);
+      qc.invalidateQueries(['audit-logs']);
+      setBulkResult(res.data?.data || null);
+      setSuccess(`Bulk invite: ${res.data?.data?.created?.length || 0} created, ${res.data?.data?.skipped?.length || 0} skipped.`);
+      setTimeout(() => setSuccess(''), 5000);
+    },
+    onError: (e) => setError(e.response?.data?.error || 'Bulk invite failed'),
+  });
+
+  function parseBulkInviteText(text) {
+    const lines = String(text || '')
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const invites = [];
+    for (const line of lines) {
+      const parts = line.split(/[,\t]/).map((p) => p.trim());
+      if (parts.length < 3) continue;
+      const [email, firstName, lastName, roleOpt] = parts;
+      const row = { email, firstName, lastName };
+      if (roleOpt) row.role = roleOpt.toUpperCase();
+      invites.push(row);
+    }
+    return invites;
+  }
+
   const PERMISSIONS = [
     { key: 'users:read', label: 'View users' },
     { key: 'users:manage', label: 'Create / edit / activate users' },
+    { key: 'departments:view', label: 'View departments' },
+    { key: 'departments:manage', label: 'Create / edit departments' },
+    { key: 'announcements:view', label: 'View announcements' },
+    { key: 'announcements:manage', label: 'Create / edit announcements' },
+    { key: 'projects:view', label: 'View projects' },
+    { key: 'projects:manage', label: 'Create / edit projects' },
+    { key: 'tasks:view', label: 'View tasks' },
+    { key: 'tasks:manage', label: 'Create / edit tasks' },
     { key: 'finance:read', label: 'View finance' },
     { key: 'finance:post', label: 'Post / reverse journals' },
     { key: 'invoices:manage', label: 'Create / edit invoices' },
@@ -125,6 +166,10 @@ export default function SettingsPage() {
 
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'STAFF', permissions: [] });
   const [editPermUser, setEditPermUser] = useState(null);
+  const [usersSubTab, setUsersSubTab] = useState('directory'); // directory | bulk | audit
+  const [bulkText, setBulkText] = useState('');
+  const [bulkResult, setBulkResult] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   const bizMutation = useMutation({
     mutationFn: (d) => api.put('/tenants/me', d),
@@ -326,6 +371,16 @@ export default function SettingsPage() {
                 <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Business phone</label><input value={editableForm.phone} onChange={setEditable('phone')} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Website</label><input value={editableForm.website} onChange={setEditable('website')} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://" /></div>
                 <div className="sm:col-span-2"><label className="block text-sm font-medium text-slate-700 mb-1.5">Industry</label><input value={editableForm.industry} onChange={setEditable('industry')} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Invoice format</label>
+                  <select value={editableForm.invoiceTemplate} onChange={setEditable('invoiceTemplate')} className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="CLASSIC">Classic</option>
+                    <option value="MODERN">Modern</option>
+                    <option value="COMPACT">Compact</option>
+                    <option value="BLUE">Blue</option>
+                    <option value="MINIMAL">Minimal</option>
+                  </select>
+                </div>
               </div>
             </div>
             <div>
@@ -395,6 +450,196 @@ export default function SettingsPage() {
             </div>
           ) : (
             <>
+              <div className="flex flex-wrap gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+                {[
+                  ['directory', 'Directory', Users],
+                  ['bulk', 'Bulk invite', UserPlus],
+                  ['audit', 'Audit log', ScrollText],
+                ].map(([key, label, Icon]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setUsersSubTab(key);
+                      setError('');
+                    }}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition',
+                      usersSubTab === key ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {usersSubTab === 'bulk' && (
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-3">
+                  <div>
+                    <div className="font-semibold text-slate-900 flex items-center gap-2">
+                      <UserPlus className="w-5 h-5 text-blue-600" />
+                      Bulk invite
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      One user per line: <code className="bg-slate-100 px-1 rounded">email, first name, last name</code> or add{' '}
+                      <code className="bg-slate-100 px-1 rounded">, ROLE</code> (e.g. STAFF, HR). Max 50 lines. Temporary passwords are
+                      generated — copy them once; users should change password after login. Only the <strong>OWNER</strong> can assign{' '}
+                      <strong>ADMIN</strong>.
+                    </p>
+                  </div>
+                  <textarea
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    rows={10}
+                    placeholder={`ada@company.com, Ada, Lovelace, STAFF\nbob@company.com, Bob, Smith`}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={bulkInviteMutation.isPending || !bulkText.trim()}
+                      onClick={() => {
+                        setError('');
+                        const invites = parseBulkInviteText(bulkText);
+                        if (invites.length === 0) {
+                          setError('Paste at least one valid line: email, first name, last name');
+                          return;
+                        }
+                        bulkInviteMutation.mutate(invites);
+                      }}
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm px-4 py-2 rounded-lg"
+                    >
+                      {bulkInviteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                      Run bulk invite
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkText('');
+                        setBulkResult(null);
+                      }}
+                      className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  {bulkResult?.skipped?.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+                      <div className="font-semibold text-amber-900">Skipped ({bulkResult.skipped.length})</div>
+                      <ul className="mt-1 text-xs text-amber-800 space-y-0.5 max-h-32 overflow-y-auto">
+                        {bulkResult.skipped.map((s, i) => (
+                          <li key={i}>
+                            {s.email}: {s.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {bulkResult?.created?.length > 0 && (
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm">
+                      <div className="font-semibold text-green-900 mb-2">Created — copy temporary passwords now</div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-left text-green-800 border-b border-green-200">
+                              <th className="py-1 pr-2">Email</th>
+                              <th className="py-1 pr-2">Role</th>
+                              <th className="py-1 pr-2">Temp password</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bulkResult.created.map((c) => (
+                              <tr key={c.id} className="border-b border-green-100">
+                                <td className="py-1.5 pr-2 font-mono">{c.email}</td>
+                                <td className="py-1.5 pr-2">{c.role}</td>
+                                <td className="py-1.5 pr-2">
+                                  <div className="flex items-center gap-1">
+                                    <code className="bg-white/80 px-1 rounded">{c.temporaryPassword}</code>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(c.temporaryPassword);
+                                        setCopiedId(c.id);
+                                        setTimeout(() => setCopiedId(null), 2000);
+                                      }}
+                                      className="p-0.5 text-green-700 hover:bg-green-100 rounded"
+                                      title="Copy password"
+                                    >
+                                      {copiedId === c.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {usersSubTab === 'audit' && (
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
+                    <ScrollText className="w-5 h-5 text-slate-600" />
+                    <div>
+                      <div className="font-semibold text-slate-900">User audit log</div>
+                      <div className="text-xs text-slate-500">CREATE / UPDATE / BULK_INVITE for users in your organization</div>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 text-xs text-slate-500 border-b border-slate-100">
+                          <th className="text-left px-4 py-2 font-semibold whitespace-nowrap">When</th>
+                          <th className="text-left px-4 py-2 font-semibold">Actor</th>
+                          <th className="text-left px-4 py-2 font-semibold">Action</th>
+                          <th className="text-left px-4 py-2 font-semibold">Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(!auditRows || auditRows.length === 0) && (
+                          <tr>
+                            <td colSpan={4} className="text-center py-10 text-slate-400">
+                              No user-related audit entries yet.
+                            </td>
+                          </tr>
+                        )}
+                        {(auditRows || []).map((row) => (
+                          <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/80 align-top">
+                            <td className="px-4 py-2 text-xs text-slate-600 whitespace-nowrap">
+                              {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
+                            </td>
+                            <td className="px-4 py-2 text-xs">
+                              {row.user ? (
+                                <>
+                                  <div className="text-slate-900">{row.user.firstName} {row.user.lastName}</div>
+                                  <div className="text-slate-500">{row.user.email}</div>
+                                </>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-xs font-mono text-slate-800">{row.action}</td>
+                            <td className="px-4 py-2 text-xs text-slate-600 max-w-md break-words">
+                              <pre className="whitespace-pre-wrap font-mono text-[11px] bg-slate-50 rounded p-2 max-h-24 overflow-y-auto">
+                                {JSON.stringify({ newValues: row.newValues, oldValues: row.oldValues }, null, 2)}
+                              </pre>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {usersSubTab === 'directory' && (
+              <>
               <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold text-slate-900">Create user</div>
@@ -555,6 +800,8 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
+              )}
+              </>
               )}
             </>
           )}

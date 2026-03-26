@@ -174,6 +174,7 @@ export default function ProductsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [adjustProduct, setAdjustProduct] = useState(null);
   const [page, setPage] = useState(1);
+  const [marketplaceError, setMarketplaceError] = useState('');
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -184,7 +185,14 @@ export default function ProductsPage() {
 
   const marketplaceMutation = useMutation({
     mutationFn: ({ id, isMarketplace }) => api.post(`/products/${id}/marketplace`, { isMarketplace }),
-    onSuccess: () => qc.invalidateQueries(['products']),
+    onSuccess: () => {
+      setMarketplaceError('');
+      qc.invalidateQueries(['products']);
+    },
+    onError: (e) => {
+      const msg = e.response?.data?.error || e.message || 'Could not update marketplace';
+      setMarketplaceError(msg);
+    },
   });
 
   const products = data?.data || [];
@@ -214,6 +222,15 @@ export default function ProductsPage() {
           <AlertTriangle className="w-4 h-4 text-orange-500" /> Low Stock Only
         </label>
       </div>
+
+      {marketplaceError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm flex items-start justify-between gap-3">
+          <span><strong>Marketplace:</strong> {marketplaceError}</span>
+          <button type="button" onClick={() => setMarketplaceError('')} className="text-amber-700 font-semibold shrink-0 hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -262,10 +279,14 @@ export default function ProductsPage() {
                     <td className="px-5 py-3 text-slate-500">{p.reorderPoint} {p.unit}</td>
                     <td className="px-5 py-3 text-center">
                       <button
-                        onClick={() => marketplaceMutation.mutate({ id: p.id, isMarketplace: !p.isMarketplace })}
+                        type="button"
+                        onClick={() => {
+                          setMarketplaceError('');
+                          marketplaceMutation.mutate({ id: p.id, isMarketplace: !p.isMarketplace });
+                        }}
                         disabled={marketplaceMutation.isPending}
                         title={p.isMarketplace ? 'Remove from Cosmos Market' : 'Publish to Cosmos Market'}
-                        className="transition"
+                        className="transition disabled:opacity-50"
                       >
                         {p.isMarketplace
                           ? <ToggleRight className="w-6 h-6 text-green-500 mx-auto" />

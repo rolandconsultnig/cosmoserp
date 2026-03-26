@@ -3,7 +3,8 @@ const router = express.Router();
 const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
 const bcrypt = require('bcryptjs');
-const { paginate, paginatedResponse } = require('../utils/helpers');
+const { createAuditLog } = require('../middleware/audit.middleware');
+const userCtrl = require('../controllers/user.controller');
 
 router.use(authenticate, requireTenantUser);
 
@@ -26,7 +27,7 @@ router.put('/me', async (req, res) => {
   }
 });
 
-router.get('/', requireRole('OWNER','ADMIN'), async (req, res) => {
+router.get('/', requireRole('OWNER', 'ADMIN'), async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { tenantId: req.tenantId },
@@ -34,10 +35,14 @@ router.get('/', requireRole('OWNER','ADMIN'), async (req, res) => {
       orderBy: { createdAt: 'asc' },
     });
     res.json({ data: users });
-  } catch (e) { res.status(500).json({ error: 'Failed to fetch users' }); }
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
 });
 
-router.post('/', requireRole('OWNER','ADMIN'), async (req, res) => {
+router.post('/bulk-invite', requireRole('OWNER', 'ADMIN'), userCtrl.bulkInvite);
+
+router.post('/', requireRole('OWNER', 'ADMIN'), async (req, res) => {
   try {
     const { email, password, firstName, lastName, role, permissions } = req.body || {};
     const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -54,6 +59,15 @@ router.post('/', requireRole('OWNER','ADMIN'), async (req, res) => {
       data: { tenantId: req.tenantId, email: normalizedEmail, passwordHash, firstName, lastName, role: role || 'STAFF', permissions },
       select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true, createdAt: true },
     });
+    await createAuditLog({
+      tenantId: req.tenantId,
+      userId: req.user.id,
+      action: 'CREATE',
+      resource: 'User',
+      resourceId: user.id,
+      newValues: { email: user.email, firstName, lastName, role: user.role },
+      req,
+    });
     res.status(201).json({ data: user });
   } catch (e) {
     if (e.code === 'P2002') return res.status(409).json({ error: 'User with this email already exists' });
@@ -61,7 +75,7 @@ router.post('/', requireRole('OWNER','ADMIN'), async (req, res) => {
   }
 });
 
-router.put('/:id', requireRole('OWNER','ADMIN'), async (req, res) => {
+router.put('/:id', requireRole('OWNER', 'ADMIN'), async (req, res) => {
   try {
     const user = await prisma.user.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -72,8 +86,26 @@ router.put('/:id', requireRole('OWNER','ADMIN'), async (req, res) => {
       data: { firstName, lastName, role, permissions, isActive },
       select: { id: true, email: true, firstName: true, lastName: true, role: true, isActive: true },
     });
+    await createAuditLog({
+      tenantId: req.tenantId,
+      userId: req.user.id,
+      action: 'UPDATE',
+      resource: 'User',
+      resourceId: user.id,
+      oldValues: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        permissions: user.permissions,
+        isActive: user.isActive,
+      },
+      newValues: { firstName, lastName, role, permissions, isActive },
+      req,
+    });
     res.json({ data: updated });
-  } catch (e) { res.status(500).json({ error: 'Failed to update user' }); }
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update user' });
+  }
 });
 
 module.exports = router;

@@ -8,11 +8,29 @@ import useCartStore from '../store/cartStore';
 import Seo from '../components/Seo';
 import { getSiteUrl } from '../lib/siteConfig';
 
-/* Hero carousel images (right-to-left scroll). Use commerce/warehouse style placeholders. */
+/* Hero carousel: iconic Nigeria (Wikimedia + Unsplash for reliable CDN / resolution).
+ * If you change the number of slides, update `.hero-carousel-track--N` and `@keyframes hero-carousel-N` in index.css. */
 const HERO_SLIDES = [
-  'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=1600&q=80',
-  'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1600&q=80',
-  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&q=80',
+  {
+    src: 'https://upload.wikimedia.org/wikipedia/commons/e/ee/Aerial_view_of_Marina%2C_Lagos_Island_East%2C_Lagos-Nigeria.jpg',
+    alt: 'Lagos Island, Nigeria — aerial view over Marina and the business district',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1722442746061-054e1cb47540?w=1920&q=85',
+    alt: 'Abuja, Nigeria — Federal Capital city streets and skyline',
+  },
+  {
+    src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/National_Arts_Theatre%2C_Igammu%2C_Lagos_State%2C_Nigeria.jpg/1600px-National_Arts_Theatre%2C_Igammu%2C_Lagos_State%2C_Nigeria.jpg',
+    alt: 'National Arts Theatre, Iganmu, Lagos — landmark culture and FESTAC heritage',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1744907895363-d351aa6019ef?w=1920&q=85',
+    alt: 'Lagos, Nigeria — Lekki–Ikoyi Link Bridge and lagoon cityscape',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1637299394104-70932260f868?w=1920&q=85',
+    alt: 'Kano, Nigeria — urban streets, commerce and northern city life',
+  },
 ];
 
 const CATEGORIES = [
@@ -175,7 +193,7 @@ export default function HomePage() {
       {/* Hero: Amazon-style image carousel (scroll right to left) with search overlay */}
       <section className="relative w-full overflow-hidden bg-gray-900" style={{ minHeight: '380px' }}>
         <div
-          className="hero-carousel-track absolute flex flex-shrink-0"
+          className="hero-carousel-track hero-carousel-track--5 absolute flex flex-shrink-0"
           style={{
             width: `${HERO_SLIDES.length * 100}%`,
             height: '100%',
@@ -184,15 +202,15 @@ export default function HomePage() {
             top: 0,
           }}
         >
-          {HERO_SLIDES.map((src, i) => (
+          {HERO_SLIDES.map((slide, i) => (
             <div
               key={i}
               className="flex-shrink-0 h-full"
               style={{ width: `${100 / HERO_SLIDES.length}%` }}
             >
               <img
-                src={src}
-                alt=""
+                src={slide.src}
+                alt={slide.alt}
                 className="w-full h-full object-cover"
                 style={{ minHeight: '380px' }}
               />

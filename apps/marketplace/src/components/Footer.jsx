@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { LOGO_URL } from '../lib/branding';
 import { Shield, CreditCard, Truck, ChevronUp } from 'lucide-react';
 
 const SHOP_LINKS  = ['All Products', 'Electronics', 'Fashion', 'Food & Beverages', 'Agriculture', 'Health & Beauty'];
@@ -36,7 +37,7 @@ export default function Footer() {
             {/* Brand */}
             <div className="col-span-2 sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-            <img src="/logo.png" alt="Cosmos Market" className="h-[22px] md:h-[25px] lg:h-[27px] w-auto object-contain" />
+            <img src={LOGO_URL} alt="Cosmos Market" className="h-[22px] md:h-[25px] lg:h-[27px] w-auto object-contain" />
                 <div className="leading-none">
                   <div className="font-extrabold text-white text-base">Cosmos</div>
                   <div className="text-amber-400 text-[10px] font-semibold uppercase tracking-widest">Market</div>

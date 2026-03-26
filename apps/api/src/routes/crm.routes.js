@@ -8,6 +8,10 @@ router.get('/dashboard', ctrl.getDashboard);
 router.get('/agents', ctrl.listAgents);
 router.get('/businesses', ctrl.listBusinesses);
 router.patch('/businesses/:tenantId/kyc', ctrl.updateBusinessKYC);
+router.get('/leads', ctrl.listLeads);
+router.post('/leads', ctrl.createLead);
+router.patch('/leads/:id', ctrl.updateLead);
+router.post('/leads/:id/convert', ctrl.convertLead);
 
 module.exports = router;
 

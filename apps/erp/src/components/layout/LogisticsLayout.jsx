@@ -5,6 +5,7 @@ import {
   ChevronLeft, ChevronRight, MapPin, Clock, Wifi, WifiOff,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { LOGO_URL } from '../../lib/branding';
 
 function LiveClock() {
   const [time, setTime] = useState(new Date());
@@ -97,7 +98,7 @@ export default function LogisticsLayout() {
         )}
         style={{ borderColor: 'rgba(255,255,255,0.08)' }}
       >
-        <img src="/logo.png" alt="Cosmos" className="h-8 w-auto object-contain flex-shrink-0" />
+        <img src={LOGO_URL} alt="Cosmos" className="h-8 w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-black text-white text-sm leading-tight">Logistics Hub</div>

@@ -113,7 +113,7 @@ function getTenantLogoDir(tenantId) {
 
 const tenantLogoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const tid = req.tenantId;
+    const tid = req.tenantId || req.params?.tenantId;
     if (!tid) {
       return cb(new Error('Tenant ID required for logo upload'));
     }

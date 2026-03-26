@@ -114,7 +114,27 @@ router.get('/inventory-valuation', requireRole('OWNER','ADMIN','ACCOUNTANT','WAR
     });
     const report = products.map((p) => {
       const totalQty = p.stockLevels.reduce((s, sl) => s + sl.quantity, 0);
-      return { id: p.id, sku: p.sku, name: p.name, costPrice: p.costPrice, sellingPrice: p.sellingPrice, landedCost: p.landedCost, totalQty, costValue: parseFloat(p.costPrice) * totalQty, landedValue: (parseFloat(p.costPrice) + parseFloat(p.landedCost)) * totalQty, sellingValue: parseFloat(p.sellingPrice) * totalQty, warehouses: p.stockLevels };
+      const reorderPoint = p.reorderPoint ?? 0;
+      const lowStock = totalQty <= reorderPoint;
+      const outOfStock = totalQty <= 0;
+      return {
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        unit: p.unit,
+        costPrice: p.costPrice,
+        sellingPrice: p.sellingPrice,
+        landedCost: p.landedCost,
+        reorderPoint,
+        reorderQty: p.reorderQty ?? 50,
+        totalQty,
+        lowStock,
+        outOfStock,
+        costValue: parseFloat(p.costPrice) * totalQty,
+        landedValue: (parseFloat(p.costPrice) + parseFloat(p.landedCost || 0)) * totalQty,
+        sellingValue: parseFloat(p.sellingPrice) * totalQty,
+        warehouses: p.stockLevels,
+      };
     });
     const totals = { costValue: report.reduce((s, p) => s + p.costValue, 0), sellingValue: report.reduce((s, p) => s + p.sellingValue, 0), landedValue: report.reduce((s, p) => s + p.landedValue, 0) };
     const responseProducts = report.map((p) => ({

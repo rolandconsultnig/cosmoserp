@@ -38,6 +38,48 @@ async function getNRSLogs(req, res) {
   }
 }
 
+async function adminUploadTenantLogo(req, res) {
+  try {
+    const tenantId = req.params.tenantId;
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded', code: 'LOGO_FILE_REQUIRED' });
+    }
+    const publicUrl = `/uploads/tenant-logos/${tenantId}/${req.file.filename}`;
+    const tenant = await prisma.tenant.update({ where: { id: tenantId }, data: { logoUrl: publicUrl } });
+    await createAuditLog({
+      adminUserId: req.admin.id,
+      tenantId,
+      action: 'UPDATE_TENANT_LOGO',
+      resource: 'Tenant',
+      resourceId: tenantId,
+      newValues: { logoUrl: publicUrl },
+      req,
+    });
+    res.json({ data: { logoUrl: publicUrl, tenant } });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to upload tenant logo' });
+  }
+}
+
+async function adminRemoveTenantLogo(req, res) {
+  try {
+    const tenantId = req.params.tenantId;
+    const tenant = await prisma.tenant.update({ where: { id: tenantId }, data: { logoUrl: null } });
+    await createAuditLog({
+      adminUserId: req.admin.id,
+      tenantId,
+      action: 'REMOVE_TENANT_LOGO',
+      resource: 'Tenant',
+      resourceId: tenantId,
+      newValues: { logoUrl: null },
+      req,
+    });
+    res.json({ data: tenant });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to remove tenant logo' });
+  }
+}
+
 async function impersonateTenant(req, res) {
   try {
     if (!process.env.JWT_SECRET) {
@@ -226,12 +268,43 @@ async function getPlatformAnalytics(req, res) {
 
 async function getAuditLogs(req, res) {
   try {
-    const { page, limit, tenantId, action, resource, from, to } = req.query;
+    const { page, limit, tenantId, tenantSearch, action, resource, entity, search, from, to } = req.query;
     const { take, skip } = paginate(page, limit);
     const where = {};
     if (tenantId) where.tenantId = tenantId;
+    if (!tenantId && tenantSearch) {
+      const ts = String(tenantSearch).trim();
+      if (ts) {
+        where.tenant = {
+          OR: [
+            { businessName: { contains: ts, mode: 'insensitive' } },
+            { tradingName: { contains: ts, mode: 'insensitive' } },
+            { email: { contains: ts, mode: 'insensitive' } },
+          ],
+        };
+      }
+    }
     if (action) where.action = { contains: action, mode: 'insensitive' };
-    if (resource) where.resource = resource;
+    if (resource || entity) {
+      const r = String(resource || entity).trim();
+      if (r) where.resource = { equals: r, mode: 'insensitive' };
+    }
+    if (search) {
+      const s = String(search).trim();
+      if (s) {
+        where.OR = [
+          { action: { contains: s, mode: 'insensitive' } },
+          { resource: { contains: s, mode: 'insensitive' } },
+          { resourceId: { contains: s, mode: 'insensitive' } },
+          { user: { is: { email: { contains: s, mode: 'insensitive' } } } },
+          { user: { is: { firstName: { contains: s, mode: 'insensitive' } } } },
+          { user: { is: { lastName: { contains: s, mode: 'insensitive' } } } },
+          { adminUser: { is: { email: { contains: s, mode: 'insensitive' } } } },
+          { adminUser: { is: { firstName: { contains: s, mode: 'insensitive' } } } },
+          { adminUser: { is: { lastName: { contains: s, mode: 'insensitive' } } } },
+        ];
+      }
+    }
     if (from || to) {
       where.createdAt = {};
       if (from) where.createdAt.gte = new Date(from);
@@ -241,7 +314,7 @@ async function getAuditLogs(req, res) {
       prisma.auditLog.findMany({
         where, take, skip, orderBy: { createdAt: 'desc' },
         include: {
-          tenant: { select: { businessName: true } },
+          tenant: { select: { id: true, businessName: true, tradingName: true, logoUrl: true } },
           user: { select: { firstName: true, lastName: true, email: true } },
           adminUser: { select: { firstName: true, lastName: true } },
         },
@@ -891,11 +964,16 @@ async function adminGetTenantAuditLogs(req, res) {
     const { take, skip } = paginate(page, limit);
     const [data, total] = await Promise.all([
       prisma.auditLog.findMany({
-        where: { resourceId: req.params.tenantId, resource: 'Tenant' },
+        where: { tenantId: req.params.tenantId },
         orderBy: { createdAt: 'desc' },
         take, skip,
+        include: {
+          tenant: { select: { id: true, businessName: true, tradingName: true, logoUrl: true } },
+          user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+          adminUser: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+        },
       }),
-      prisma.auditLog.count({ where: { resourceId: req.params.tenantId, resource: 'Tenant' } }),
+      prisma.auditLog.count({ where: { tenantId: req.params.tenantId } }),
     ]);
     res.json(paginatedResponse(data, total, page, limit));
   } catch (error) {
@@ -1209,7 +1287,7 @@ async function updateMaintenanceMode(req, res) {
 module.exports = {
   getNRSLogs, getNRSStats, retryNRSSubmission, getPlatformAnalytics, getAuditLogs, moderateListing, createAdminUser,
   getSubscriptionStats, listSubscriptions, updateTenantSubscription,
-  listTenants, getTenantDetail, adminUpdateKYC, adminAddTenantNote, adminToggleTenantActive, adminGetTenantAuditLogs, adminToggleTenantUserStatus,
+  listTenants, getTenantDetail, adminUpdateKYC, adminUploadTenantLogo, adminRemoveTenantLogo, adminAddTenantNote, adminToggleTenantActive, adminGetTenantAuditLogs, adminToggleTenantUserStatus,
   suspendTenant, activateTenant, extendTrial,
   getFinanceOverview, listAllInvoices, flagInvoice, updateInvoiceStatus,
   getHROverview, listAllPayrollRuns, updatePayrollStatus,

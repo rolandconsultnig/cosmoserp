@@ -88,15 +88,29 @@
   100% { background-position:  200% 0; }
 }
 
-/* Hero carousel: slides move right to left (track is 300% wide, move by 33.33% per slide) */
-@keyframes hero-carousel {
+/* Hero carousel: 3 slides (track 300% wide) */
+@keyframes hero-carousel-3 {
   0%, 28%   { transform: translateX(0); }
   33%, 61%  { transform: translateX(-33.333%); }
   66%, 94%  { transform: translateX(-66.666%); }
   100%      { transform: translateX(-66.666%); }
 }
+
+/* Hero carousel: 5 slides (track 500% wide, each slide 20% of track = one viewport) */
+@keyframes hero-carousel-5 {
+  0%, 16%   { transform: translateX(0); }
+  18%, 34%  { transform: translateX(-20%); }
+  36%, 52%  { transform: translateX(-40%); }
+  54%, 70%  { transform: translateX(-60%); }
+  72%, 92%  { transform: translateX(-80%); }
+  100%      { transform: translateX(-80%); }
+}
+
 .hero-carousel-track {
-  animation: hero-carousel 21s ease-in-out infinite;
+  /* duration / keyframes from modifier class */
+}
+.hero-carousel-track--5 {
+  animation: hero-carousel-5 36s ease-in-out infinite;
 }
 
 /* Thin scrollbar */

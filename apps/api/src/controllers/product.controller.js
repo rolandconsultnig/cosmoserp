@@ -200,13 +200,57 @@ async function update(req, res) {
     const product = await prisma.product.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
     if (!product) return res.status(404).json({ error: 'Product not found' });
     const { sku, name, description, categoryId, unit, costPrice, sellingPrice, vatRate, whtRate, reorderPoint, reorderQty, barcode, weight, dimensions, hscode, isActive } = req.body;
+
+    const skuTrim = sku !== undefined ? String(sku).trim() : undefined;
+    const nameTrim = name !== undefined ? String(name).trim() : undefined;
+    const barcodeTrim = barcode !== undefined
+      ? (String(barcode).trim() ? String(barcode).trim() : null)
+      : undefined;
+    const descriptionTrim = description !== undefined
+      ? (String(description).trim() ? String(description).trim() : null)
+      : undefined;
+    const categoryIdTrim = categoryId !== undefined
+      ? (String(categoryId).trim() ? String(categoryId).trim() : null)
+      : undefined;
+    const unitTrim = unit !== undefined ? String(unit).trim() : undefined;
+    const hscodeTrim = hscode !== undefined
+      ? (String(hscode).trim() ? String(hscode).trim() : null)
+      : undefined;
+
+    if (skuTrim !== undefined && !skuTrim) {
+      return res.status(400).json({ error: 'SKU cannot be empty' });
+    }
+    if (nameTrim !== undefined && !nameTrim) {
+      return res.status(400).json({ error: 'Product name cannot be empty' });
+    }
+
     const updated = await prisma.product.update({
       where: { id: product.id },
-      data: { sku, name, description, categoryId, unit, costPrice: costPrice !== undefined ? parseFloat(costPrice) : undefined, sellingPrice: sellingPrice !== undefined ? parseFloat(sellingPrice) : undefined, vatRate: vatRate !== undefined ? parseFloat(vatRate) : undefined, whtRate: whtRate !== undefined ? parseFloat(whtRate) : undefined, reorderPoint, reorderQty, barcode, weight, dimensions, hscode, isActive },
+      data: {
+        sku: skuTrim,
+        name: nameTrim,
+        description: descriptionTrim,
+        categoryId: categoryIdTrim,
+        unit: unitTrim,
+        costPrice: costPrice !== undefined ? parseFloat(costPrice) : undefined,
+        sellingPrice: sellingPrice !== undefined ? parseFloat(sellingPrice) : undefined,
+        vatRate: vatRate !== undefined ? parseFloat(vatRate) : undefined,
+        whtRate: whtRate !== undefined ? parseFloat(whtRate) : undefined,
+        reorderPoint,
+        reorderQty,
+        barcode: barcodeTrim,
+        weight,
+        dimensions,
+        hscode: hscodeTrim,
+        isActive,
+      },
       include: { stockLevels: { include: { warehouse: true } } },
     });
     res.json({ data: updated });
   } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'A product with this SKU or barcode already exists' });
+    }
     res.status(500).json({ error: 'Failed to update product' });
   }
 }
@@ -291,48 +335,98 @@ async function toggleMarketplace(req, res) {
     const product = await prisma.product.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
-    const { isMarketplace, marketplaceDesc } = req.body;
+    const { isMarketplace: rawFlag, marketplaceDesc } = req.body;
+    const isMarketplace = rawFlag === true || rawFlag === 'true';
+
     const totalStock = await prisma.stockLevel.aggregate({ where: { productId: product.id }, _sum: { quantity: true } });
     const stock = totalStock._sum.quantity || 0;
 
     if (isMarketplace && stock <= 0) {
-      return res.status(400).json({ error: 'Cannot publish product with zero stock' });
+      return res.status(400).json({ error: 'Add stock in a warehouse before publishing to the marketplace.' });
     }
+
+    const description = String(
+      marketplaceDesc || product.description || product.name || 'Product',
+    ).trim() || 'Product';
 
     const updated = await prisma.$transaction(async (tx) => {
       const p = await tx.product.update({
         where: { id: product.id },
-        data: { isMarketplace, marketplaceDesc },
+        data: {
+          isMarketplace,
+          marketplaceDesc: marketplaceDesc !== undefined ? marketplaceDesc : undefined,
+        },
       });
 
       if (isMarketplace) {
-        const slug = `${slugify(product.name)}-${product.id.slice(0, 8)}`;
-        await tx.marketplaceListing.upsert({
-          where: { slug },
-          update: { title: product.name, description: marketplaceDesc || product.description, price: product.sellingPrice, stock, isActive: true, updatedAt: new Date() },
-          create: {
-            tenantId: req.tenantId,
-            productId: product.id,
-            title: product.name,
-            description: marketplaceDesc || product.description || product.name,
-            price: product.sellingPrice,
-            currency: product.currency,
-            stock,
-            images: product.images || [],
-            slug,
-            isActive: true,
-            publishedAt: new Date(),
-          },
+        const images = Array.isArray(product.images) && product.images.length > 0 ? product.images : [];
+        const existing = await tx.marketplaceListing.findFirst({
+          where: { tenantId: req.tenantId, productId: product.id },
         });
+
+        if (existing) {
+          await tx.marketplaceListing.update({
+            where: { id: existing.id },
+            data: {
+              title: product.name,
+              description,
+              price: product.sellingPrice,
+              currency: product.currency,
+              stock,
+              images,
+              tags: [],
+              isActive: true,
+              publishedAt: existing.publishedAt || new Date(),
+              categoryId: product.categoryId,
+            },
+          });
+        } else {
+          const slugBase = slugify(product.name) || 'item';
+          let slug = `${slugBase}-${product.id.slice(0, 8)}`;
+          let n = 0;
+          // Global unique slug (across all tenants)
+          for (;;) {
+            const clash = await tx.marketplaceListing.findUnique({ where: { slug } });
+            if (!clash) break;
+            n += 1;
+            slug = `${slugBase}-${product.id.slice(0, 8)}-${n}`;
+          }
+          await tx.marketplaceListing.create({
+            data: {
+              tenantId: req.tenantId,
+              productId: product.id,
+              title: product.name,
+              description,
+              price: product.sellingPrice,
+              currency: product.currency,
+              stock,
+              images,
+              tags: [],
+              slug,
+              isActive: true,
+              publishedAt: new Date(),
+              categoryId: product.categoryId,
+            },
+          });
+        }
       } else {
-        await tx.marketplaceListing.updateMany({ where: { productId: product.id }, data: { isActive: false } });
+        await tx.marketplaceListing.updateMany({
+          where: { productId: product.id, tenantId: req.tenantId },
+          data: { isActive: false },
+        });
       }
       return p;
     });
 
-    res.json({ data: updated, message: isMarketplace ? 'Product published to Cosmos Market' : 'Product removed from Cosmos Market' });
+    res.json({
+      data: updated,
+      message: isMarketplace ? 'Product published to Cosmos Market' : 'Product removed from Cosmos Market',
+    });
   } catch (error) {
     logger.error('Toggle marketplace error:', error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Could not create listing (duplicate slug). Try again or rename the product.' });
+    }
     res.status(500).json({ error: 'Failed to toggle marketplace status' });
   }
 }

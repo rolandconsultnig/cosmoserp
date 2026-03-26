@@ -3,6 +3,7 @@ import { ShoppingCart, Search, Menu, X, MapPin, ChevronDown, User } from 'lucide
 import { useState } from 'react';
 import useCartStore from '../store/cartStore';
 import useShopperAuthStore from '../store/shopperAuthStore';
+import { LOGO_URL } from '../lib/branding';
 
 const CATEGORIES = [
   'All Departments', 'Electronics', 'Fashion & Apparel', 'Food & Beverages',
@@ -34,7 +35,7 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-              <img src="/logo.png" alt="Cosmos Market" className="h-[24px] md:h-[28px] lg:h-[30px] w-auto object-contain" />
+              <img src={LOGO_URL} alt="Cosmos Market" className="h-[24px] md:h-[28px] lg:h-[30px] w-auto object-contain" />
               <div className="hidden sm:block leading-none">
                 <div className="text-white font-extrabold text-base tracking-tight">Cosmos</div>
                 <div className="text-amber-300 text-[10px] font-semibold uppercase tracking-widest">Market</div>

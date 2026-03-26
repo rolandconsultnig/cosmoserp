@@ -1,0 +1,22 @@
+module,priority,effort
+Leave management (policies approvals calendar integration),P1,M
+Stock (unified stock view valuation alerts),P1,M
+User & roles (tenant admin bulk invite audit),P1,M
+Termination workflow (HR exit checklist final pay),P1,M
+Attendance (clock timesheets shifts),P1,L
+Calendar (org events meetings deadlines),P2,M
+Mailbox (email integration or richer intranet),P2,M
+Transactions hub (single ledger of commercial cash bank GL),P2,M
+Promotion & pricing rules (campaigns coupons),P2,M
+Leads (pipeline stages conversion),P2,M
+Opportunities (sales pipeline forecasting),P2,L
+Knowledge base (articles search categories),P2,M
+File manager (folders sharing permissions),P2,L
+Sales partial CRM bridge (leads to customer),P2,M
+Warning & alerts center (system HR compliance),P3,S
+Utilities page (shortcuts diagnostics exports),P3,S
+Performance reviews (cycles goals ratings),P3,L
+Recruitment ATS (jobs applicants pipeline),P3,XL
+Training & LMS (catalog completions),P3,L
+Bug & issue tracker (internal product IT),P3,M
+Dashboard enhancements (widgets drill-down KPIs),P2,S

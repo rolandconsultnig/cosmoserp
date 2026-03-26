@@ -5,13 +5,27 @@ import {
   Search, Package, Plus, Minus, User, UserCheck,
   CreditCard, Banknote, Smartphone, CheckCircle, Printer,
   RotateCcw, X, ShoppingCart, Tag, Percent, Hash,
-  ChevronDown, Loader2, AlertCircle, Zap, Receipt, FileText, Mail, MessageCircle,
+  ChevronDown, Loader2, AlertCircle, Zap, Receipt, FileText, Mail, MessageCircle, Camera,
   Star, Award, QrCode,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
 import { MAX_QUICK_PICKS, readQuickPickIdsFromStorage, writeQuickPickIdsToStorage } from '../lib/posQuickPicks';
 import useAuthStore from '../store/authStore';
+import {
+  getPrintSupport,
+  getPrinterSettings,
+  listBondedBluetoothPrinters,
+  printReceipt,
+  setPrinterSettings,
+} from '../lib/posPrint';
+import {
+  enqueueOfflineSale,
+  getOrCreateDeviceId,
+  getOfflineSaleRecord,
+  getPendingOfflineSalesCount,
+  syncOfflineSalesOnce,
+} from '../lib/posOfflineQueue';
 
 /* ══════════════════════════════════════════════════════════
    Constants & helpers
@@ -267,6 +281,95 @@ function CartRow({ item, onQty, onRemove, onPriceEdit }) {
   );
 }
 
+function BarcodeScanModal({ onClose, onDetected }) {
+  const videoRef = useRef(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let stream = null;
+    let raf = null;
+    let stopped = false;
+
+    const start = async () => {
+      try {
+        if (typeof BarcodeDetector === 'undefined') {
+          setError('Barcode scanner not supported on this device/browser.');
+          return;
+        }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false,
+        });
+        if (stopped) return;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+
+        const detector = new BarcodeDetector({
+          formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e', 'qr_code'],
+        });
+
+        const tick = async () => {
+          if (stopped) return;
+          try {
+            const v = videoRef.current;
+            if (v && v.readyState >= 2) {
+              const barcodes = await detector.detect(v);
+              const raw = barcodes?.[0]?.rawValue;
+              if (raw) {
+                onDetected(String(raw));
+                onClose();
+                return;
+              }
+            }
+          } catch {
+            // ignore and retry
+          }
+          raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+      } catch (e) {
+        setError(e?.message || 'Failed to start camera');
+      }
+    };
+
+    start();
+    return () => {
+      stopped = true;
+      if (raf) cancelAnimationFrame(raf);
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+    };
+  }, [onClose, onDetected]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <div className="font-black text-slate-900 text-[13px]">Scan barcode</div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+        <div className="p-4">
+          {error ? (
+            <div className="text-sm text-red-600">{error}</div>
+          ) : (
+            <div className="rounded-xl overflow-hidden bg-black">
+              <video ref={videoRef} className="w-full h-[320px] object-cover" playsInline />
+            </div>
+          )}
+          <div className="text-[11px] text-slate-500 mt-2">
+            Hold the barcode inside the frame. The scanner will auto-detect.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Receipt Modal ────────────────────────────────────── */
 function ReceiptModal({ sale, tenant, user, onNewSale }) {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -274,15 +377,88 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
   const [invoiceError, setInvoiceError] = useState('');
   const [receiptSendLoading, setReceiptSendLoading] = useState(false);
   const [receiptSendDone, setReceiptSendDone] = useState({ email: false, whatsapp: false });
+  const [syncState, setSyncState] = useState({ status: null, serverId: null });
+  const [printer, setPrinter] = useState(() => getPrinterSettings());
+  const [printError, setPrintError] = useState('');
+  const [printing, setPrinting] = useState(false);
+  const [btBondedDevices, setBtBondedDevices] = useState([]);
+  const [btBondedLoading, setBtBondedLoading] = useState(false);
+  const [btBondedError, setBtBondedError] = useState('');
 
-  const handlePrint = () => window.print();
+  const support = getPrintSupport();
+
+  useEffect(() => {
+    let alive = true;
+    if (printer.mode !== 'BT_SPP') return undefined;
+
+    const load = async () => {
+      setBtBondedError('');
+      setBtBondedLoading(true);
+      try {
+        const devices = await listBondedBluetoothPrinters();
+        if (!alive) return;
+        setBtBondedDevices(devices);
+      } catch (e) {
+        if (!alive) return;
+        setBtBondedError(e?.message || 'Failed to load paired devices');
+      } finally {
+        if (!alive) return;
+        setBtBondedLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      alive = false;
+    };
+  }, [printer.mode]);
+
+  const handlePrint = async () => {
+    setPrintError('');
+    setPrinting(true);
+    try {
+      await printReceipt({ sale, tenant, user });
+    } catch (e) {
+      setPrintError(e?.message || 'Print failed');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const effectiveSaleId = sale.saleId || syncState.serverId;
+
+  useEffect(() => {
+    let mounted = true;
+    if (!sale.offlineId || sale.saleId) return undefined;
+
+    const tick = async () => {
+      try {
+        const rec = await getOfflineSaleRecord(sale.offlineId);
+        if (!mounted) return;
+        if (rec?.status === 'SYNCED' && rec?.serverId) {
+          setSyncState({ status: 'SYNCED', serverId: rec.serverId });
+        } else if (rec?.status === 'PENDING') {
+          setSyncState({ status: 'PENDING', serverId: null });
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    tick();
+    const t = setInterval(tick, 2000);
+    return () => {
+      mounted = false;
+      clearInterval(t);
+    };
+  }, [sale.offlineId, sale.saleId]);
 
   const handleSendReceipt = async (sendEmail, sendWhatsApp) => {
-    if (!sale.saleId) return;
+    if (!effectiveSaleId) return;
     setInvoiceError('');
     setReceiptSendLoading(true);
     try {
-      await api.post(`/pos/sales/${sale.saleId}/send-receipt`, { sendEmail, sendWhatsApp });
+      await api.post(`/pos/sales/${effectiveSaleId}/send-receipt`, { sendEmail, sendWhatsApp });
       setReceiptSendDone((p) => ({ ...p, ...(sendEmail && { email: true }), ...(sendWhatsApp && { whatsapp: true }) }));
     } catch (err) {
       setInvoiceError(err.response?.data?.error || err.message || 'Failed to send receipt');
@@ -292,14 +468,14 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
   };
 
   const handleCreateInvoice = async (sendEmail = false, sendWhatsApp = false) => {
-    if (!sale.saleId) {
+    if (!effectiveSaleId) {
       setInvoiceError('Sale ID not available');
       return;
     }
     setInvoiceError('');
     setInvoiceLoading(true);
     try {
-      await api.post(`/pos/sales/${sale.saleId}/create-invoice`, { sendEmail, sendWhatsApp });
+      await api.post(`/pos/sales/${effectiveSaleId}/create-invoice`, { sendEmail, sendWhatsApp });
       setInvoiceSent(true);
     } catch (err) {
       setInvoiceError(err.response?.data?.error || err.message || 'Failed to create invoice');
@@ -323,6 +499,12 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
           </div>
           <h2 className="text-[18px] font-black text-white">Sale Complete!</h2>
           <p className="text-emerald-100 text-[13px] mt-0.5">{sale.receiptNo}</p>
+          {sale.offlineId && !effectiveSaleId && (
+            <p className="text-amber-100 text-[11px] mt-1">Pending sync (offline)</p>
+          )}
+          {sale.offlineId && effectiveSaleId && !sale.saleId && (
+            <p className="text-emerald-100 text-[11px] mt-1">Synced</p>
+          )}
         </div>
 
         {/* Receipt body */}
@@ -423,22 +605,138 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
             Receipt sent {[receiptSendDone.email && 'by email', receiptSendDone.whatsapp && 'via WhatsApp'].filter(Boolean).join(' & ')}.
           </div>
         )}
+        {printError && (
+          <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-red-50 text-red-700 text-[12px]">
+            {printError}
+          </div>
+        )}
         {invoiceError && (
           <div className="mx-5 mb-3 px-3 py-2 rounded-xl bg-red-50 text-red-700 text-[12px]">
             {invoiceError}
           </div>
         )}
 
+        {/* Printer settings */}
+        <div className="px-5 pb-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Printer</label>
+              <select
+                value={printer.mode}
+                onChange={(e) => {
+                  const next = { ...printer, mode: e.target.value };
+                  setPrinter(next);
+                  setPrinterSettings(next);
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-[12px] font-bold text-slate-700 bg-white"
+              >
+                <option value="SYSTEM">System (Default)</option>
+                <option value="USB" disabled={!support.usb}>USB/OTG</option>
+                <option value="BLE" disabled={!support.ble}>Bluetooth (BLE)</option>
+                <option value="BT_SPP" disabled={!support.btSpp}>Bluetooth (SPP / Classic)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Cash Drawer</label>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = { ...printer, drawerEnabled: !printer.drawerEnabled };
+                  setPrinter(next);
+                  setPrinterSettings(next);
+                }}
+                className={cn(
+                  'w-full px-3 py-2 rounded-xl border text-[12px] font-bold transition-colors',
+                  printer.drawerEnabled
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-white text-slate-700'
+                )}
+                title="Optional: sends drawer kick (ESC/POS pulse) after printing"
+              >
+                {printer.drawerEnabled ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+          </div>
+          {(printer.mode === 'USB' || printer.mode === 'BLE') && (
+            <div className="text-[10px] text-slate-500 mt-1">
+              First print will prompt you to select a device.
+            </div>
+          )}
+          {printer.mode === 'BT_SPP' && (
+            <div className="mt-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Paired Bluetooth Printer</label>
+              <div className="flex gap-2">
+                <select
+                  value={printer?.btSpp?.address || ''}
+                  onChange={(e) => {
+                    const address = e.target.value;
+                    const device = btBondedDevices.find((d) => d.address === address);
+                    const next = {
+                      ...printer,
+                      btSpp: address
+                        ? { address, name: device?.name || address }
+                        : null,
+                    };
+                    setPrinter(next);
+                    setPrinterSettings(next);
+                  }}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-[12px] font-bold text-slate-700 bg-white"
+                  disabled={btBondedLoading}
+                >
+                  <option value="">Select paired device</option>
+                  {btBondedDevices.map((d) => (
+                    <option key={d.address} value={d.address}>
+                      {(d.name || 'Printer') + ' — ' + d.address}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setBtBondedError('');
+                    setBtBondedLoading(true);
+                    try {
+                      const devices = await listBondedBluetoothPrinters();
+                      setBtBondedDevices(devices);
+                    } catch (e) {
+                      setBtBondedError(e?.message || 'Failed to load paired devices');
+                    } finally {
+                      setBtBondedLoading(false);
+                    }
+                  }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-[12px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  disabled={btBondedLoading}
+                  title="Refresh paired devices"
+                >
+                  {btBondedLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Refresh'}
+                </button>
+              </div>
+              {btBondedError && (
+                <div className="text-[10px] text-red-600 mt-1">
+                  {btBondedError}
+                </div>
+              )}
+              {!btBondedError && (
+                <div className="text-[10px] text-slate-500 mt-1">
+                  Printer must be paired in Android Bluetooth settings first.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Actions: Print, Send receipt, Create/Send invoice */}
         <div className="px-5 pb-5 space-y-2">
           <div className="flex gap-2">
             <button
               onClick={handlePrint}
+              disabled={printing}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
             >
-              <Printer className="w-4 h-4" /> Print
+              {printing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              Print
             </button>
-            {sale.saleId && (sale.customerEmail || sale.customerWhatsapp) && (
+            {effectiveSaleId && (sale.customerEmail || sale.customerWhatsapp) && (
               <div className="flex gap-1 flex-1">
                 {sale.customerEmail && (
                   <button
@@ -465,7 +763,7 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
               </div>
             )}
           </div>
-          {sale.saleId && (
+          {effectiveSaleId && (
             <div className="flex gap-2">
               <button
                 onClick={() => handleCreateInvoice(false, false)}
@@ -510,13 +808,10 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   Main PoS Page
-══════════════════════════════════════════════════════════ */
 export default function POSPage() {
-  const { user, tenant } = useAuthStore();
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuthStore();
   const searchRef = useRef(null);
 
   /* ── Product catalog state ── */
@@ -552,6 +847,8 @@ export default function POSPage() {
   /* ── Completed sale / receipt ── */
   const [completedSale, setCompletedSale] = useState(null);
 
+  const [scanOpen, setScanOpen] = useState(false);
+
   /* ── Quotation success (after Save as Quotation) ── */
   const [quotationSuccess, setQuotationSuccess] = useState(null);
   const [quotationSendLoading, setQuotationSendLoading] = useState(false);
@@ -559,8 +856,67 @@ export default function POSPage() {
   /* ── Error ── */
   const [saleError, setSaleError] = useState('');
 
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [offlineSyncing, setOfflineSyncing] = useState(false);
+  const deviceIdRef = useRef(null);
+  if (deviceIdRef.current == null) {
+    deviceIdRef.current = getOrCreateDeviceId();
+  }
+
   /* ── Session stats ── */
   const [sessionSales, setSessionSales] = useState({ count: 0, total: 0 });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const refreshCount = async () => {
+      try {
+        const c = await getPendingOfflineSalesCount();
+        if (mounted) setOfflineQueueCount(c);
+      } catch {
+        if (mounted) setOfflineQueueCount(0);
+      }
+    };
+
+    refreshCount();
+    const t = setInterval(refreshCount, 3000);
+    return () => {
+      mounted = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    let inFlight = false;
+
+    const trySync = async () => {
+      if (inFlight) return;
+      if (!navigator.onLine) return;
+      inFlight = true;
+      if (mounted) setOfflineSyncing(true);
+      try {
+        await syncOfflineSalesOnce(api, { deviceId: deviceIdRef.current });
+      } catch {
+        // ignore and retry later
+      } finally {
+        if (mounted) setOfflineSyncing(false);
+        inFlight = false;
+      }
+    };
+
+    const onOnline = () => {
+      trySync();
+    };
+
+    window.addEventListener('online', onOnline);
+    const t = setInterval(trySync, 8000);
+    return () => {
+      mounted = false;
+      window.removeEventListener('online', onOnline);
+      clearInterval(t);
+    };
+  }, []);
 
   /* ══════════════════════════════════
      Data fetching
@@ -748,27 +1104,37 @@ export default function POSPage() {
   const handleCharge = async () => {
     setSaleError('');
     const receiptNo = genReceiptNo();
+    const offlineId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `off_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+
+    const payload = {
+      customerId:     selectedCustomer?.id || null,
+      customerName:   selectedCustomer?.name || selectedCustomer?.businessName || null,
+      items:          cart.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, unitPrice: i.unitPrice })),
+      paymentMethod:  payMethod,
+      discountAmount: discountAmt,
+      discount:       discountAmt,
+      discountType,
+      amountTendered: payMethod === 'CASH' ? tendered : undefined,
+      subtotal,
+      vatAmount:      vat,
+      total,
+      totalAmount:    total,
+      receiptNo,
+      notes: `POS Sale – ${payMethod}${selectedCustomer ? ` – ${selectedCustomer.name}` : ''}`,
+    };
     try {
-      const result = await saleMutation.mutateAsync({
-        customerId:     selectedCustomer?.id || null,
-        customerName:   selectedCustomer?.name || selectedCustomer?.businessName || null,
-        items:          cart.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, unitPrice: i.unitPrice })),
-        paymentMethod:  payMethod,
-        discountAmount: discountAmt,
-        discount:       discountAmt,
-        discountType,
-        amountTendered: payMethod === 'CASH' ? tendered : undefined,
-        subtotal,
-        vatAmount:      vat,
-        total,
-        totalAmount:    total,
-        receiptNo,
-        notes: `POS Sale – ${payMethod}${selectedCustomer ? ` – ${selectedCustomer.name}` : ''}`,
-      });
+      if (!navigator.onLine) {
+        throw new Error('OFFLINE');
+      }
+
+      const result = await saleMutation.mutateAsync(payload);
 
       const saleData = {
         saleId:         result?.data?.data?.id ?? null,
         receiptNo,
+        offlineId:      null,
         items:          cart.map((i) => ({ ...i })),
         subtotal,
         discountAmt,
@@ -787,6 +1153,48 @@ export default function POSPage() {
       setCompletedSale(saleData);
       setSessionSales((s) => ({ count: s.count + 1, total: s.total + total }));
     } catch (err) {
+      const isOffline = err?.message === 'OFFLINE' || (!err?.response && (err?.code === 'ERR_NETWORK' || String(err?.message || '').toLowerCase().includes('network')));
+      if (isOffline) {
+        try {
+          await enqueueOfflineSale({
+            ...payload,
+            offline: true,
+            offlineId,
+            deviceId: deviceIdRef.current,
+            terminalId: null,
+          });
+
+          const saleData = {
+            saleId:         null,
+            receiptNo,
+            offlineId,
+            items:          cart.map((i) => ({ ...i })),
+            subtotal,
+            discountAmt,
+            discountLabel:  discountValue
+              ? discountType === 'percent' ? ` (${discountValue}%)` : ''
+              : '',
+            vat,
+            total,
+            payMethod,
+            amountTendered: tendered,
+            change:         Math.max(0, change),
+            customerName:   selectedCustomer?.name || selectedCustomer?.businessName || null,
+            customerEmail:  selectedCustomer?.email || null,
+            customerWhatsapp: selectedCustomer?.whatsapp || selectedCustomer?.phone || null,
+          };
+
+          setCompletedSale(saleData);
+          setSessionSales((s) => ({ count: s.count + 1, total: s.total + total }));
+          clearCart();
+          setSaleError('No internet. Sale saved offline and will sync automatically.');
+          return;
+        } catch (e) {
+          setSaleError(e?.message || 'Failed to save offline sale');
+          return;
+        }
+      }
+
       setSaleError(err.response?.data?.error || err.message || 'Sale failed — check your connection');
     }
   };
@@ -849,6 +1257,16 @@ export default function POSPage() {
   return (
     <div className="flex h-full overflow-hidden">
 
+      {scanOpen && (
+        <BarcodeScanModal
+          onClose={() => setScanOpen(false)}
+          onDetected={(code) => {
+            setSearch(code);
+            searchRef.current?.focus();
+          }}
+        />
+      )}
+
       {/* ╔══════════════════════════════════════════════════╗
           ║  LEFT — Product Catalog                         ║
           ╚══════════════════════════════════════════════════╝ */}
@@ -880,6 +1298,16 @@ export default function POSPage() {
             )}
           </div>
 
+          <button
+            type="button"
+            onClick={() => setScanOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-white"
+            title="Scan barcode with camera"
+          >
+            <Camera className="w-4 h-4" />
+            <span className="text-[12px] font-bold">Scan</span>
+          </button>
+
           <div className="hidden sm:flex items-center gap-1 text-[11px] text-slate-400">
             <Package className="w-3.5 h-3.5" />
             {products.length} products
@@ -895,6 +1323,16 @@ export default function POSPage() {
             </div>
             <div className="flex items-center gap-1.5 text-slate-500">
               <span>Session: <strong className="text-emerald-700">{formatCurrency(sessionSales.total)}</strong></span>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <span>
+                Offline queue:
+                {' '}
+                <strong className={cn('text-slate-800', offlineQueueCount > 0 && 'text-amber-700')}>
+                  {offlineQueueCount}
+                </strong>
+              </span>
+              {offlineSyncing && <span className="text-slate-400">syncing…</span>}
             </div>
           </div>
         </div>

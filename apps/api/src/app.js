@@ -11,6 +11,7 @@ const { UPLOAD_BASE } = require('./middleware/upload.middleware');
 const authRoutes = require('./routes/auth.routes');
 const tenantRoutes = require('./routes/tenant.routes');
 const userRoutes = require('./routes/user.routes');
+const auditRoutes = require('./routes/audit.routes');
 const accountRoutes = require('./routes/account.routes');
 const customerRoutes = require('./routes/customer.routes');
 const supplierRoutes = require('./routes/supplier.routes');
@@ -31,12 +32,23 @@ const reportRoutes = require('./routes/report.routes');
 const currencyRoutes = require('./routes/currency.routes');
 const supportRoutes = require('./routes/support.routes');
 const posRoutes = require('./routes/pos.routes');
+const departmentRoutes = require('./routes/department.routes');
+const announcementRoutes = require('./routes/announcement.routes');
+const projectRoutes = require('./routes/project.routes');
+const taskRoutes = require('./routes/task.routes');
+const leaveRequestRoutes = require('./routes/leaveRequest.routes');
+const resignationRoutes = require('./routes/resignation.routes');
+const attendanceRoutes = require('./routes/attendance.routes');
+const staffPortalRoutes = require('./routes/staffPortal.routes');
 const logisticsRoutes = require('./routes/logistics.routes');
 const agentRoutes = require('./routes/agent.routes');
 const crmRoutes = require('./routes/crm.routes');
 const employeePortalRoutes = require('./routes/employeePortal.routes');
 const paystackWebhookRoutes = require('./routes/paystackWebhook.routes');
 const publicRoutes = require('./routes/public.routes');
+const mailboxRoutes = require('./routes/mailbox.routes');
+const knowledgeBaseRoutes = require('./routes/knowledgeBase.routes');
+const pricingRoutes = require('./routes/pricing.routes');
 
 const { authenticate, requireRole, requireTenantUser } = require('./middleware/auth.middleware');
 
@@ -113,6 +125,10 @@ app.use('/api/auth', authLimiter);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Cosmos ERP API', timestamp: new Date().toISOString() });
 });
+/** Same payload as /health — reachable via Vite proxy `/api` (ERP/marketplace dev). */
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'Cosmos ERP API', timestamp: new Date().toISOString() });
+});
 
 const uploadsPath = path.isAbsolute(UPLOAD_BASE) ? UPLOAD_BASE : path.join(process.cwd(), UPLOAD_BASE);
 app.use('/uploads', express.static(uploadsPath));
@@ -121,6 +137,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/employee-portal', employeePortalRoutes);
 app.use('/api/tenants', tenantRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/audit-logs', auditRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/currencies', currencyRoutes);
 app.use('/api/customers', customerRoutes);
@@ -141,6 +158,17 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/pos', posRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/leave-requests', leaveRequestRoutes);
+app.use('/api/resignations', resignationRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/staff-portal', staffPortalRoutes);
+app.use('/api/mailbox', mailboxRoutes);
+app.use('/api/knowledge-base', knowledgeBaseRoutes);
+app.use('/api/pricing', pricingRoutes);
 app.use('/api/logistics', logisticsRoutes);
 app.use('/api/agents', authenticate, requireTenantUser, requireRole('FIELD_AGENT'), agentRoutes);
 app.use('/api/crm', authenticate, requireTenantUser, requireRole('CRM_MANAGER'), crmRoutes);

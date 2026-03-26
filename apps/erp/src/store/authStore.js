@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import api from '../lib/api';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const AuthBridge = registerPlugin('AuthBridge');
 
 const useAuthStore = create((set) => ({
   user: null,
@@ -9,7 +12,20 @@ const useAuthStore = create((set) => ({
   impersonation: null,
 
   init: async () => {
-    const token = localStorage.getItem('accessToken');
+    let token = localStorage.getItem('accessToken');
+
+    if (!token && typeof Capacitor !== 'undefined' && Capacitor.getPlatform && Capacitor.getPlatform() !== 'web') {
+      try {
+        const res = await AuthBridge.getAccessToken();
+        if (res?.accessToken) {
+          localStorage.setItem('accessToken', res.accessToken);
+          token = res.accessToken;
+        }
+      } catch {
+        // ignore and fall through
+      }
+    }
+
     if (!token) { set({ isLoading: false, impersonation: null }); return; }
     try {
       const { data } = await api.get('/auth/me');

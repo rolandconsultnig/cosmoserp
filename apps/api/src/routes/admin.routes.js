@@ -6,6 +6,7 @@ const logistics = require('../controllers/logistics.controller');
 const platformSupport = require('../controllers/platformSupport.controller');
 const siteVisit = require('../controllers/siteVisit.controller');
 const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
+const { singleTenantLogoUpload } = require('../middleware/upload.middleware');
 
 router.use(authenticate, requireAdmin);
 router.get('/nrs-logs', ctrl.getNRSLogs);
@@ -35,6 +36,21 @@ router.patch('/tenants/:tenantId/subscription', ctrl.updateTenantSubscription);
 router.get('/tenants', ctrl.listTenants);
 router.get('/tenants/:tenantId', ctrl.getTenantDetail);
 router.patch('/tenants/:tenantId/kyc', ctrl.adminUpdateKYC);
+router.post(
+  '/tenants/:tenantId/logo',
+  (req, _res, next) => {
+    req.tenantId = req.params.tenantId;
+    next();
+  },
+  (req, res, next) => {
+    singleTenantLogoUpload(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
+      next();
+    });
+  },
+  ctrl.adminUploadTenantLogo
+);
+router.delete('/tenants/:tenantId/logo', ctrl.adminRemoveTenantLogo);
 router.post('/tenants/:tenantId/notes', ctrl.adminAddTenantNote);
 router.post('/tenants/:tenantId/toggle-active', ctrl.adminToggleTenantActive);
 router.post('/tenants/:tenantId/impersonate', ctrl.impersonateTenant);

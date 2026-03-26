@@ -53,7 +53,7 @@ public class LoginActivity extends AppCompatActivity {
         // Auto-login check
         SharedPreferences prefs = getSharedPreferences("CosmosPOS", Context.MODE_PRIVATE);
         if (prefs.getString("access_token", null) != null) {
-            startActivity(new Intent(this, MainActivity.class));
+            startActivity(new Intent(this, DashboardActivity.class));
             finish();
         }
     }
@@ -79,7 +79,7 @@ public class LoginActivity extends AppCompatActivity {
                     SharedPreferences prefs = getSharedPreferences("CosmosPOS", Context.MODE_PRIVATE);
                     prefs.edit().putString("access_token", response.body().getAccessToken()).apply();
 
-                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                    Intent intent = new Intent(LoginActivity.this, DashboardActivity.class);
                     startActivity(intent);
                     finish();
                 } else {

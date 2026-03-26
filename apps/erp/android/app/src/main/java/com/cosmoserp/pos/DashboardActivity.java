@@ -93,7 +93,7 @@ public class DashboardActivity extends AppCompatActivity implements NavigationVi
     }
 
     private void setupQuickActions() {
-        findViewById(R.id.btnNewSale).setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));
+        findViewById(R.id.btnNewSale).setOnClickListener(v -> startActivity(new Intent(this, PosWebActivity.class)));
         findViewById(R.id.btnAddCustomer).setOnClickListener(v -> startActivity(new Intent(this, CustomerManagementActivity.class)));
         findViewById(R.id.btnInventory).setOnClickListener(v -> startActivity(new Intent(this, InventoryAdjustmentActivity.class)));
         findViewById(R.id.btnReports).setOnClickListener(v -> startActivity(new Intent(this, EndOfDayActivity.class)));
@@ -140,7 +140,7 @@ public class DashboardActivity extends AppCompatActivity implements NavigationVi
             startActivity(new Intent(this, LoginActivity.class));
             finish();
         } else if (id == R.id.nav_pos) {
-            startActivity(new Intent(this, MainActivity.class));
+            startActivity(new Intent(this, PosWebActivity.class));
         } else if (id == R.id.nav_orders) {
             startActivity(new Intent(this, RecentOrdersActivity.class));
         } else if (id == R.id.nav_inventory) {

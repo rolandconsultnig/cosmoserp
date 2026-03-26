@@ -18,6 +18,12 @@ import WarehousesPage from './pages/WarehousesPage';
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
 import EmployeesPage from './pages/EmployeesPage';
 import PayrollPage from './pages/PayrollPage';
+import DepartmentsPage from './pages/DepartmentsPage';
+import AnnouncementsPage from './pages/AnnouncementsPage';
+import StaffPortalPage from './pages/StaffPortalPage';
+import StaffPayslipPrintPage from './pages/StaffPayslipPrintPage';
+import ProjectsPage from './pages/ProjectsPage';
+import TasksPage from './pages/TasksPage';
 import FinancePage from './pages/FinancePage';
 import NRSPage from './pages/NRSPage';
 import ReportsPage from './pages/ReportsPage';
@@ -51,6 +57,17 @@ import ImpersonatePage from './pages/ImpersonatePage';
 import MarketplaceOrdersPage from './pages/MarketplaceOrdersPage';
 import TenantShipmentsPage from './pages/TenantShipmentsPage';
 import EmployeePortalPage from './pages/EmployeePortalPage';
+import StockPage from './pages/StockPage';
+import UtilitiesPage from './pages/UtilitiesPage';
+import AlertsCenterPage from './pages/AlertsCenterPage';
+import CalendarPage from './pages/CalendarPage';
+import LeaveManagementPage from './pages/LeaveManagementPage';
+import TerminationWorkflowPage from './pages/TerminationWorkflowPage';
+import AttendanceShiftsPage from './pages/AttendanceShiftsPage';
+import MailboxPage from './pages/MailboxPage';
+import KnowledgeBasePage from './pages/KnowledgeBasePage';
+import TransactionsHubPage from './pages/TransactionsHubPage';
+import PromotionPricingPage from './pages/PromotionPricingPage';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -92,17 +109,34 @@ export default function App() {
         <Route path="marketplace-orders" element={<MarketplaceOrdersPage />} />
         <Route path="shipments" element={<TenantShipmentsPage />} />
         <Route path="customers" element={<CustomersPage />} />
+        <Route path="promotion-pricing" element={<PromotionPricingPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />
         <Route path="warehouses" element={<WarehousesPage />} />
+        <Route path="stock" element={<StockPage />} />
+        <Route path="utilities" element={<UtilitiesPage />} />
+        <Route path="alerts" element={<AlertsCenterPage />} />
         <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
         <Route path="employees" element={<EmployeesPage />} />
+        <Route path="staff-portal" element={<StaffPortalPage />} />
+        <Route path="staff-portal/payslips/:id/print" element={<StaffPayslipPrintPage />} />
         <Route path="payroll" element={<PayrollPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="announcements" element={<AnnouncementsPage />} />
+        <Route path="projects" element={<ProjectsPage />} />
+        <Route path="tasks" element={<TasksPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
+        <Route path="leave-management" element={<LeaveManagementPage />} />
+        <Route path="termination-workflow" element={<TerminationWorkflowPage />} />
+        <Route path="attendance" element={<AttendanceShiftsPage />} />
         <Route path="finance" element={<FinancePage />} />
+        <Route path="transactions-hub" element={<TransactionsHubPage />} />
         <Route path="nrs" element={<NRSPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="kyc" element={<KYCPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="support" element={<SupportPage />} />
+        <Route path="mailbox" element={<MailboxPage />} />
+        <Route path="knowledge-base" element={<KnowledgeBasePage />} />
       </Route>
       <Route path="/pos" element={<PrivateRoute><POSLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/pos/dashboard" replace />} />
