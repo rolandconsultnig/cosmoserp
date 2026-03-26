@@ -30,13 +30,36 @@ async function authenticate(req, res, next) {
     } else {
       const user = await prisma.user.findUnique({
         where: { id: decoded.id },
-        include: { tenant: { select: { id: true, businessName: true, kycStatus: true, subscriptionStatus: true, isActive: true } } },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              businessName: true,
+              kycStatus: true,
+              subscriptionStatus: true,
+              trialEndsAt: true,
+              isActive: true,
+            },
+          },
+        },
       });
       if (!user || !user.isActive) {
         return res.status(401).json({ error: 'Account not found or inactive' });
       }
       if (!user.tenant.isActive) {
         return res.status(403).json({ error: 'Your business account has been suspended' });
+      }
+
+      if (
+        user.tenant.subscriptionStatus === 'TRIAL' &&
+        user.tenant.trialEndsAt &&
+        new Date(user.tenant.trialEndsAt).getTime() < Date.now()
+      ) {
+        return res.status(402).json({
+          error: 'Your free trial has ended. Please upgrade to continue using Cosmos ERP.',
+          code: 'TRIAL_EXPIRED',
+          trialEndsAt: user.tenant.trialEndsAt,
+        });
       }
       req.user = user;
       req.tenantId = user.tenantId;

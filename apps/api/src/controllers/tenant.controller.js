@@ -16,7 +16,7 @@ async function register(req, res) {
     if (existingTenant) return res.status(409).json({ error: 'A business with this email already exists' });
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const trialEndsAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
 
     const result = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
@@ -57,7 +57,7 @@ async function register(req, res) {
 
     logger.info(`New tenant registered: ${businessName} (${email})`);
     res.status(201).json({
-      message: 'Business registered successfully. Please complete KYC to unlock all features.',
+      message: 'Business registered successfully. Your 5-day free trial has started. Please complete KYC to unlock all features.',
       tenantId: result.tenant.id,
       trialEndsAt,
     });

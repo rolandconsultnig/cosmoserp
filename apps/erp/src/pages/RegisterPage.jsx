@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import api from '../lib/api';
+import { LOGO_URL } from '../lib/branding';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ businessName: '', email: '', phone: '', password: '', city: '', state: '', businessType: 'LIMITED_LIABILITY' });
@@ -33,13 +34,13 @@ export default function RegisterPage() {
       <div className="relative w-full max-w-lg">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="flex items-center gap-3 mb-6">
-            <img src="/logo.png" alt="Cosmos ERP" className="h-10 w-auto object-contain" />
+            <img src={LOGO_URL} alt="Cosmos ERP" className="h-10 w-auto object-contain" />
             <div>
               <div className="font-bold text-slate-900 text-lg">Cosmos ERP</div>
               <div className="text-xs text-slate-500">Register Your Business</div>
             </div>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 mb-1">Start your free 30-day trial</h1>
+          <h1 className="text-xl font-bold text-slate-900 mb-1">Start your free 5-day trial</h1>
           <p className="text-sm text-slate-500 mb-5">No credit card required. NRS-compliant from day one.</p>
           {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm mb-4">{error}</div>}
           <form onSubmit={handleSubmit} className="space-y-4">
