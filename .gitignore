@@ -2,6 +2,7 @@ node_modules
 dist
 build
 .DS_Store
+._*
 *.log
 *.tmp
 *.cache
@@ -26,3 +27,6 @@ key/
 # API logs
 apps/api/logs
 logs
+
+# Vendor / imported code (do not track)
+ZiscoERP/
