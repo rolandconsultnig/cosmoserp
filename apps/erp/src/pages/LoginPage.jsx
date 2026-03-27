@@ -1,13 +1,24 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { 
-  Eye, EyeOff, Loader2, Mail, Lock, Shield, Zap, 
-  Building2, Users, TrendingUp, CheckCircle, Globe,
-  Award, ArrowRight, Plus, AlertCircle, Star,
-  Briefcase, Fingerprint
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Eye,
+  EyeOff,
+  Fingerprint,
+  Loader2,
+  Mail,
+  Lock,
+  ShieldCheck,
+  Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { LOGO_URL } from '../lib/branding';
+
+function randomBytes(size = 32) {
+  const bytes = new Uint8Array(size);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -15,34 +26,48 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [focusedField, setFocusedField] = useState(null);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
+  const [bioReady, setBioReady] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
 
-  // Check for biometric support
+  const isSecureContext = useMemo(() => window.isSecureContext || window.location.hostname === 'localhost', []);
+
   useEffect(() => {
-    if ('credentials' in navigator) {
-      setBiometricAvailable(true);
+    let active = true;
+    async function detectBiometric() {
+      try {
+        const supported =
+          typeof window.PublicKeyCredential !== 'undefined' &&
+          typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function' &&
+          isSecureContext;
+        if (!supported) return;
+        const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        if (active) setBioReady(Boolean(available));
+      } catch {
+        if (active) setBioReady(false);
+      }
     }
-  }, []);
+    detectBiometric();
+    return () => {
+      active = false;
+    };
+  }, [isSecureContext]);
+
+  const onLoginSuccess = (data) => {
+    const role = data?.user?.role;
+    if (role === 'FIELD_AGENT') navigate('/field-agent');
+    else if (role === 'CRM_MANAGER') navigate('/crm');
+    else navigate('/dashboard');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
     try {
       const data = await login(email, password);
-      const role = data?.user?.role;
-      
-      if (role === 'FIELD_AGENT') {
-        navigate('/field-agent');
-      } else if (role === 'CRM_MANAGER') {
-        navigate('/crm');
-      } else {
-        navigate('/dashboard');
-      }
+      onLoginSuccess(data);
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
     } finally {
@@ -51,325 +76,183 @@ export default function LoginPage() {
   };
 
   const handleBiometricLogin = async () => {
-    if (!biometricAvailable) return;
-    
+    if (!bioReady || bioLoading) return;
+    setError('');
+    setBioLoading(true);
     try {
-      setLoading(true);
-      // Simulate biometric authentication
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Auto-fill demo credentials for testing
-      setEmail('demo@cosmoserp.ng');
-      setPassword('demo123');
-      
-      // Proceed with login
-      handleSubmit(new Event('submit'));
+      // This prompts device biometric / passkey verification when a credential exists for this RP.
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: randomBytes(),
+          userVerification: 'required',
+          timeout: 45000,
+          rpId: window.location.hostname,
+        },
+      });
+
+      if (!email || !password) {
+        setError('Biometric verified. Enter your email and password to complete sign-in.');
+        return;
+      }
+
+      const data = await login(email, password);
+      onLoginSuccess(data);
     } catch (err) {
-      setError('Biometric authentication failed');
+      if (err?.name === 'NotAllowedError') {
+        setError('Biometric sign-in was cancelled or timed out.');
+      } else if (err?.name === 'NotSupportedError') {
+        setError('Biometric sign-in is not supported on this device/browser.');
+      } else {
+        setError('Biometric sign-in failed. Use email and password.');
+      }
     } finally {
-      setLoading(false);
+      setBioLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse animation-delay-4000"></div>
-      </div>
+    <div className="relative min-h-screen overflow-hidden bg-slate-950">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(56,189,248,0.18),transparent_34%),radial-gradient(circle_at_85%_8%,rgba(59,130,246,0.22),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '30px 30px' }} />
 
-      {/* Grid Pattern Overlay */}
-      <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size_50px_50px]"></div>
-
-      {/* Main Login Container */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-3 gap-8 items-center">
-          
-          {/* Left Side - Features & Trust */}
-          <div className="text-white space-y-8 p-8 lg:col-span-1">
-            
-            {/* Logo and Brand */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-lg opacity-50"></div>
-                  <div className="relative bg-white p-3 rounded-2xl shadow-2xl">
-                    <img 
-                      src={LOGO_URL} 
-                      alt="CosmosERP" 
-                      className="h-14 w-auto"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-                    CosmosERP
-                  </h1>
-                  <p className="text-blue-200 text-lg">Enterprise Resource Planning</p>
-                </div>
-              </div>
-              
-              <p className="text-lg text-blue-100 leading-relaxed">
-                Transform your Nigerian business with our comprehensive ERP solution designed for modern enterprises.
-              </p>
+      <div className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center px-4 py-8 sm:px-6 lg:grid-cols-2 lg:px-10">
+        <section className="hidden lg:block">
+          <div className="max-w-xl text-white">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium">
+              <Sparkles className="h-3.5 w-3.5" />
+              Trusted ERP for modern Nigerian businesses
             </div>
+            <h1 className="mt-6 text-4xl font-semibold leading-tight">
+              Operate smarter with <span className="text-sky-300">CosmosERP</span>
+            </h1>
+            <p className="mt-4 text-sm leading-6 text-blue-100/95">
+              Manage finance, inventory, payroll, CRM, and operations from one secure workspace built for scale.
+            </p>
 
-            {/* Key Features */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-white">Trusted by Nigerian Businesses</h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 group">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <TrendingUp className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white text-sm">Business Growth</h4>
-                    <p className="text-blue-200 text-xs">Scale operations efficiently</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 group">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Shield className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white text-sm">Secure & Reliable</h4>
-                    <p className="text-blue-200 text-xs">Bank-level security</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 group">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Zap className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white text-sm">Lightning Fast</h4>
-                    <p className="text-blue-200 text-xs">Optimized for Nigerian networks</p>
-                  </div>
-                </div>
+            <div className="mt-8 space-y-3 text-sm">
+              <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3">
+                Secure access with role-based controls and auditability.
               </div>
-            </div>
-
-            {/* Trust Indicators */}
-            <div className="flex items-center gap-4 pt-4 border-t border-white/10">
-              <div className="flex items-center gap-1">
-                <CheckCircle className="w-4 h-4 text-green-400" />
-                <span className="text-xs text-blue-200">ISO Certified</span>
+              <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3">
+                Optional biometric verification for supported devices.
               </div>
-              <div className="flex items-center gap-1">
-                <Award className="w-4 h-4 text-yellow-400" />
-                <span className="text-xs text-blue-200">Award Winning</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Globe className="w-4 h-4 text-blue-400" />
-                <span className="text-xs text-blue-200">Nigeria Wide</span>
+              <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3">
+                Optimized UX for desktop, field, and mobile teams.
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Center - Login Form */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/20 lg:col-span-1">
-            
-            {/* Login Header */}
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-6">
-                <img 
-                  src={LOGO_URL} 
-                  alt="CosmosERP" 
-                  className="h-20 w-auto"
-                />
+        <section className="mx-auto w-full max-w-md">
+          <div className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl sm:p-8">
+            <div className="mb-7 flex items-center gap-3">
+              <img src={LOGO_URL} alt="CosmosERP logo" className="h-10 w-auto object-contain" />
+              <div>
+                <div className="text-lg font-bold leading-tight text-slate-900">CosmosERP</div>
+                <div className="text-xs text-slate-500">Business Operating Platform</div>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-              <p className="text-blue-200">Sign in to your CosmosERP workspace</p>
             </div>
 
-            {/* Error Display */}
+            <h2 className="text-2xl font-semibold text-slate-900">Welcome back</h2>
+            <p className="mt-1 text-sm text-slate-500">Sign in to continue to your workspace.</p>
+
             {error && (
-              <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-red-200 text-sm animate-pulse">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{error}</span>
                 </div>
               </div>
             )}
 
-            {/* Login Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              
-              {/* Email Input */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-blue-200">Work Email</label>
-                <div className={`relative transition-all duration-200 ${focusedField === 'email' ? 'transform scale-105' : ''}`}>
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className={`h-5 w-5 transition-colors ${focusedField === 'email' ? 'text-blue-400' : 'text-gray-400'}`} />
-                  </div>
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Work email</label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
-                    className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent backdrop-blur-sm transition-all duration-200"
+                    className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     placeholder="name@company.com"
                     autoComplete="email"
-                    inputMode="email"
                   />
                 </div>
               </div>
 
-              {/* Password Input */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-blue-200">Password</label>
-                  <Link 
-                    to="/forgot-password" 
-                    className="text-xs text-blue-300 hover:text-white transition-colors"
-                  >
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-700">Password</label>
+                  <Link to="/forgot-password" className="text-xs font-medium text-blue-600 hover:underline">
                     Forgot password?
                   </Link>
                 </div>
-                <div className={`relative transition-all duration-200 ${focusedField === 'password' ? 'transform scale-105' : ''}`}>
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className={`h-5 w-5 transition-colors ${focusedField === 'password' ? 'text-blue-400' : 'text-gray-400'}`} />
-                  </div>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
-                    className="w-full pl-12 pr-14 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent backdrop-blur-sm transition-all duration-200"
+                    className="w-full rounded-xl border border-slate-300 py-2.5 pl-9 pr-10 text-sm text-slate-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     placeholder="Enter your password"
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-blue-400 hover:text-blue-300 transition-colors" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-blue-400 hover:text-blue-300 transition-colors" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
-              {/* Biometric Option */}
-              {biometricAvailable && (
-                <div className="flex items-center justify-center">
-                  <button
-                    type="button"
-                    onClick={handleBiometricLogin}
-                    className="flex items-center gap-2 text-blue-200 hover:text-white text-sm font-medium transition-colors group"
-                  >
-                    <Fingerprint className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    <span>Use fingerprint</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 py-4 px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                disabled={loading || bioLoading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? (
-                  <div className="flex items-center justify-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Signing in...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-3">
-                    <span>Sign in to CosmosERP</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </div>
-                )}
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
 
-            {/* Register Link */}
-            <div className="mt-6 text-center">
-              <p className="text-blue-200 text-sm">
+            <button
+              type="button"
+              disabled={!bioReady || loading || bioLoading}
+              onClick={handleBiometricLogin}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bioLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+              {bioLoading ? 'Verifying biometrics...' : 'Use biometrics'}
+            </button>
+            {!bioReady && (
+              <p className="mt-2 text-center text-xs text-slate-500">
+                Biometric sign-in is available on secure supported devices and browsers.
+              </p>
+            )}
+
+            <div className="mt-6 border-t border-slate-100 pt-5 text-center">
+              <p className="text-sm text-slate-500">
                 New business?{' '}
-                <Link 
-                  to="/register" 
-                  className="text-white font-semibold hover:text-blue-300 transition-colors inline-flex items-center gap-1 group"
-                >
-                  <span>Create account</span>
-                  <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <Link to="/register" className="font-medium text-blue-600 hover:underline">
+                  Register here
                 </Link>
               </p>
             </div>
-          </div>
 
-          {/* Right Side - Additional Features */}
-          <div className="text-white space-y-8 p-8 lg:col-span-1">
-            
-            {/* Key Benefits */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-white">Why Choose CosmosERP?</h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 group">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Shield className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white text-sm">Enterprise Security</h4>
-                    <p className="text-blue-200 text-xs">Bank-level data protection</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 group">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Zap className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white text-sm">Lightning Fast</h4>
-                    <p className="text-blue-200 text-xs">Optimized for performance</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 group">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Building2 className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-white text-sm">All-in-One Solution</h4>
-                    <p className="text-blue-200 text-xs">Complete business management</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Support Info */}
-            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 p-4 rounded-xl border border-white/20">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                  <Briefcase className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-white text-sm">Need Help?</h4>
-                  <p className="text-blue-200 text-xs">Our support team is available 24/7</p>
-                </div>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                <span>Support and on-boarding staff use the same secure sign-in.</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Bottom Branding */}
-      <div className="absolute bottom-4 left-4 right-4 text-center text-blue-300/50 text-sm">
-        <p>© 2024 CosmosERP. Empowering Nigerian Businesses with Enterprise-Grade Solutions.</p>
+        </section>
       </div>
     </div>
   );
