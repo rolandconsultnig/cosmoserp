@@ -1,5 +1,16 @@
 # Nginx for **cosmoserp.com.ng** (Ubuntu **13.53.33.63**)
 
+**Production server IP:** `13.53.33.63` — DNS **A** records for `cosmoserp.com.ng` and `www` should point here.
+
+**HTTPS — choose one:**
+
+| File | Use when |
+|------|----------|
+| `docs/nginx-cosmoserp-cosmoserp.com.ng-https.conf` | **Proxy mode** (current default in repo): Nginx forwards to **5173** (marketplace `/`), **3060** (`/erp/`), **5175** (`/admin/`), **5133** (`/api`, `/uploads`). Requires those Node/Vite processes running on the server. |
+| `docs/nginx-cosmoserp-cosmoserp.com.ng-https-static-dist.conf` | **Static `dist/`** — no dev servers; Nginx serves built files from `apps/*/dist` and only proxies `/api` to **5133**. |
+
+Older HTTPS copies had **two `location = /logistic-login` blocks** (invalid); current files use **`/logistic-login`** and **`/logistics-login`** redirects.
+
 Use this when your VPS IP is **13.53.33.63** and the public hostname is **cosmoserp.com.ng**.
 
 **Certbot errors** (invalid UTF-8, ACME 404, wrong IP in error): see **`docs/CERTBOT-TROUBLESHOOTING-COSMOSERP.md`**.
