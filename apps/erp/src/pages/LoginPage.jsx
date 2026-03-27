@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, Headphones } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Headphones, ShieldCheck, Sparkles } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { LOGO_URL } from '../lib/branding';
 
@@ -35,97 +35,130 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center p-4">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+    <div className="relative min-h-screen overflow-hidden bg-slate-950">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(56,189,248,0.16),transparent_35%),radial-gradient(circle_at_85%_0%,rgba(37,99,235,0.24),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
 
-      <div className="relative w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <img src={LOGO_URL} alt="Cosmos ERP" className="h-[23px] md:h-[26px] lg:h-[28px] w-auto object-contain" />
+      <div className="relative mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-8 sm:px-6 lg:px-10">
+        <div className="grid w-full overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-md lg:grid-cols-2">
+          <section className="hidden flex-col justify-between border-r border-white/10 bg-gradient-to-br from-blue-900 via-blue-800 to-sky-700 p-10 text-white lg:flex">
             <div>
-              <div className="font-bold text-slate-900 text-lg leading-tight">Cosmos ERP</div>
-              <div className="text-xs text-slate-500">Nigerian Business Management</div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1 text-xs font-medium">
+                <Sparkles className="h-3.5 w-3.5" />
+                Enterprise-ready Nigerian business platform
+              </div>
+              <h2 className="mt-6 text-3xl font-semibold leading-tight">
+                Welcome to
+                {' '}
+                <span className="text-sky-200">CosmosERP</span>
+              </h2>
+              <p className="mt-4 max-w-md text-sm text-blue-100">
+                Manage operations, finance, HR, and customer workflows from a single secure workspace.
+              </p>
             </div>
-          </div>
-
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h1>
-          <p className="text-slate-500 text-sm mb-6">Sign in to your business account</p>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm mb-4">
-              {error}
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-sky-200" />
+                Secure sign-in with role-based access control
+              </div>
+              <div className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
+                <Headphones className="h-4 w-4 shrink-0 text-emerald-200" />
+                Support and on-boarding agents use the same login
+              </div>
             </div>
-          )}
+          </section>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
-              <input
-                id="erp-login-email"
-                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="Email"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-              <div className="relative">
-                <input
-                  type={showPass ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition pr-10"
-                  placeholder="••••••••"
-                />
-<button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          <section className="bg-white p-6 sm:p-8 lg:p-10">
+            <div className="mx-auto w-full max-w-md">
+              <div className="mb-8 flex items-center gap-3">
+                <img src={LOGO_URL} alt="CosmosERP logo" className="h-8 w-auto object-contain sm:h-9" />
+                <div>
+                  <div className="text-lg font-bold leading-tight text-slate-900">CosmosERP</div>
+                  <div className="text-xs text-slate-500">Business Operating Platform</div>
+                </div>
+              </div>
+
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Sign in</h1>
+              <p className="mt-1 text-sm text-slate-500">Access your ERP workspace securely.</p>
+
+              {error && (
+                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Work email</label>
+                  <input
+                    id="erp-login-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 shadow-sm transition placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                    placeholder="name@company.com"
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="block text-sm font-medium text-slate-700">Password</label>
+                    <Link to="/forgot-password" className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 pr-10 text-sm text-slate-800 shadow-sm transition placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                      placeholder="Enter your password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                      aria-label={showPass ? 'Hide password' : 'Show password'}
+                    >
+                      {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {loading ? 'Signing in...' : 'Sign in to CosmosERP'}
                 </button>
+              </form>
+
+              <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <div className="flex items-start gap-2">
+                  <Headphones className="mt-0.5 h-4 w-4 shrink-0 text-green-700" aria-hidden />
+                  <p>
+                    Support or on-boarding staff can sign in with their Cosmos staff email and password.
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <Link to="/forgot-password" className="text-sm text-blue-600 font-medium hover:underline">Forgot password?</Link>
+
+              <div className="mt-6 border-t border-slate-100 pt-5 text-center">
+                <p className="text-sm text-slate-500">
+                  New business?
+                  {' '}
+                  <Link to="/register" className="font-medium text-blue-600 hover:text-blue-700 hover:underline">
+                    Register here
+                  </Link>
+                </p>
               </div>
             </div>
-
-            <button
-              type="submit" disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-lg py-2.5 text-sm transition flex items-center justify-center gap-2"
-            >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {loading ? 'Signing in…' : 'Sign In'}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-            <p className="text-sm text-slate-500">
-              New business?{' '}
-              <Link to="/register" className="text-blue-600 font-medium hover:underline">Register here</Link>
-            </p>
-          </div>
-
+          </section>
         </div>
-
-        {/* Support & on-boarding staff: same ERP login — button centers attention below the card */}
-        <div className="mt-6 flex flex-col items-center justify-center text-center px-2">
-          <button
-            type="button"
-            onClick={() => {
-              document.getElementById('erp-login-email')?.focus({ preventScroll: false });
-              document.getElementById('erp-login-email')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-white hover:bg-blue-50 text-slate-900 font-semibold text-sm px-6 py-3 shadow-lg border border-slate-200 transition-colors w-full max-w-sm"
-          >
-            <Headphones className="w-4 h-4 shrink-0 text-green-700" aria-hidden />
-            Support &amp; On-boarding Agents — Sign in
-          </button>
-          <p className="text-blue-100/90 text-xs mt-2 max-w-md">
-            Use your Cosmos staff email and password in the form above, then click <strong className="text-white">Sign In</strong>.
-          </p>
-        </div>
-
-        <p className="text-center text-blue-200 text-xs mt-6">
-          © 2024 Roland Consult · Cosmos ERP · NRS Compliant Platform
-        </p>
       </div>
     </div>
   );
