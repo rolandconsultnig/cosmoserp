@@ -70,8 +70,171 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   Mobile Form Enhancements
+   Professional Login Page Styles
    ═════════════════════════════════════════════════════════ */
+
+/* Background grid pattern */
+.bg-grid-white\/\[0\.02\] {
+  background-image: radial-gradient(circle, white 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Animation delays */
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Glassmorphism effects */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Professional form inputs */
+.professional-input {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.professional-input:focus {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Gradient text effects */
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.floating {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Pulse animation for background elements */
+@keyframes pulse-glow {
+  0%, 100% { 
+    opacity: 0.1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.2;
+    transform: scale(1.05);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+/* Professional button styles */
+.professional-btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 16px 24px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.professional-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+}
+
+.professional-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Feature card animations */
+.feature-card {
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Social login buttons */
+.social-btn {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.social-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Logo glow effect */
+.logo-glow {
+  filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+}
+
+/* Professional loading spinner */
+@keyframes professional-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.professional-spinner {
+  animation: professional-spin 1s linear infinite;
+}
+
+/* Mobile responsiveness for professional login */
+@media (max-width: 1024px) {
+  .professional-login-container {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .professional-login-left {
+    text-align: center;
+    padding: 2rem;
+  }
+  
+  .professional-login-right {
+    margin: 0 auto;
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 640px) {
+  .professional-login-left {
+    padding: 1rem;
+  }
+  
+  .professional-login-right {
+    padding: 1.5rem;
+  }
+  
+  .professional-input {
+    padding: 12px 16px;
+  }
+  
+  .professional-btn-primary {
+    padding: 14px 20px;
+  }
+}
 
 /* Mobile-optimized form inputs */
 .mobile-input {

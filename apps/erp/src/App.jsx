@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Home, LayoutDashboard, Settings, Users, ShoppingCart, Package, BarChart, FileText, CreditCard, Factory, ClipboardList, LifeBuoy, LogOut, Menu, X, Bell, UserCircle, Search, ChevronDown, Plus, Lock, AlertCircle, Eye, EyeOff, Loader2, Mail, Shield, Zap, Building2, TrendingUp, Award, Globe, Briefcase, Fingerprint, Chrome, Star, ArrowRight } from 'lucide-react';
 import useAuthStore from './store/authStore';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
-import MobileLoginPage from './components/MobileLoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -89,7 +89,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={<PublicRoute><MobileLoginPage /></PublicRoute>} />
+      <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
