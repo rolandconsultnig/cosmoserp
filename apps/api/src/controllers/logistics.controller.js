@@ -491,27 +491,52 @@ exports.requestDelivery = async (req, res) => {
     });
 
     if (companyId && !delivery.agentId) {
-      const agents = await prisma.logisticsAgent.findMany({
-        where: { companyId, status: 'ACTIVE' },
-        select: {
-          id: true,
-          _count: {
-            select: {
-              deliveries: {
-                where: {
-                  status: { in: ['PENDING_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'] },
-                },
-              },
-            },
-          },
-        },
-      });
-      if (agents.length) {
-        agents.sort((a, b) => a._count.deliveries - b._count.deliveries);
+      const MAX_CAPACITY = parseInt(process.env.MAX_AGENT_CAPACITY || '10', 10);
+      const activeStatuses = ['PENDING_PICKUP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'];
+      const agentSelect = {
+        id: true,
+        phone: true,
+        firstName: true,
+        isOnline: true,
+        _count: { select: { deliveries: { where: { status: { in: activeStatuses } } } } },
+      };
+
+      // 3-tier zone fallback: city → state → any active agent in company
+      const zonePriority = [
+        ...(resolvedCity ? [{ companyId, status: 'ACTIVE', city: { equals: resolvedCity, mode: 'insensitive' } }] : []),
+        ...(resolvedState ? [{ companyId, status: 'ACTIVE', state: { equals: resolvedState, mode: 'insensitive' } }] : []),
+        { companyId, status: 'ACTIVE' },
+      ];
+
+      let selectedAgent = null;
+      for (const zoneFilter of zonePriority) {
+        const candidates = await prisma.logisticsAgent.findMany({ where: zoneFilter, select: agentSelect });
+        const available = candidates
+          .filter((a) => a._count.deliveries < MAX_CAPACITY)
+          .sort((a, b) => {
+            // Online agents first, then fewest active deliveries
+            if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+            return a._count.deliveries - b._count.deliveries;
+          });
+        if (available.length) {
+          selectedAgent = available[0];
+          break;
+        }
+      }
+
+      if (selectedAgent) {
         delivery = await prisma.delivery.update({
           where: { id: delivery.id },
-          data: { agentId: agents[0].id },
+          data: { agentId: selectedAgent.id },
         });
+        if (selectedAgent.phone) {
+          smsService
+            .sendSms(
+              selectedAgent.phone,
+              `CosmosERP: New delivery assigned — ${delivery.trackingNumber}. Customer: ${delivery.customerName}. Drop-off: ${delivery.deliveryAddress}.`,
+            )
+            .catch((err) => logger.warn('Agent assignment SMS failed:', err.message));
+        }
       }
     }
 
@@ -760,8 +785,16 @@ exports.adminAssignAgent = async (req, res) => {
     const delivery = await prisma.delivery.update({
       where: { id: req.params.deliveryId },
       data: { agentId, status: 'PENDING_PICKUP' },
-      include: { agent: { select: { firstName: true, lastName: true } } },
+      include: { agent: { select: { firstName: true, lastName: true, phone: true } } },
     });
+    if (delivery.agent?.phone) {
+      smsService
+        .sendSms(
+          delivery.agent.phone,
+          `CosmosERP: New delivery assigned — ${delivery.trackingNumber}. Customer: ${delivery.customerName}. Drop-off: ${delivery.deliveryAddress}.`,
+        )
+        .catch((err) => logger.warn('Agent assignment SMS failed:', err.message));
+    }
     res.json({ data: delivery });
   } catch (err) {
     res.status(500).json({ error: err.message });
