@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
+const reportHr = require('../controllers/reportHr.controller');
+const reportInventory = require('../controllers/reportInventory.controller');
+const reportSales = require('../controllers/reportSales.controller');
+const reportLogistics = require('../controllers/reportLogistics.controller');
+const reportMarketplace = require('../controllers/reportMarketplace.controller');
 
 router.use(authenticate, requireTenantUser);
 
@@ -153,5 +158,13 @@ router.get('/inventory-valuation', requireRole('OWNER','ADMIN','ACCOUNTANT','WAR
     });
   } catch (e) { res.status(500).json({ error: 'Failed to generate inventory valuation' }); }
 });
+
+// NEW: Module Analytics Reports
+router.get('/hr/payroll-analytics', requireRole('OWNER','ADMIN','MANAGER','ACCOUNTANT'), reportHr.getPayrollAnalytics);
+router.get('/inventory/movement-analytics', requireRole('OWNER','ADMIN','MANAGER','WAREHOUSE'), reportInventory.getMovementAnalytics);
+router.get('/sales/pipeline-analytics', requireRole('OWNER','ADMIN','MANAGER'), reportSales.getPipelineAnalytics);
+router.get('/logistics/kpi-summary', requireRole('OWNER','ADMIN','MANAGER'), reportLogistics.getKpiSummary);
+router.get('/marketplace/seller-performance', requireRole('OWNER','ADMIN','MANAGER'), reportMarketplace.getSellerPerformance);
+router.get('/marketplace/buyer-behavior', requireRole('OWNER','ADMIN','MANAGER'), reportMarketplace.getBuyerBehavior);
 
 module.exports = router;
