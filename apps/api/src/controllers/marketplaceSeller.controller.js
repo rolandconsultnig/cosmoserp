@@ -61,11 +61,20 @@ async function getOrder(req, res) {
       },
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    const sellerPayout = await prisma.marketplaceSellerPayout.findFirst({
+      where: {
+        orderId: order.id,
+        tenantId: req.tenantId,
+      },
+    });
+
     res.json({
       data: {
         ...order,
         sellerLines: order.lines,
         sellerNetTotal: sellerNetSum(order.lines),
+        sellerPayout: sellerPayout || null,
       },
     });
   } catch (error) {

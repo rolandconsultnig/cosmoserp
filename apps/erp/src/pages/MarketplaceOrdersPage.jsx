@@ -7,6 +7,7 @@ import {
 import api from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { formatCurrency, formatDate, getStatusColor, cn } from '../lib/utils';
+import EscrowTimeline from '../components/EscrowTimeline';
 
 export default function MarketplaceOrdersPage() {
   const qc = useQueryClient();
@@ -174,9 +175,12 @@ export default function MarketplaceOrdersPage() {
                   <div>
                     <h2 className="text-lg font-bold text-slate-900">{detail.orderNumber}</h2>
                     <p className="text-sm text-slate-500">Buyer: {detail.buyerName} · {detail.buyerEmail}</p>
-                    <p className="text-xs text-slate-400 mt-1">Payment: {detail.paymentStatus} · Escrow: {detail.escrowStatus}</p>
                   </div>
                   <span className={cn('h-fit px-3 py-1 rounded-full text-xs font-bold', getStatusColor(detail.status))}>{detail.status}</span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 mb-4">
+                  <EscrowTimeline order={detail} sellerPayout={detail.sellerPayout} />
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-3 text-sm mb-4">
@@ -273,6 +277,16 @@ export default function MarketplaceOrdersPage() {
                       requestLogisticsMutation.error?.response?.data?.error ||
                       'Action failed'}
                   </p>
+                )}
+
+                {detail.sellerPayout?.status === 'FAILED' && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700">
+                    <div className="font-semibold">Payout failed</div>
+                    {detail.sellerPayout?.errorMessage && (
+                      <div className="text-xs mt-1 text-red-600">{detail.sellerPayout.errorMessage}</div>
+                    )}
+                    <p className="text-xs mt-2">Contact support if this issue persists.</p>
+                  </div>
                 )}
 
                 <div className="border-t border-slate-100 pt-4">
