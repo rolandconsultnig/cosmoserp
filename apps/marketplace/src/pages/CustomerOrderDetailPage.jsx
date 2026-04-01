@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Package, MapPin, Loader2, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
 import api from '../lib/api';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, cn, getEscrowBadgeClass } from '../lib/utils';
 import CustomerAccountLayout from '../components/CustomerAccountLayout';
 
 export default function CustomerOrderDetailPage() {
@@ -101,15 +101,33 @@ export default function CustomerOrderDetailPage() {
               </div>
             )}
           </div>
-          <span className={`text-xs px-3 py-1 rounded-full ${
-            order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
-            order.status === 'DISPUTED' ? 'bg-violet-100 text-violet-800' :
-            order.status === 'CANCELLED' || order.status === 'REFUNDED' ? 'bg-red-100 text-red-700' :
-            'bg-amber-100 text-amber-700'
-          }`}>
-            {order.status}
-          </span>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <span className={`text-xs px-3 py-1 rounded-full font-bold ${
+              order.status === 'DELIVERED' ? 'bg-green-100 text-green-700' :
+              order.status === 'DISPUTED' ? 'bg-violet-100 text-violet-800' :
+              order.status === 'CANCELLED' || order.status === 'REFUNDED' ? 'bg-red-100 text-red-700' :
+              'bg-amber-100 text-amber-700'
+            }`}>
+              {order.status}
+            </span>
+            <span
+              className={cn(
+                'text-xs px-3 py-1 rounded-full font-bold',
+                order.paymentStatus === 'SUCCESS' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600',
+              )}
+            >
+              Payment {order.paymentStatus}
+            </span>
+            <span className={cn('text-xs px-3 py-1 rounded-full font-bold', getEscrowBadgeClass(order.escrowStatus))}>
+              Escrow {order.escrowStatus}
+            </span>
+          </div>
         </div>
+
+        <p className="text-xs text-gray-500 mb-4">
+          <Link to="/account/escrow" className="text-brand-600 font-semibold hover:underline">Escrow &amp; buyer protection</Link>
+          {' '}explains how your payment is held until delivery and release.
+        </p>
 
         <div className="space-y-3 mb-5">
           {(order.lines || []).map((line) => (

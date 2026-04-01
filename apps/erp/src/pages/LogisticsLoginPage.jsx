@@ -37,7 +37,7 @@ export default function LogisticsLoginPage() {
         localStorage.setItem('logistics_company', JSON.stringify(data.data.company));
       }
 
-      navigate('/logistics/dashboard');
+      navigate(mode === 'company' ? '/logistics/company' : '/logistics/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {

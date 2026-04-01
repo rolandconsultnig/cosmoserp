@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/announcement.controller');
-const { authenticate, requireTenantUser, requirePermission } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser, requirePermission, requireEnabledModule } = require('../middleware/auth.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('hrPayroll'));
 
 router.get('/', requirePermission('announcements:view'), ctrl.list);
 router.post('/', requirePermission('announcements:manage'), ctrl.create);

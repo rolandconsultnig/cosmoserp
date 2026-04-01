@@ -1,6 +1,15 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
+const {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} = require('@simplewebauthn/server');
+const {
+  isoBase64URL,
+} = require('@simplewebauthn/server/helpers');
 const { logger } = require('../utils/logger');
 const { createAuditLog } = require('../middleware/audit.middleware');
 const { sendPasswordResetEmail } = require('../services/email.service');
@@ -9,8 +18,269 @@ function signToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
 }
 
+// ─────────────────────────────────────────────
+// WebAuthn / Passkeys
+// ─────────────────────────────────────────────
+
+async function webAuthnRegistrationOptions(req, res) {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+
+    const rpID = getRpID();
+    const rpName = getRpName();
+
+    const creds = await prisma.webAuthnCredential.findMany({
+      where: { userId: req.user.id },
+      select: { credentialId: true },
+    });
+
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userID: req.user.id,
+      userName: req.user.email,
+      attestationType: 'none',
+      authenticatorSelection: {
+        userVerification: 'required',
+        residentKey: 'preferred',
+      },
+      excludeCredentials: creds.map((c) => ({
+        id: isoBase64URL.toBuffer(c.credentialId),
+        type: 'public-key',
+      })),
+    });
+
+    await upsertWebAuthnChallenge({ userId: req.user.id, type: 'registration', challenge: options.challenge, ttlMs: 5 * 60 * 1000 });
+    res.json({ options });
+  } catch (error) {
+    logger.error('WebAuthn registration options error:', error);
+    res.status(500).json({ error: 'Failed to start passkey registration' });
+  }
+}
+
+async function webAuthnRegistrationVerify(req, res) {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+    const { response } = req.body;
+    if (!response) return res.status(400).json({ error: 'WebAuthn response required' });
+
+    const expectedChallenge = await consumeLatestChallenge({ userId: req.user.id, type: 'registration' });
+    if (!expectedChallenge) return res.status(400).json({ error: 'Registration challenge expired. Try again.' });
+
+    const verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: getOrigin(),
+      expectedRPID: getRpID(),
+      requireUserVerification: true,
+    });
+
+    if (!verification.verified || !verification.registrationInfo) {
+      return res.status(400).json({ error: 'Passkey registration failed' });
+    }
+
+    const { credential, credentialPublicKey, counter } = verification.registrationInfo;
+    const credentialId = isoBase64URL.fromBuffer(credential.id);
+    const publicKey = isoBase64URL.fromBuffer(credentialPublicKey);
+
+    await prisma.webAuthnCredential.create({
+      data: {
+        userId: req.user.id,
+        credentialId,
+        publicKey,
+        counter: counter || 0,
+        transports: response?.transports ? response.transports : undefined,
+      },
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error('WebAuthn registration verify error:', error);
+    res.status(500).json({ error: 'Failed to verify passkey registration' });
+  }
+}
+
+async function webAuthnAuthenticationOptions(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const user = await prisma.user.findFirst({
+      where: { email: email.toLowerCase(), isActive: true },
+      include: {
+        tenant: { select: { id: true, isActive: true } },
+      },
+    });
+    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!user.tenant?.isActive) return res.status(403).json({ error: 'Your business account has been suspended' });
+
+    const creds = await prisma.webAuthnCredential.findMany({
+      where: { userId: user.id },
+      select: { credentialId: true, transports: true },
+    });
+    if (!creds.length) return res.status(404).json({ error: 'No passkey enrolled for this account' });
+
+    const options = await generateAuthenticationOptions({
+      rpID: getRpID(),
+      userVerification: 'required',
+      allowCredentials: creds.map((c) => ({
+        id: isoBase64URL.toBuffer(c.credentialId),
+        type: 'public-key',
+        transports: Array.isArray(c.transports) ? c.transports : undefined,
+      })),
+    });
+
+    await upsertWebAuthnChallenge({ userId: user.id, type: 'authentication', challenge: options.challenge, ttlMs: 2 * 60 * 1000 });
+    res.json({ options });
+  } catch (error) {
+    logger.error('WebAuthn auth options error:', error);
+    res.status(500).json({ error: 'Failed to start biometric sign-in' });
+  }
+}
+
+async function webAuthnAuthenticationVerify(req, res) {
+  try {
+    const { email, response } = req.body;
+    if (!email || !response) return res.status(400).json({ error: 'Email and WebAuthn response are required' });
+
+    const user = await prisma.user.findFirst({
+      where: { email: email.toLowerCase(), isActive: true },
+      include: {
+        tenant: {
+          select: {
+            id: true, businessName: true, tradingName: true, logoUrl: true,
+            kycStatus: true, subscriptionStatus: true, subscriptionPlan: true, isActive: true,
+            enabledModules: true,
+          },
+        },
+      },
+    });
+    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!user.tenant?.isActive) return res.status(403).json({ error: 'Your business account has been suspended' });
+
+    const expectedChallenge = await consumeLatestChallenge({ userId: user.id, type: 'authentication' });
+    if (!expectedChallenge) return res.status(400).json({ error: 'Authentication challenge expired. Try again.' });
+
+    const credentialId = response?.id;
+    if (!credentialId) return res.status(400).json({ error: 'Credential id missing' });
+
+    const cred = await prisma.webAuthnCredential.findUnique({
+      where: { credentialId },
+    });
+    if (!cred || cred.userId !== user.id) return res.status(401).json({ error: 'Passkey not recognized' });
+
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: getOrigin(),
+      expectedRPID: getRpID(),
+      requireUserVerification: true,
+      credential: {
+        id: isoBase64URL.toBuffer(cred.credentialId),
+        publicKey: isoBase64URL.toBuffer(cred.publicKey),
+        counter: cred.counter,
+        transports: Array.isArray(cred.transports) ? cred.transports : undefined,
+      },
+    });
+
+    if (!verification.verified || !verification.authenticationInfo) {
+      return res.status(401).json({ error: 'Biometric sign-in failed' });
+    }
+
+    await prisma.webAuthnCredential.update({
+      where: { id: cred.id },
+      data: { counter: verification.authenticationInfo.newCounter },
+    });
+
+    const tokens = await issueTokensForUser(user);
+    await createAuditLog({ tenantId: user.tenantId, userId: user.id, action: 'LOGIN', resource: 'User', resourceId: user.id, req });
+
+    res.json({
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        permissions: user.permissions,
+        tenant: user.tenant,
+      },
+    });
+  } catch (error) {
+    logger.error('WebAuthn auth verify error:', error);
+    res.status(500).json({ error: 'Failed to verify biometric sign-in' });
+  }
+}
+
 function signRefreshToken(payload) {
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' });
+}
+
+function getRpID() {
+  if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
+  const raw = process.env.API_PUBLIC_URL || process.env.ERP_URL || process.env.API_URL;
+  if (!raw) return 'localhost';
+  try {
+    return new URL(raw).hostname;
+  } catch {
+    return 'localhost';
+  }
+}
+
+function getOrigin() {
+  if (process.env.WEBAUTHN_ORIGIN) return process.env.WEBAUTHN_ORIGIN;
+  const raw = process.env.ERP_URL || process.env.API_PUBLIC_URL || process.env.API_URL;
+  if (!raw) return 'http://localhost:3060';
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return 'http://localhost:3060';
+  }
+}
+
+function getRpName() {
+  return process.env.WEBAUTHN_RP_NAME || 'CosmosERP';
+}
+
+async function upsertWebAuthnChallenge({ userId, type, challenge, ttlMs }) {
+  const expiresAt = new Date(Date.now() + ttlMs);
+  await prisma.webAuthnChallenge.create({
+    data: {
+      userId,
+      type,
+      challenge,
+      expiresAt,
+    },
+  });
+}
+
+async function consumeLatestChallenge({ userId, type }) {
+  const row = await prisma.webAuthnChallenge.findFirst({
+    where: {
+      userId,
+      type,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!row) return null;
+  await prisma.webAuthnChallenge.delete({ where: { id: row.id } });
+  return row.challenge;
+}
+
+async function issueTokensForUser(user) {
+  const accessToken = signToken({ id: user.id, tenantId: user.tenantId, role: user.role, type: 'user' });
+  const refreshTokenStr = signRefreshToken({ id: user.id, type: 'user' });
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      token: refreshTokenStr,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  return { accessToken, refreshToken: refreshTokenStr };
 }
 
 async function login(req, res) {
@@ -27,6 +297,7 @@ async function login(req, res) {
           select: {
             id: true, businessName: true, tradingName: true, logoUrl: true,
             kycStatus: true, subscriptionStatus: true, subscriptionPlan: true, isActive: true,
+            enabledModules: true,
           },
         },
       },
@@ -315,4 +586,8 @@ module.exports = {
   adminForgotPassword,
   adminResetPassword,
   changePassword,
+  webAuthnRegistrationOptions,
+  webAuthnRegistrationVerify,
+  webAuthnAuthenticationOptions,
+  webAuthnAuthenticationVerify,
 };

@@ -53,6 +53,7 @@ router.post(
 router.delete('/tenants/:tenantId/logo', ctrl.adminRemoveTenantLogo);
 router.post('/tenants/:tenantId/notes', ctrl.adminAddTenantNote);
 router.post('/tenants/:tenantId/toggle-active', ctrl.adminToggleTenantActive);
+router.patch('/tenants/:tenantId/modules', ctrl.updateTenantModules);
 router.post('/tenants/:tenantId/impersonate', ctrl.impersonateTenant);
 router.get('/tenants/:tenantId/audit-logs', ctrl.adminGetTenantAuditLogs);
 router.post('/tenants/:tenantId/users/:userId/toggle', ctrl.adminToggleTenantUserStatus);
@@ -108,6 +109,7 @@ router.get('/logistics/stats', logistics.adminGetStats);
 router.get('/logistics/agents', logistics.adminListAgents);
 router.patch('/logistics/agents/:agentId/status', logistics.adminUpdateAgentStatus);
 router.get('/logistics/deliveries', logistics.adminListDeliveries);
+router.get('/logistics/map-data', logistics.adminGetMapData);
 router.patch('/logistics/deliveries/:deliveryId/assign', logistics.adminAssignAgent);
 router.get('/logistics/companies', logistics.adminListCompanies);
 router.patch('/logistics/companies/:companyId/status', logistics.adminUpdateCompanyStatus);

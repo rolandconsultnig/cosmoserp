@@ -44,7 +44,11 @@ export default function CustomerOrdersPage() {
         <span className="text-gray-400">/</span>
         <span className="font-semibold text-gray-900">My Orders</span>
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">My Orders</h1>
+      <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
+      <p className="text-sm text-gray-600 mb-6">
+        Payments on Cosmos Market use escrow.{' '}
+        <Link to="/account/escrow" className="text-brand-600 font-semibold hover:underline">View escrow hub</Link>
+      </p>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12 gap-2 text-gray-500">

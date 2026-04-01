@@ -1,12 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Package, Truck, CheckCircle, Clock, MapPin, TrendingUp,
-  Banknote, AlertTriangle, Navigation, Loader2,
+  Package, Truck, CheckCircle, Clock, MapPin, Banknote, Navigation, Loader2, RefreshCw, ExternalLink,
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
-const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
+import { logisticsJson, mapsSearchUrl, publicTrackingCustomerUrl } from '../lib/logisticsApi';
 
 function formatCurrency(v) {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(v || 0);
@@ -24,19 +21,25 @@ const STATUS_CONFIG = {
 export default function LogisticsDashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
-  const token = localStorage.getItem('logistics_token');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await logisticsJson('/logistics/agent/dashboard');
+      setData(res.data);
+    } catch (e) {
+      setError(e.message || 'Could not load dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!token) return;
-    fetch(apiUrl('/logistics/agent/dashboard'), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((r) => setData(r.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [token]);
+    load();
+  }, [load]);
 
   const agent = (() => { try { return JSON.parse(localStorage.getItem('logistics_agent')); } catch { return null; } })();
   const d = data || {};
@@ -60,21 +63,39 @@ export default function LogisticsDashboardPage() {
 
   return (
     <div className="p-6 overflow-y-auto h-full space-y-6">
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-300 px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-2">
+          {error}
+          <button type="button" onClick={() => load()} className="text-xs font-bold text-white underline">Retry</button>
+        </div>
+      )}
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black text-white">Delivery Dashboard</h1>
+          <h1 className="text-xl font-black text-white">Delivery dashboard</h1>
           <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            Welcome back, {agent?.firstName}. Here's your delivery overview.
+            Welcome back, {agent?.firstName}. Here is your delivery overview.
           </p>
         </div>
-        <button
-          onClick={() => navigate('/logistics/deliveries')}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
-          style={{ background: 'linear-gradient(135deg, #0052CC, #6366F1)', boxShadow: '0 4px 16px rgba(0,82,204,0.30)' }}
-        >
-          <Package className="w-4 h-4" /> View All Deliveries
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => load()}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all disabled:opacity-50"
+            style={{ borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)' }}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/logistics/deliveries')}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95"
+            style={{ background: 'linear-gradient(135deg, #0052CC, #6366F1)', boxShadow: '0 4px 16px rgba(0,82,204,0.30)' }}
+          >
+            <Package className="w-4 h-4" /> All deliveries
+          </button>
+        </div>
       </div>
 
       {/* Stats cards */}
@@ -131,6 +152,16 @@ export default function LogisticsDashboardPage() {
                     <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.30)' }}>
                       <MapPin className="w-3 h-3 inline mr-0.5" />{del.deliveryAddress}
                     </p>
+                    {mapsSearchUrl(del.deliveryAddress) && (
+                      <a
+                        href={mapsSearchUrl(del.deliveryAddress)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-bold text-blue-400 hover:underline inline-flex items-center gap-0.5 mt-0.5"
+                      >
+                        Maps <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-[12px] font-bold text-blue-400">{del.customerName}</p>
@@ -175,6 +206,16 @@ export default function LogisticsDashboardPage() {
                     <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.30)' }}>
                       {del.customerName} · {del.deliveryAddress}
                     </p>
+                    {publicTrackingCustomerUrl(del.trackingNumber) && (
+                      <a
+                        href={publicTrackingCustomerUrl(del.trackingNumber)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-bold text-sky-400 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        Customer track <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-[12px] font-bold text-blue-400 tabular-nums">{formatCurrency(del.agentPayout)}</p>

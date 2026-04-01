@@ -1,8 +1,8 @@
 const router = require('express').Router();
 const ctrl = require('../controllers/knowledgeBase.controller');
-const { authenticate, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('customerCare'));
 
 router.get('/categories', ctrl.listCategories);
 router.post('/categories', ctrl.createCategory);

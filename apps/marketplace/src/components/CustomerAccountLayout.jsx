@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
-import { User, Package, Shield, MapPin, MessageCircle, Wallet, Bus, Truck } from 'lucide-react';
+import { User, Package, Shield, MapPin, MessageCircle, Wallet, Bus, Truck, ShieldCheck } from 'lucide-react';
 
 const NAV_ITEMS = [
   { key: 'overview', label: 'Overview', to: '/account', icon: User },
   { key: 'orders', label: 'Orders', to: '/account/orders', icon: Package },
+  { key: 'escrow', label: 'Escrow', to: '/account/escrow', icon: ShieldCheck },
   { key: 'profile', label: 'Profile', to: '/account/profile', icon: User },
   { key: 'security', label: 'Security', to: '/account/security', icon: Shield },
   { key: 'addresses', label: 'Addresses', to: '/account/addresses', icon: MapPin },

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Eye, EyeOff, Loader2, Headphones, Mail, Lock, Fingerprint, 
   Chrome, Smartphone, Menu, X, ChevronRight, Plus 
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import useAuthStore from '../store/authStore';
 import { LOGO_URL } from '../lib/branding';
 
@@ -14,15 +15,21 @@ export default function MobileLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const { login } = useAuthStore();
+  const { login, biometricUnlock } = useAuthStore();
   const navigate = useNavigate();
 
   // Check for biometric support
-  useState(() => {
-    if ('credentials' in navigator) {
+  useEffect(() => {
+    const isNative = typeof Capacitor !== 'undefined' && Capacitor.getPlatform && Capacitor.getPlatform() !== 'web';
+    if (isNative) {
+      setBiometricAvailable(true);
+      return;
+    }
+
+    if (typeof window.PublicKeyCredential !== 'undefined' && 'credentials' in navigator) {
       setBiometricAvailable(true);
     }
-  });
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,21 +57,22 @@ export default function MobileLoginPage() {
 
   const handleBiometricLogin = async () => {
     if (!biometricAvailable) return;
-    
+
     try {
-      // Simulate biometric authentication
+      setError('');
       setLoading(true);
-      // In real implementation, use WebAuthn API
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Auto-fill credentials for demo
-      setEmail('demo@cosmoserp.ng');
-      setPassword('demo123');
-      
-      // Proceed with login
-      handleSubmit(new Event('submit'));
+
+      const me = await biometricUnlock();
+      const role = me?.user?.role;
+      if (role === 'FIELD_AGENT') {
+        navigate('/field-agent');
+      } else if (role === 'CRM_MANAGER') {
+        navigate('/crm');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
-      setError('Biometric authentication failed');
+      setError(err?.message || 'Biometric authentication failed');
     } finally {
       setLoading(false);
     }

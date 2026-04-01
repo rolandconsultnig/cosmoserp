@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Truck, Users, Package, MapPin, Phone, CheckCircle, XCircle,
   Clock, AlertTriangle, Search, Star, Navigation, Loader2,
   UserPlus, ToggleLeft, ToggleRight, ChevronRight, Eye,
   TrendingUp, Activity, ArrowRight, Bike, Car, Box,
-  RefreshCw, Filter, Globe,
+  RefreshCw, Filter, Globe, Building2, X, Mic, Volume2, VolumeX,
+  ZoomIn, ZoomOut, Route,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatDate, formatDateTime, formatCurrency, getStatusColor, cn } from '../lib/utils';
@@ -27,6 +28,14 @@ const LG = {
   slate:      '#6B778C',
 };
 
+const BOLT_UI = {
+  green: '#34D058',
+  greenSoft: '#86EFAC',
+  mapDark: '#0B1220',
+  mapDarkMid: '#101A2C',
+  mapDarkLight: '#1A2740',
+};
+
 /* ── Delivery status config ───────────────────────────────── */
 const DELIVERY_STATUS = {
   PENDING_PICKUP: { label: 'Pending Pickup', bg: LG.amberLight, text: LG.amber,     border: '#FFE0A3', dot: LG.amber },
@@ -46,6 +55,210 @@ const AGENT_STATUS = {
 };
 
 const VEHICLE_ICONS = { BIKE: Bike, MOTORCYCLE: Bike, CAR: Car, VAN: Truck, TRUCK: Truck };
+
+const MAP_BOUNDS = { minLat: 4.0, maxLat: 14.5, minLng: 2.5, maxLng: 14.8 };
+const STATE_COORDS = {
+  abia: { lat: 5.45, lng: 7.52 },
+  adamawa: { lat: 9.33, lng: 12.39 },
+  akwaibom: { lat: 5.0, lng: 7.85 },
+  lagos: { lat: 6.52, lng: 3.37 },
+  anambra: { lat: 6.22, lng: 6.93 },
+  bauchi: { lat: 10.31, lng: 9.84 },
+  bayelsa: { lat: 4.92, lng: 6.26 },
+  benue: { lat: 7.19, lng: 8.74 },
+  borno: { lat: 11.84, lng: 13.15 },
+  crossriver: { lat: 4.95, lng: 8.32 },
+  delta: { lat: 5.53, lng: 5.75 },
+  ebonyi: { lat: 6.26, lng: 8.11 },
+  edo: { lat: 6.34, lng: 5.62 },
+  ekiti: { lat: 7.67, lng: 5.22 },
+  enugu: { lat: 6.45, lng: 7.51 },
+  fct: { lat: 9.08, lng: 7.4 },
+  gombe: { lat: 10.29, lng: 11.17 },
+  imo: { lat: 5.48, lng: 7.03 },
+  jigawa: { lat: 12.23, lng: 9.56 },
+  kaduna: { lat: 10.52, lng: 7.44 },
+  kano: { lat: 12.0, lng: 8.52 },
+  katsina: { lat: 12.99, lng: 7.6 },
+  kebbi: { lat: 12.45, lng: 4.2 },
+  kogi: { lat: 7.8, lng: 6.74 },
+  kwara: { lat: 8.96, lng: 4.56 },
+  nasarawa: { lat: 8.54, lng: 8.32 },
+  niger: { lat: 9.61, lng: 6.56 },
+  ogun: { lat: 7.16, lng: 3.35 },
+  ondo: { lat: 7.25, lng: 5.2 },
+  osun: { lat: 7.77, lng: 4.56 },
+  oyo: { lat: 7.38, lng: 3.93 },
+  plateau: { lat: 9.93, lng: 8.89 },
+  rivers: { lat: 4.81, lng: 7.01 },
+  sokoto: { lat: 13.06, lng: 5.24 },
+  taraba: { lat: 8.89, lng: 11.36 },
+  yobe: { lat: 12.0, lng: 11.5 },
+  zamfara: { lat: 12.17, lng: 6.66 },
+};
+
+const STATE_LABELS = {
+  abia: 'Abia', adamawa: 'Adamawa', akwaibom: 'Akwa Ibom', anambra: 'Anambra',
+  bauchi: 'Bauchi', bayelsa: 'Bayelsa', benue: 'Benue', borno: 'Borno',
+  crossriver: 'Cross River', delta: 'Delta', ebonyi: 'Ebonyi', edo: 'Edo',
+  ekiti: 'Ekiti', enugu: 'Enugu', fct: 'FCT Abuja', gombe: 'Gombe',
+  imo: 'Imo', jigawa: 'Jigawa', kaduna: 'Kaduna', kano: 'Kano',
+  katsina: 'Katsina', kebbi: 'Kebbi', kogi: 'Kogi', kwara: 'Kwara',
+  lagos: 'Lagos', nasarawa: 'Nasarawa', niger: 'Niger', ogun: 'Ogun',
+  ondo: 'Ondo', osun: 'Osun', oyo: 'Oyo', plateau: 'Plateau',
+  rivers: 'Rivers', sokoto: 'Sokoto', taraba: 'Taraba', yobe: 'Yobe', zamfara: 'Zamfara',
+};
+
+const CITY_COORDS = {
+  lagos: { lat: 6.52, lng: 3.37 },
+  abuja: { lat: 9.08, lng: 7.4 },
+  ibadan: { lat: 7.38, lng: 3.93 },
+  portharcourt: { lat: 4.81, lng: 7.01 },
+  kano: { lat: 12.0, lng: 8.52 },
+  kaduna: { lat: 10.52, lng: 7.44 },
+  enugu: { lat: 6.45, lng: 7.51 },
+  warri: { lat: 5.52, lng: 5.75 },
+  benin: { lat: 6.34, lng: 5.62 },
+  calabar: { lat: 4.95, lng: 8.32 },
+  owerri: { lat: 5.48, lng: 7.03 },
+  maiduguri: { lat: 11.84, lng: 13.15 },
+  sokoto: { lat: 13.06, lng: 5.24 },
+  jos: { lat: 9.93, lng: 8.89 },
+};
+
+function normalizeGeoKey(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function resolveCoords({ city, state }) {
+  const cityKey = normalizeGeoKey(city);
+  const stateKey = normalizeGeoKey(state);
+  if (cityKey && CITY_COORDS[cityKey]) return CITY_COORDS[cityKey];
+  if (stateKey && STATE_COORDS[stateKey]) return STATE_COORDS[stateKey];
+  return null;
+}
+
+function resolveStateKey(value) {
+  const key = normalizeGeoKey(value);
+  if (key === 'abuja') return 'fct';
+  return STATE_COORDS[key] ? key : null;
+}
+
+function inferCoordsFromText(...values) {
+  const combined = normalizeGeoKey(values.filter(Boolean).join(' '));
+  if (!combined) return null;
+
+  for (const [cityKey, coords] of Object.entries(CITY_COORDS)) {
+    if (combined.includes(cityKey)) return coords;
+  }
+  for (const [stateKey, coords] of Object.entries(STATE_COORDS)) {
+    if (combined.includes(stateKey)) return coords;
+  }
+  return null;
+}
+
+function hashString(input) {
+  const value = String(input || 'seed');
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function fallbackCoords(seed) {
+  const hash = hashString(seed);
+  const latRange = MAP_BOUNDS.maxLat - MAP_BOUNDS.minLat;
+  const lngRange = MAP_BOUNDS.maxLng - MAP_BOUNDS.minLng;
+  const lat = MAP_BOUNDS.minLat + ((hash % 1000) / 1000) * latRange;
+  const lng = MAP_BOUNDS.minLng + (((Math.floor(hash / 1000)) % 1000) / 1000) * lngRange;
+  return { lat, lng };
+}
+
+function resolveCoordsWithFallback(item, seed) {
+  const exact = resolveCoords(item);
+  if (exact) return { coords: exact, quality: 'exact' };
+
+  const inferred = inferCoordsFromText(
+    item?.pickupAddress,
+    item?.deliveryAddress,
+    item?.coverageZone,
+    item?.city,
+    item?.state,
+    item?.vendorName,
+    item?.companyName,
+  );
+  if (inferred) return { coords: inferred, quality: 'inferred' };
+
+  return { coords: fallbackCoords(seed), quality: 'fallback' };
+}
+
+function projectPoint({ lat, lng }) {
+  const x = ((lng - MAP_BOUNDS.minLng) / (MAP_BOUNDS.maxLng - MAP_BOUNDS.minLng)) * 100;
+  const y = (1 - ((lat - MAP_BOUNDS.minLat) / (MAP_BOUNDS.maxLat - MAP_BOUNDS.minLat))) * 100;
+  return {
+    x: Math.max(2, Math.min(98, x)),
+    y: Math.max(2, Math.min(98, y)),
+  };
+}
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function haversineKm(from, to) {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians((to.lat || 0) - (from.lat || 0));
+  const dLng = toRadians((to.lng || 0) - (from.lng || 0));
+  const lat1 = toRadians(from.lat || 0);
+  const lat2 = toRadians(to.lat || 0);
+
+  const a = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+}
+
+function headingFromTo(from, to) {
+  const y = Math.sin(toRadians(to.lng - from.lng)) * Math.cos(toRadians(to.lat));
+  const x = Math.cos(toRadians(from.lat)) * Math.sin(toRadians(to.lat))
+    - Math.sin(toRadians(from.lat)) * Math.cos(toRadians(to.lat)) * Math.cos(toRadians(to.lng - from.lng));
+  const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+  const normalized = (bearing + 360) % 360;
+  const directions = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+  const index = Math.round(normalized / 45) % 8;
+  return directions[index];
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function markerLabel(item) {
+  if (item.type === 'driver') return item.name || item.agentCode || 'Driver';
+  if (item.type === 'transit') return item.trackingNumber || 'Transit Shipment';
+  if (item.type === 'pickup') return item.vendorName || 'Pickup Vendor';
+  return item.label || 'Map Point';
+}
+
+function markerTypeLabel(type) {
+  if (type === 'driver') return 'Driver';
+  if (type === 'transit') return 'In Transit';
+  if (type === 'pickup') return 'Pickup';
+  return 'Map Point';
+}
+
+function qualityText(value) {
+  if (value === 'exact') return 'Exact';
+  if (value === 'inferred') return 'Inferred';
+  return 'Fallback';
+}
+
+function qualityClass(value) {
+  if (value === 'exact') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  if (value === 'inferred') return 'bg-amber-100 text-amber-700 border-amber-200';
+  return 'bg-slate-200 text-slate-700 border-slate-300';
+}
 
 /* ── Overview stat card ───────────────────────────────────── */
 function KpiTile({ label, value, sub, icon: Icon, gradient, pulse }) {
@@ -84,6 +297,7 @@ function AgentCard({ agent, onStatusChange, isPending }) {
   const cfg         = AGENT_STATUS[agent.status] || AGENT_STATUS.OFFLINE;
   const VehicleIcon = VEHICLE_ICONS[agent.vehicleType] || Truck;
   const initials    = `${agent.firstName?.[0] || ''}${agent.lastName?.[0] || ''}`.toUpperCase();
+  const ratingValue = Number(agent.rating);
 
   return (
     <div
@@ -157,7 +371,7 @@ function AgentCard({ agent, onStatusChange, isPending }) {
           {[
             { label: 'Deliveries', value: agent.totalDeliveries || 0 },
             { label: 'Success %',  value: agent.successRate ? `${agent.successRate}%` : '—' },
-            { label: 'Rating',     value: agent.rating ? agent.rating.toFixed(1) : '—' },
+            { label: 'Rating',     value: Number.isFinite(ratingValue) ? ratingValue.toFixed(1) : '—' },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-xl py-2" style={{ background: LG.grey }}>
               <div className="text-[14px] font-black text-slate-900">{value}</div>
@@ -245,8 +459,21 @@ export default function LogisticsPage() {
   const [agentStatus, setAgentStatus] = useState('');
   const [deliverySearch, setDeliverySearch] = useState('');
   const [deliveryStatus, setDeliveryStatus] = useState('');
+  const [companyStatus, setCompanyStatus] = useState('');
   const [agentPage, setAgentPage]   = useState(1);
   const [deliveryPage, setDeliveryPage] = useState(1);
+  const [companyPage, setCompanyPage] = useState(1);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedMapItem, setSelectedMapItem] = useState(null);
+  const [routeFromId, setRouteFromId] = useState('');
+  const [routeToId, setRouteToId] = useState('');
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [followSelectedMarker, setFollowSelectedMarker] = useState(false);
+  const [mapZoom, setMapZoom] = useState(1);
+  const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
+  const [isMapDragging, setIsMapDragging] = useState(false);
+  const dragStartRef = useRef(null);
+  const mapViewportRef = useRef(null);
   const qc = useQueryClient();
 
   /* ── Data fetches ── */
@@ -265,6 +492,17 @@ export default function LogisticsPage() {
     keepPreviousData: true,
   });
 
+  const { data: mapDataRaw, isLoading: mapLoading } = useQuery({
+    queryKey: ['logistics-map-data'],
+    queryFn: () =>
+      api.get('/admin/logistics/map-data').then((r) => r.data?.data || {
+        drivers: [], goodsInTransit: [], vendorsWaitingPickup: [], totals: { drivers: 0, inTransit: 0, waitingPickup: 0 },
+      }).catch(() => ({
+        drivers: [], goodsInTransit: [], vendorsWaitingPickup: [], totals: { drivers: 0, inTransit: 0, waitingPickup: 0 },
+      })),
+    refetchInterval: 30000,
+  });
+
   const { data: deliveriesData, isLoading: deliveriesLoading } = useQuery({
     queryKey: ['logistics-deliveries', deliveryPage, deliverySearch, deliveryStatus],
     queryFn: () =>
@@ -273,6 +511,15 @@ export default function LogisticsPage() {
       }).then((r) => r.data).catch(() => ({ data: [], pagination: {} })),
     keepPreviousData: true,
     refetchInterval: 20000,
+  });
+
+  const { data: companiesData, isLoading: companiesLoading } = useQuery({
+    queryKey: ['logistics-companies', companyPage, companyStatus],
+    queryFn: () =>
+      api.get('/admin/logistics/companies', {
+        params: { page: companyPage, limit: 12, status: companyStatus || undefined },
+      }).then((r) => r.data).catch(() => ({ data: [], total: 0 })),
+    keepPreviousData: true,
   });
 
   const agentStatusMutation = useMutation({
@@ -288,13 +535,221 @@ export default function LogisticsPage() {
     onSuccess: () => qc.invalidateQueries(['logistics-deliveries']),
   });
 
+  const companyStatusMutation = useMutation({
+    mutationFn: ({ companyId, status }) => api.patch(`/admin/logistics/companies/${companyId}/status`, { status }),
+    onSuccess: (response, variables) => {
+      qc.invalidateQueries(['logistics-companies']);
+      qc.invalidateQueries(['logistics-stats']);
+      setSelectedCompany((prev) => {
+        if (!prev || prev.id !== variables.companyId) return prev;
+        return {
+          ...prev,
+          ...(response?.data?.data || {}),
+          status: variables.status,
+        };
+      });
+    },
+  });
+
   const s         = statsData || {};
   const agents    = agentsData?.data || [];
   const deliveries = deliveriesData?.data || [];
+  const companies = companiesData?.data || [];
+  const mapData = mapDataRaw || { drivers: [], goodsInTransit: [], vendorsWaitingPickup: [], totals: {} };
+
+  const driverMarkers = (mapData.drivers || []).map((driver, index) => {
+    const { coords, quality } = resolveCoordsWithFallback(driver, driver.id || driver.agentCode || `driver-${index}`);
+    const idPart = driver.id || driver.agentCode || index;
+    return {
+      ...driver,
+      id: driver.id || idPart,
+      type: 'driver',
+      routeId: `driver-${idPart}`,
+      coords,
+      point: projectPoint(coords),
+      markerLabel: driver.name || driver.agentCode || 'Driver',
+      locationQuality: quality,
+    };
+  });
+
+  const transitMarkers = (mapData.goodsInTransit || []).map((goods, index) => {
+    const { coords, quality } = resolveCoordsWithFallback(goods, goods.id || goods.trackingNumber || `transit-${index}`);
+    const idPart = goods.id || goods.trackingNumber || index;
+    return {
+      ...goods,
+      id: goods.id || idPart,
+      type: 'transit',
+      routeId: `transit-${idPart}`,
+      coords,
+      point: projectPoint(coords),
+      markerLabel: goods.trackingNumber || 'Transit',
+      locationQuality: quality,
+    };
+  });
+
+  const pickupMarkers = (mapData.vendorsWaitingPickup || []).map((pickup, index) => {
+    const { coords, quality } = resolveCoordsWithFallback(pickup, pickup.id || pickup.trackingNumber || `pickup-${index}`);
+    const idPart = pickup.id || pickup.trackingNumber || index;
+    return {
+      ...pickup,
+      id: pickup.id || idPart,
+      type: 'pickup',
+      routeId: `pickup-${idPart}`,
+      coords,
+      point: projectPoint(coords),
+      markerLabel: pickup.vendorName || pickup.trackingNumber || 'Pickup',
+      locationQuality: quality,
+    };
+  });
+
+  const mapMarkers = [...driverMarkers, ...transitMarkers, ...pickupMarkers];
+  const routeOptions = mapMarkers.map((item) => ({
+    id: item.routeId,
+    label: `${item.markerLabel} · ${item.type}`,
+  }));
+  const routeFrom = mapMarkers.find((item) => item.routeId === routeFromId) || null;
+  const routeTo = mapMarkers.find((item) => item.routeId === routeToId) || null;
+  const routeDistanceKm = routeFrom && routeTo ? haversineKm(routeFrom.coords, routeTo.coords) : 0;
+  const routeEtaMinutes = Math.max(3, Math.round((routeDistanceKm / 35) * 60));
+  const routeHeading = routeFrom && routeTo ? headingFromTo(routeFrom.coords, routeTo.coords) : '';
+  const hasValidRoute = Boolean(routeFrom && routeTo && routeFrom.routeId !== routeTo.routeId);
+  const liveFocusMarker = selectedMapItem?.routeId
+    ? (mapMarkers.find((item) => item.routeId === selectedMapItem.routeId) || selectedMapItem)
+    : null;
+  const stateRollup = {};
+  Object.keys(STATE_COORDS).forEach((key) => {
+    stateRollup[key] = { drivers: 0, inTransit: 0, waitingPickup: 0 };
+  });
+
+  (mapData.drivers || []).forEach((driver) => {
+    const key = resolveStateKey(driver.state) || resolveStateKey(driver.city);
+    if (key && stateRollup[key]) stateRollup[key].drivers += 1;
+  });
+  (mapData.goodsInTransit || []).forEach((goods) => {
+    const key = resolveStateKey(goods.state) || resolveStateKey(goods.city);
+    if (key && stateRollup[key]) stateRollup[key].inTransit += 1;
+  });
+  (mapData.vendorsWaitingPickup || []).forEach((pickup) => {
+    const key = resolveStateKey(pickup.state) || resolveStateKey(pickup.city);
+    if (key && stateRollup[key]) stateRollup[key].waitingPickup += 1;
+  });
+
+  const stateSummary = Object.entries(STATE_COORDS).map(([key, coords]) => {
+    const c = stateRollup[key] || { drivers: 0, inTransit: 0, waitingPickup: 0 };
+    return {
+      key,
+      label: STATE_LABELS[key] || key,
+      coords,
+      point: projectPoint(coords),
+      ...c,
+      total: c.drivers + c.inTransit + c.waitingPickup,
+    };
+  }).sort((a, b) => (b.total - a.total) || a.label.localeCompare(b.label));
+  const companyLimit = 12;
+  const companyTotal = companiesData?.total || 0;
+  const companyTotalPages = Math.max(1, Math.ceil(companyTotal / companyLimit));
+
+  const speakText = (text) => {
+    if (!voiceEnabled || !text || typeof window === 'undefined' || !window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const speakSelectedMarker = () => {
+    if (!selectedMapItem) return;
+    const name = markerLabel(selectedMapItem);
+    const location = [selectedMapItem.city, selectedMapItem.state].filter(Boolean).join(', ') || 'unknown location';
+    const quality = qualityText(selectedMapItem.locationQuality);
+    speakText(`${name}. Type ${selectedMapItem.type}. Location ${location}. Data quality ${quality}.`);
+  };
+
+  const speakRoute = () => {
+    if (!hasValidRoute) return;
+    const fromLabel = markerLabel(routeFrom);
+    const toLabel = markerLabel(routeTo);
+    speakText(`Route from ${fromLabel} to ${toLabel}. Head ${routeHeading} for approximately ${routeDistanceKm.toFixed(1)} kilometers. Estimated travel time is ${routeEtaMinutes} minutes.`);
+  };
+
+  const handleMapWheel = (event) => {
+    event.preventDefault();
+    const zoomDelta = event.deltaY < 0 ? 0.12 : -0.12;
+    setMapZoom((prev) => clamp(Number((prev + zoomDelta).toFixed(2)), 1, 2.4));
+  };
+
+  const handleMapMouseDown = (event) => {
+    if (event.button !== 0) return;
+    setIsMapDragging(true);
+    dragStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handleMapMouseMove = (event) => {
+    if (!isMapDragging || !dragStartRef.current) return;
+    const deltaX = event.clientX - dragStartRef.current.x;
+    const deltaY = event.clientY - dragStartRef.current.y;
+    dragStartRef.current = { x: event.clientX, y: event.clientY };
+    setMapPan((prev) => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+  };
+
+  const handleMapMouseUp = () => {
+    setIsMapDragging(false);
+    dragStartRef.current = null;
+  };
+
+  const centerMapOnMarker = (marker) => {
+    if (!marker?.point || !mapViewportRef.current) return;
+    const rect = mapViewportRef.current.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const markerX = (marker.point.x / 100) * rect.width;
+    const markerY = (marker.point.y / 100) * rect.height;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    setMapPan({
+      x: Number(((centerX - markerX) * mapZoom).toFixed(2)),
+      y: Number(((centerY - markerY) * mapZoom).toFixed(2)),
+    });
+  };
+
+  useEffect(() => {
+    if (!selectedMapItem?.routeId) return;
+    const refreshedMarker = mapMarkers.find((item) => item.routeId === selectedMapItem.routeId);
+    if (!refreshedMarker) return;
+
+    const hasChanged =
+      selectedMapItem.point?.x !== refreshedMarker.point?.x ||
+      selectedMapItem.point?.y !== refreshedMarker.point?.y ||
+      selectedMapItem.locationQuality !== refreshedMarker.locationQuality;
+
+    if (hasChanged) {
+      setSelectedMapItem(refreshedMarker);
+    }
+
+    if (followSelectedMarker) {
+      centerMapOnMarker(refreshedMarker);
+    }
+  }, [
+    mapMarkers,
+    selectedMapItem?.routeId,
+    selectedMapItem?.point?.x,
+    selectedMapItem?.point?.y,
+    selectedMapItem?.locationQuality,
+    followSelectedMarker,
+    mapZoom,
+  ]);
+
+  useEffect(() => {
+    if (followSelectedMarker && !selectedMapItem?.routeId) {
+      setFollowSelectedMarker(false);
+    }
+  }, [followSelectedMarker, selectedMapItem?.routeId]);
 
   const tabs = [
     { id: 'agents',     label: 'Logistics Agents',  icon: Users,  count: s.totalAgents || 0 },
     { id: 'deliveries', label: 'Delivery Orders',   icon: Package, count: s.totalDeliveries || 0 },
+    { id: 'map',        label: 'Live Map',          icon: MapPin, count: mapData?.totals?.inTransit || 0 },
+    { id: 'companies',  label: 'Companies',         icon: Building2, count: s.totalCompanies || 0 },
   ];
 
   return (
@@ -738,6 +1193,657 @@ export default function LogisticsPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'map' && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <KpiTile label="Drivers" value={mapData?.totals?.drivers || 0} icon={Truck} gradient="linear-gradient(135deg,#0052CC,#6366F1)" />
+            <KpiTile label="Goods in Transit" value={mapData?.totals?.inTransit || 0} icon={Navigation} gradient="linear-gradient(135deg,#7C3AED,#2563EB)" />
+            <KpiTile label="Waiting Pickup" value={mapData?.totals?.waitingPickup || 0} icon={Building2} gradient="linear-gradient(135deg,#F59E0B,#FB923C)" />
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-[14px] font-black text-slate-900">Logistics Coverage Map</h3>
+                <p className="text-[11px] text-slate-500">Bolt-style dispatch view for drivers, in-transit shipments, and pickups</p>
+              </div>
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="inline-flex items-center gap-1 text-slate-600"><span className="w-2.5 h-2.5 rounded-full bg-blue-600" /> Drivers</span>
+                <span className="inline-flex items-center gap-1 text-slate-600"><span className="w-2.5 h-2.5 rounded-full bg-violet-600" /> In transit</span>
+                <span className="inline-flex items-center gap-1 text-slate-600"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Pickup</span>
+                <button
+                  type="button"
+                  onClick={() => setVoiceEnabled((prev) => !prev)}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-700"
+                  title="Toggle voice narration"
+                >
+                  {voiceEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                  Voice
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center gap-2">
+              <div className="text-[11px] font-bold text-slate-600 inline-flex items-center gap-1"><Route className="w-3.5 h-3.5" /> Directions</div>
+              <select
+                value={routeFromId}
+                onChange={(e) => setRouteFromId(e.target.value)}
+                className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-700"
+              >
+                <option value="">From marker</option>
+                {routeOptions.map((opt) => (
+                  <option key={`from-${opt.id}`} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={routeToId}
+                onChange={(e) => setRouteToId(e.target.value)}
+                className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-700"
+              >
+                <option value="">To marker</option>
+                {routeOptions.map((opt) => (
+                  <option key={`to-${opt.id}`} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setRouteFromId('');
+                  setRouteToId('');
+                }}
+                className="h-8 px-2 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-600"
+              >
+                Clear route
+              </button>
+              {hasValidRoute && (
+                <div className="ml-auto text-[11px] text-slate-600 font-semibold">
+                  {routeDistanceKm.toFixed(1)} km · {routeEtaMinutes} min · heading {routeHeading}
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+              <div className="relative rounded-2xl border border-slate-200 min-h-[420px] overflow-hidden"
+                ref={mapViewportRef}
+                style={{
+                  background: `radial-gradient(circle at 20% 10%, ${BOLT_UI.mapDarkLight} 0%, ${BOLT_UI.mapDarkMid} 35%, ${BOLT_UI.mapDark} 100%)`,
+                }}
+                onWheel={handleMapWheel}
+                onMouseDown={handleMapMouseDown}
+                onMouseMove={handleMapMouseMove}
+                onMouseUp={handleMapMouseUp}
+                onMouseLeave={handleMapMouseUp}
+              >
+                <div
+                  className={cn('absolute inset-0', isMapDragging ? 'cursor-grabbing' : 'cursor-grab')}
+                  style={{
+                    transform: `translate(${mapPan.x}px, ${mapPan.y}px) scale(${mapZoom})`,
+                    transformOrigin: 'center center',
+                  }}
+                >
+                  <div className="absolute inset-0 opacity-30"
+                    style={{ backgroundImage: 'linear-gradient(to right, rgba(148,163,184,0.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.14) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+
+                  <div className="absolute top-3 left-3 flex items-center gap-2 z-[1]">
+                    <span className="px-2 py-1 rounded-full text-[10px] font-bold text-white/90 border border-white/20 bg-white/10 backdrop-blur">Dispatch Mode</span>
+                    <span className="px-2 py-1 rounded-full text-[10px] font-bold border border-emerald-300/40 text-emerald-200 bg-emerald-500/15">Live</span>
+                  </div>
+
+                  {hasValidRoute && (
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                      <line
+                        x1={`${routeFrom.point.x}%`}
+                        y1={`${routeFrom.point.y}%`}
+                        x2={`${routeTo.point.x}%`}
+                        y2={`${routeTo.point.y}%`}
+                        stroke={BOLT_UI.greenSoft}
+                        strokeWidth="8"
+                        opacity="0.25"
+                      />
+                      <line
+                        x1={`${routeFrom.point.x}%`}
+                        y1={`${routeFrom.point.y}%`}
+                        x2={`${routeTo.point.x}%`}
+                        y2={`${routeTo.point.y}%`}
+                        stroke={BOLT_UI.green}
+                        strokeWidth="3"
+                        strokeDasharray="8 6"
+                        opacity="0.95"
+                      />
+                    </svg>
+                  )}
+
+                  {stateSummary.map((state) => (
+                    <button
+                      key={`state-${state.key}`}
+                      type="button"
+                      onClick={() => setSelectedMapItem({ type: 'state', ...state })}
+                      className="absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: `${state.point.x}%`, top: `${state.point.y}%` }}
+                    >
+                      <span className={cn(
+                        'px-1.5 py-0.5 rounded border text-[10px] font-bold shadow-sm backdrop-blur',
+                        state.total > 0
+                          ? 'bg-slate-950/70 border-slate-500/60 text-slate-100'
+                          : 'bg-slate-900/50 border-slate-700/70 text-slate-400',
+                      )}>
+                        {state.label.split(' ')[0]}{state.total > 0 ? ` · ${state.total}` : ''}
+                      </span>
+                    </button>
+                  ))}
+
+                  {mapMarkers.map((item) => {
+                    const color = item.type === 'driver' ? '#2563EB' : item.type === 'transit' ? '#7C3AED' : '#F59E0B';
+                    const label = markerLabel(item);
+                    const qualityLabel = qualityText(item.locationQuality);
+                    const qualityBadgeClass = qualityClass(item.locationQuality);
+                    const isFocused = liveFocusMarker?.routeId && liveFocusMarker.routeId === item.routeId;
+                    return (
+                      <button
+                        key={item.routeId}
+                        type="button"
+                        onClick={(event) => {
+                          if (event.shiftKey) {
+                            setRouteFromId(item.routeId);
+                          } else if (event.altKey) {
+                            setRouteToId(item.routeId);
+                          }
+                          setSelectedMapItem(item);
+                        }}
+                        className="absolute -translate-x-1/2 -translate-y-1/2 group"
+                        style={{ left: `${item.point.x}%`, top: `${item.point.y}%` }}
+                        title="Shift+Click sets route start, Alt+Click sets route destination"
+                      >
+                        <span
+                          className={cn('block rounded-full border-2 border-white shadow', isFocused ? 'w-4 h-4 ring-4 ring-emerald-300/40' : 'w-3 h-3')}
+                          style={{ background: color }}
+                        />
+                        {item.type === 'driver' && (
+                          <span className="absolute inset-0 -m-1 rounded-full border border-emerald-300/60 animate-ping pointer-events-none" />
+                        )}
+                        <span className="absolute left-1/2 -translate-x-1/2 mt-1 opacity-0 group-hover:opacity-100 pointer-events-none px-1.5 py-1 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap inline-flex items-center gap-1">
+                          <span>{label}</span>
+                          <span className={cn('px-1 py-[1px] rounded border text-[9px] font-bold', qualityBadgeClass)}>{qualityLabel}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {mapLoading ? (
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading map data…
+                  </div>
+                ) : null}
+                <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setMapZoom((prev) => clamp(Number((prev + 0.15).toFixed(2)), 1, 2.4))}
+                    className="w-7 h-7 rounded-lg border border-slate-200 bg-white text-slate-700 flex items-center justify-center"
+                    title="Zoom in"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapZoom((prev) => clamp(Number((prev - 0.15).toFixed(2)), 1, 2.4))}
+                    className="w-7 h-7 rounded-lg border border-slate-200 bg-white text-slate-700 flex items-center justify-center"
+                    title="Zoom out"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapZoom(1);
+                      setMapPan({ x: 0, y: 0 });
+                    }}
+                    className="px-1.5 h-7 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700"
+                    title="Reset view"
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                {(hasValidRoute || liveFocusMarker?.routeId) && (
+                  <div className="absolute left-3 right-3 bottom-3 rounded-xl border border-white/20 bg-slate-950/80 backdrop-blur p-3 text-white shadow-lg">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-300 font-bold">Live Trip Focus</p>
+                        {hasValidRoute ? (
+                          <p className="text-[12px] font-semibold text-white">
+                            {markerLabel(routeFrom)} <ArrowRight className="inline w-3.5 h-3.5 mx-0.5" /> {markerLabel(routeTo)}
+                          </p>
+                        ) : (
+                          <p className="text-[12px] font-semibold text-white">
+                            {markerLabel(liveFocusMarker)} · {markerTypeLabel(liveFocusMarker?.type)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[11px] font-bold text-emerald-300">
+                          {hasValidRoute ? `${routeDistanceKm.toFixed(1)} km` : 'Tracking'}
+                        </p>
+                        <p className="text-[10px] text-slate-300">
+                          {hasValidRoute ? `${routeEtaMinutes} min · ${routeHeading}` : qualityText(liveFocusMarker?.locationQuality)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
+                <div className="mb-3 pb-3 border-b border-slate-200 space-y-2">
+                  <h4 className="text-[13px] font-black text-slate-900">Directions</h4>
+                  {hasValidRoute ? (
+                    <>
+                      <div className="text-[12px] text-slate-700">
+                        <span className="font-semibold">From:</span> {markerLabel(routeFrom)}
+                      </div>
+                      <div className="text-[12px] text-slate-700">
+                        <span className="font-semibold">To:</span> {markerLabel(routeTo)}
+                      </div>
+                      <div className="text-[12px] text-slate-700">
+                        Head <span className="font-semibold">{routeHeading}</span> for approximately{' '}
+                        <span className="font-semibold">{routeDistanceKm.toFixed(1)} km</span> ({routeEtaMinutes} mins)
+                      </div>
+                      <button
+                        type="button"
+                        onClick={speakRoute}
+                        disabled={!voiceEnabled}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-700 disabled:opacity-50"
+                      >
+                        <Mic className="w-3.5 h-3.5" /> Voice directions
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">
+                      Select route start and destination from the controls above, or use Shift+Click and Alt+Click on markers.
+                    </p>
+                  )}
+                </div>
+
+                <h4 className="text-[13px] font-black text-slate-900 mb-2">Selected Marker</h4>
+                {!selectedMapItem ? (
+                  <p className="text-[12px] text-slate-500">Click any marker to view details.</p>
+                ) : (
+                  <div className="space-y-2 text-[12px]">
+                    <div><span className="text-slate-400">Type:</span> <span className="font-bold text-slate-700 uppercase">{selectedMapItem.type}</span></div>
+                    {'locationQuality' in selectedMapItem && (
+                      <div>
+                        <span className="text-slate-400">Location quality:</span>{' '}
+                        <span className={cn(
+                          'inline-flex px-2 py-[2px] rounded border text-[10px] font-bold uppercase',
+                          qualityClass(selectedMapItem.locationQuality),
+                        )}>
+                          {qualityText(selectedMapItem.locationQuality)}
+                        </span>
+                      </div>
+                    )}
+                    {'name' in selectedMapItem && <div><span className="text-slate-400">Driver:</span> <span className="font-semibold text-slate-800">{selectedMapItem.name || '—'}</span></div>}
+                    {'trackingNumber' in selectedMapItem && <div><span className="text-slate-400">Tracking:</span> <span className="font-semibold text-slate-800">{selectedMapItem.trackingNumber || '—'}</span></div>}
+                    {'vendorName' in selectedMapItem && <div><span className="text-slate-400">Vendor:</span> <span className="font-semibold text-slate-800">{selectedMapItem.vendorName || '—'}</span></div>}
+                    {'companyName' in selectedMapItem && <div><span className="text-slate-400">Company:</span> <span className="font-semibold text-slate-800">{selectedMapItem.companyName || '—'}</span></div>}
+                    <div><span className="text-slate-400">Location:</span> <span className="font-semibold text-slate-800">{[selectedMapItem.city, selectedMapItem.state].filter(Boolean).join(', ') || 'Unknown'}</span></div>
+                    {'deliveryAddress' in selectedMapItem && selectedMapItem.deliveryAddress && (
+                      <div><span className="text-slate-400">Address:</span> <span className="font-semibold text-slate-800">{selectedMapItem.deliveryAddress}</span></div>
+                    )}
+                    {'pickupAddress' in selectedMapItem && selectedMapItem.pickupAddress && (
+                      <div><span className="text-slate-400">Pickup:</span> <span className="font-semibold text-slate-800">{selectedMapItem.pickupAddress}</span></div>
+                    )}
+                    {'drivers' in selectedMapItem && (
+                      <>
+                        <div><span className="text-slate-400">Drivers:</span> <span className="font-semibold text-slate-800">{selectedMapItem.drivers}</span></div>
+                        <div><span className="text-slate-400">In transit:</span> <span className="font-semibold text-slate-800">{selectedMapItem.inTransit}</span></div>
+                        <div><span className="text-slate-400">Waiting pickup:</span> <span className="font-semibold text-slate-800">{selectedMapItem.waitingPickup}</span></div>
+                      </>
+                    )}
+                    {'locationQuality' in selectedMapItem && (
+                      <button
+                        type="button"
+                        onClick={speakSelectedMarker}
+                        disabled={!voiceEnabled}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-700 disabled:opacity-50"
+                      >
+                        <Mic className="w-3.5 h-3.5" /> Speak marker
+                      </button>
+                    )}
+                    {'routeId' in selectedMapItem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !followSelectedMarker;
+                          setFollowSelectedMarker(next);
+                          if (next) {
+                            centerMapOnMarker(selectedMapItem);
+                          }
+                        }}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border',
+                          followSelectedMarker
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-white text-slate-700 border-slate-200',
+                        )}
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                        {followSelectedMarker ? 'Following marker' : 'Follow selected marker'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <h5 className="text-[12px] font-black text-slate-800 mb-2">State-by-State</h5>
+                  <div className="max-h-[260px] overflow-auto space-y-1.5 pr-1">
+                    {stateSummary.map((state) => (
+                      <button
+                        key={`state-row-${state.key}`}
+                        type="button"
+                        onClick={() => setSelectedMapItem({ type: 'state', ...state })}
+                        className="w-full flex items-center justify-between text-left px-2.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+                      >
+                        <span className="text-[11px] font-semibold text-slate-700">{state.label}</span>
+                        <span className="text-[10px] text-slate-500">
+                          D:{state.drivers} · T:{state.inTransit} · P:{state.waitingPickup}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          COMPANIES TAB
+      ════════════════════════════════════════════════════ */}
+      {tab === 'companies' && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={companyStatus}
+              onChange={(e) => { setCompanyStatus(e.target.value); setCompanyPage(1); }}
+              className="select-field"
+            >
+              <option value="">All Companies</option>
+              <option value="PENDING">Pending Approval</option>
+              <option value="APPROVED">Approved</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+
+            {(s.pendingCompanies || 0) > 0 && (
+              <div
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-bold"
+                style={{ background: LG.amberLight, color: LG.amber, border: '1px solid #FFD48A' }}
+              >
+                <AlertTriangle className="w-4 h-4" />
+                {s.pendingCompanies} compan{s.pendingCompanies > 1 ? 'ies' : 'y'} pending approval
+              </div>
+            )}
+          </div>
+
+          {companiesLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 animate-pulse space-y-3">
+                  <div className="h-4 bg-slate-100 rounded w-2/3" />
+                  <div className="h-3 bg-slate-100 rounded" />
+                  <div className="h-3 bg-slate-100 rounded w-3/4" />
+                  <div className="h-10 bg-slate-100 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : companies.length === 0 ? (
+            <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
+              <Building2 className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+              <p className="text-[16px] font-bold text-slate-600">No logistics companies found</p>
+              <p className="text-[13px] text-slate-400 mt-1">Try another status filter or wait for new registrations.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {companies.map((c) => {
+                const statusColor = c.status === 'APPROVED'
+                  ? { bg: LG.tealLight, text: LG.teal }
+                  : c.status === 'PENDING'
+                    ? { bg: LG.amberLight, text: LG.amber }
+                    : c.status === 'SUSPENDED'
+                      ? { bg: LG.redLight, text: LG.red }
+                      : { bg: '#F1F5F9', text: '#64748B' };
+
+                return (
+                  <div key={c.id} className="bg-white rounded-2xl border border-slate-200 p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="min-w-0">
+                        <h3 className="text-[15px] font-black text-slate-900 truncate">{c.name}</h3>
+                        <p className="text-[12px] text-slate-500 truncate">{c.email}</p>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black" style={{ background: statusColor.bg, color: statusColor.text }}>
+                        {c.status}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-[12px] text-slate-600 mb-4">
+                      <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-slate-400" />{c.phone || '—'}</div>
+                      <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-slate-400" />{[c.city, c.state].filter(Boolean).join(', ') || 'Location not set'}</div>
+                      <div className="flex items-center gap-2"><Users className="w-3.5 h-3.5 text-slate-400" />{c._count?.agents || 0} agents · {c._count?.deliveries || 0} deliveries</div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedCompany(c)}
+                        className="px-3 py-1.5 rounded-lg text-[12px] font-bold flex items-center gap-1.5"
+                        style={{ background: LG.blueLight, color: LG.blue, border: '1px solid #A4CDFF' }}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        View details
+                      </button>
+
+                      {c.status === 'PENDING' && (
+                        <>
+                          <button
+                            onClick={() => companyStatusMutation.mutate({ companyId: c.id, status: 'APPROVED' })}
+                            disabled={companyStatusMutation.isPending}
+                            className="px-3 py-1.5 rounded-lg text-[12px] font-bold text-white"
+                            style={{ background: `linear-gradient(135deg, ${LG.teal}, #059669)` }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => companyStatusMutation.mutate({ companyId: c.id, status: 'REJECTED' })}
+                            disabled={companyStatusMutation.isPending}
+                            className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                            style={{ background: LG.redLight, color: LG.red, border: '1px solid #FFC3B2' }}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+
+                      {c.status === 'APPROVED' && (
+                        <button
+                          onClick={() => companyStatusMutation.mutate({ companyId: c.id, status: 'SUSPENDED' })}
+                          disabled={companyStatusMutation.isPending}
+                          className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                          style={{ background: LG.redLight, color: LG.red, border: '1px solid #FFC3B2' }}
+                        >
+                          Suspend
+                        </button>
+                      )}
+
+                      {(c.status === 'SUSPENDED' || c.status === 'REJECTED') && (
+                        <button
+                          onClick={() => companyStatusMutation.mutate({ companyId: c.id, status: 'APPROVED' })}
+                          disabled={companyStatusMutation.isPending}
+                          className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                          style={{ background: LG.tealLight, color: LG.teal, border: '1px solid #ABF5D1' }}
+                        >
+                          Reactivate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {companyTotalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-slate-500">
+                Page <strong className="text-slate-800">{companyPage}</strong> of <strong className="text-slate-800">{companyTotalPages}</strong>
+                {' '}· {companyTotal.toLocaleString()} companies
+              </span>
+              <div className="flex gap-2">
+                <button disabled={companyPage === 1} onClick={() => setCompanyPage((p) => p - 1)} className="page-btn">← Prev</button>
+                <button disabled={companyPage >= companyTotalPages} onClick={() => setCompanyPage((p) => p + 1)} className="page-btn">Next →</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/45" onClick={() => setSelectedCompany(null)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[18px] font-black text-slate-900">{selectedCompany.name}</h3>
+                <p className="text-[12px] text-slate-500">Detailed logistics company profile for admin review</p>
+              </div>
+              <button
+                onClick={() => setSelectedCompany(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-[13px]">
+              <div className="space-y-3">
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Email</div>
+                  <div className="text-slate-800 font-semibold break-all">{selectedCompany.email || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Phone</div>
+                  <div className="text-slate-800 font-semibold">{selectedCompany.phone || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Contact Person</div>
+                  <div className="text-slate-800 font-semibold">{selectedCompany.contactPerson || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">CAC Number</div>
+                  <div className="text-slate-800 font-semibold">{selectedCompany.cacNumber || '—'}</div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Address</div>
+                  <div className="text-slate-800 font-semibold">{selectedCompany.address || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Location</div>
+                  <div className="text-slate-800 font-semibold">{[selectedCompany.city, selectedCompany.state].filter(Boolean).join(', ') || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Created</div>
+                  <div className="text-slate-800 font-semibold">{selectedCompany.createdAt ? formatDateTime(selectedCompany.createdAt) : '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Approved At</div>
+                  <div className="text-slate-800 font-semibold">{selectedCompany.approvedAt ? formatDateTime(selectedCompany.approvedAt) : '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Last Updated</div>
+                  <div className="text-slate-800 font-semibold">{selectedCompany.updatedAt ? formatDateTime(selectedCompany.updatedAt) : '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 pb-5">
+              <div className="text-[11px] font-bold text-slate-400 uppercase mb-2">Coverage Areas</div>
+              {Array.isArray(selectedCompany.coverageAreas) && selectedCompany.coverageAreas.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedCompany.coverageAreas.map((area, idx) => (
+                    <span key={`${area}-${idx}`} className="px-2 py-1 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[12px] text-slate-500">No coverage areas specified.</p>
+              )}
+            </div>
+
+            <div className="px-5 pb-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-[12px] text-slate-500">
+                Current status: <span className="font-bold text-slate-800">{selectedCompany.status}</span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {selectedCompany.status === 'PENDING' && (
+                  <>
+                    <button
+                      onClick={() => companyStatusMutation.mutate({ companyId: selectedCompany.id, status: 'APPROVED' })}
+                      disabled={companyStatusMutation.isPending}
+                      className="px-3 py-1.5 rounded-lg text-[12px] font-bold text-white"
+                      style={{ background: `linear-gradient(135deg, ${LG.teal}, #059669)` }}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => companyStatusMutation.mutate({ companyId: selectedCompany.id, status: 'REJECTED' })}
+                      disabled={companyStatusMutation.isPending}
+                      className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                      style={{ background: LG.redLight, color: LG.red, border: '1px solid #FFC3B2' }}
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+
+                {selectedCompany.status === 'APPROVED' && (
+                  <button
+                    onClick={() => companyStatusMutation.mutate({ companyId: selectedCompany.id, status: 'SUSPENDED' })}
+                    disabled={companyStatusMutation.isPending}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                    style={{ background: LG.redLight, color: LG.red, border: '1px solid #FFC3B2' }}
+                  >
+                    Suspend
+                  </button>
+                )}
+
+                {(selectedCompany.status === 'SUSPENDED' || selectedCompany.status === 'REJECTED') && (
+                  <button
+                    onClick={() => companyStatusMutation.mutate({ companyId: selectedCompany.id, status: 'APPROVED' })}
+                    disabled={companyStatusMutation.isPending}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                    style={{ background: LG.tealLight, color: LG.teal, border: '1px solid #ABF5D1' }}
+                  >
+                    Reactivate
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setSelectedCompany(null)}
+                  className="px-3 py-1.5 rounded-lg text-[12px] font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

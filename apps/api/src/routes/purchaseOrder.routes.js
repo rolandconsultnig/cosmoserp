@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
 const { generatePONumber, calculateVAT, roundDecimal, paginate, paginatedResponse } = require('../utils/helpers');
 const { createAuditLog } = require('../middleware/audit.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('inventory'));
 
 router.get('/', async (req, res) => {
   try {
@@ -77,7 +77,7 @@ router.post('/', requireRole('OWNER','ADMIN','ACCOUNTANT','WAREHOUSE'), async (r
   } catch (e) { res.status(500).json({ error: 'Failed to create purchase order' }); }
 });
 
-router.put('/:id/status', requireRole('OWNER','ADMIN','ACCOUNTANT','WAREHOUSE'), async (req, res) => {
+async function updatePoStatus(req, res) {
   try {
     const { status } = req.body;
     const po = await prisma.purchaseOrder.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
@@ -85,27 +85,58 @@ router.put('/:id/status', requireRole('OWNER','ADMIN','ACCOUNTANT','WAREHOUSE'),
     const updated = await prisma.purchaseOrder.update({ where: { id: po.id }, data: { status } });
     res.json({ data: updated });
   } catch (e) { res.status(500).json({ error: 'Failed to update purchase order' }); }
-});
+}
+router.put('/:id/status', requireRole('OWNER','ADMIN','ACCOUNTANT','WAREHOUSE'), updatePoStatus);
+router.patch('/:id/status', requireRole('OWNER','ADMIN','ACCOUNTANT','WAREHOUSE'), updatePoStatus);
 
 router.post('/:id/receive', requireRole('OWNER','ADMIN','WAREHOUSE'), async (req, res) => {
   try {
     const { warehouseId, receivedLines } = req.body;
     if (!warehouseId) return res.status(400).json({ error: 'Warehouse required' });
+    if (!Array.isArray(receivedLines) || receivedLines.length === 0) {
+      return res.status(400).json({ error: 'receivedLines must be a non-empty array' });
+    }
     const po = await prisma.purchaseOrder.findFirst({ where: { id: req.params.id, tenantId: req.tenantId }, include: { lines: true } });
     if (!po) return res.status(404).json({ error: 'PO not found' });
+    if (po.status === 'CANCELLED') return res.status(400).json({ error: 'Cannot receive goods on a cancelled PO' });
+    if (!['SENT', 'PARTIAL'].includes(po.status)) {
+      return res.status(400).json({ error: 'Send the PO to the supplier first (status must be SENT or PARTIAL)' });
+    }
+
+    const workingLines = new Map(
+      po.lines.map((l) => [l.id, { ...l, receivedQty: l.receivedQty }]),
+    );
+    let receiptCount = 0;
+    for (const recv of receivedLines) {
+      const line = workingLines.get(recv.lineId);
+      if (!line) return res.status(400).json({ error: `Unknown PO line: ${recv.lineId}` });
+      const qty = parseInt(recv.quantity, 10);
+      if (!qty || qty < 1) continue;
+      const remaining = line.quantity - line.receivedQty;
+      if (qty > remaining) {
+        return res.status(400).json({ error: `Receive quantity exceeds remaining (${remaining} left on line)` });
+      }
+      line.receivedQty += qty;
+      receiptCount += 1;
+    }
+    if (receiptCount === 0) {
+      return res.status(400).json({ error: 'At least one line must have quantity ≥ 1' });
+    }
 
     await prisma.$transaction(async (tx) => {
       for (const recv of receivedLines) {
         const line = po.lines.find((l) => l.id === recv.lineId);
         if (!line) continue;
-        await tx.purchaseOrderLine.update({ where: { id: line.id }, data: { receivedQty: { increment: recv.quantity } } });
+        const qty = parseInt(recv.quantity, 10);
+        if (!qty || qty < 1) continue;
+        await tx.purchaseOrderLine.update({ where: { id: line.id }, data: { receivedQty: { increment: qty } } });
         await tx.stockLevel.upsert({
           where: { productId_warehouseId: { productId: line.productId, warehouseId } },
-          update: { quantity: { increment: recv.quantity } },
-          create: { tenantId: req.tenantId, productId: line.productId, warehouseId, quantity: recv.quantity },
+          update: { quantity: { increment: qty } },
+          create: { tenantId: req.tenantId, productId: line.productId, warehouseId, quantity: qty },
         });
         await tx.stockMovement.create({
-          data: { tenantId: req.tenantId, productId: line.productId, warehouseId, type: 'PURCHASE_RECEIPT', quantity: recv.quantity, sourceId: po.id, sourceType: 'PurchaseOrder', createdById: req.user.id },
+          data: { tenantId: req.tenantId, productId: line.productId, warehouseId, type: 'PURCHASE_RECEIPT', quantity: qty, sourceId: po.id, sourceType: 'PurchaseOrder', createdById: req.user.id },
         });
       }
       const allLines = await tx.purchaseOrderLine.findMany({ where: { poId: po.id } });
@@ -113,7 +144,12 @@ router.post('/:id/receive', requireRole('OWNER','ADMIN','WAREHOUSE'), async (req
       await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: fullyReceived ? 'RECEIVED' : 'PARTIAL' } });
     });
     res.json({ message: 'Goods received and stock updated' });
-  } catch (e) { res.status(500).json({ error: 'Failed to receive goods' }); }
+  } catch (e) {
+    if (e.message && e.message.includes('Receive quantity')) {
+      return res.status(400).json({ error: e.message });
+    }
+    res.status(500).json({ error: 'Failed to receive goods' });
+  }
 });
 
 module.exports = router;

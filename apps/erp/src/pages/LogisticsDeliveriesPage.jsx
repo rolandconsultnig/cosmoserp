@@ -1,24 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Package, Search, MapPin, Clock, CheckCircle, Truck, Navigation,
   AlertTriangle, ChevronLeft, ChevronRight, X, Camera,
-  Phone, RotateCcw, Loader2,
+  Phone, RotateCcw, Loader2, ExternalLink,
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
-const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
-
-/** Resolve `/uploads/...` from API host (strip trailing `/api`). */
-function absoluteUploadUrl(relativePath) {
-  if (!relativePath) return '';
-  if (/^https?:\/\//i.test(relativePath)) return relativePath;
-  const raw = API_BASE || '';
-  const origin = raw.replace(/\/?api\/?$/i, '');
-  const p = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-  if (origin) return `${origin}${p}`;
-  if (typeof window !== 'undefined') return `${window.location.origin}${p}`;
-  return p;
-}
+import {
+  logisticsFetch, logisticsJson, absoluteUploadUrl, mapsSearchUrl, publicTrackingCustomerUrl,
+} from '../lib/logisticsApi';
 
 function formatCurrency(v) {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(v || 0);
@@ -51,54 +39,49 @@ export default function LogisticsDeliveriesPage() {
   const [updating, setUpdating] = useState(false);
   const [failReason, setFailReason] = useState('');
   const [podUploading, setPodUploading] = useState(false);
+  const [listError, setListError] = useState('');
+  const [actionError, setActionError] = useState('');
   const podInputRef = useRef(null);
   const limit = 20;
-  const token = localStorage.getItem('logistics_token');
 
-  const fetchDeliveries = async () => {
+  const fetchDeliveries = useCallback(async () => {
     setLoading(true);
+    setListError('');
     try {
       const params = new URLSearchParams({ page, limit });
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
-
-      const res = await fetch(`${apiUrl('/logistics/agent/deliveries')}?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await logisticsJson(`/logistics/agent/deliveries?${params}`);
       setDeliveries(data.data || []);
       setTotal(data.total || 0);
-    } catch {
+    } catch (e) {
+      setListError(e.message || 'Failed to load deliveries');
       setDeliveries([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => { fetchDeliveries(); }, [page, statusFilter]);
+  }, [page, limit, search, statusFilter]);
 
   useEffect(() => {
-    const t = setTimeout(() => { setPage(1); fetchDeliveries(); }, 400);
+    const t = setTimeout(() => { fetchDeliveries(); }, search ? 400 : 0);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [fetchDeliveries, search]);
 
   const handleStatusUpdate = async (deliveryId, newStatus) => {
     setUpdating(true);
+    setActionError('');
     try {
       const body = { status: newStatus };
       if (newStatus === 'FAILED') body.failureReason = failReason || 'Customer unavailable';
-      const res = await fetch(apiUrl(`/logistics/agent/deliveries/${deliveryId}/status`), {
+      const data = await logisticsJson(`/logistics/agent/deliveries/${deliveryId}/status`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error('Update failed');
-      const data = await res.json();
       setDeliveries((prev) => prev.map((d) => d.id === deliveryId ? data.data : d));
       if (selected?.id === deliveryId) setSelected(data.data);
       setFailReason('');
     } catch (err) {
-      alert(err.message);
+      setActionError(err.message || 'Update failed');
     } finally {
       setUpdating(false);
     }
@@ -108,12 +91,12 @@ export default function LogisticsDeliveriesPage() {
     const file = e.target.files?.[0];
     if (!file || !selected?.id) return;
     setPodUploading(true);
+    setActionError('');
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(apiUrl(`/logistics/agent/deliveries/${selected.id}/proof`), {
+      const res = await logisticsFetch(`/logistics/agent/deliveries/${selected.id}/proof`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
       const json = await res.json().catch(() => ({}));
@@ -128,7 +111,7 @@ export default function LogisticsDeliveriesPage() {
         setSelected((s) => (s ? { ...s, proofOfDelivery: pod } : s));
       }
     } catch (err) {
-      alert(err.message || 'Upload failed');
+      setActionError(err.message || 'Upload failed');
     } finally {
       setPodUploading(false);
       e.target.value = '';
@@ -151,9 +134,12 @@ export default function LogisticsDeliveriesPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <div className="px-5 py-4 space-y-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+          {listError && (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/10 text-red-300 px-3 py-2 text-xs">{listError}</div>
+          )}
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-black text-white flex items-center gap-2">
-              <Package className="w-5 h-5 text-blue-400" /> My Deliveries
+              <Package className="w-5 h-5 text-blue-400" /> My deliveries
             </h1>
             <span className="text-[12px] font-bold px-3 py-1 rounded-full" style={{ background: 'rgba(0,82,204,0.12)', color: '#60A5FA' }}>
               {total} total
@@ -278,11 +264,15 @@ export default function LogisticsDeliveriesPage() {
           <div className="p-5 space-y-5">
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-black text-white">Delivery Details</h2>
+              <h2 className="text-sm font-black text-white">Delivery details</h2>
               <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-white transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {actionError && (
+              <div className="rounded-lg border border-red-500/25 bg-red-500/10 text-red-300 px-3 py-2 text-xs">{actionError}</div>
+            )}
 
             {/* Tracking */}
             <div className="rounded-xl p-4" style={{ background: 'rgba(0,82,204,0.08)', border: '1px solid rgba(0,82,204,0.15)' }}>
@@ -298,6 +288,16 @@ export default function LogisticsDeliveriesPage() {
                   </span>
                 );
               })()}
+              {publicTrackingCustomerUrl(selected.trackingNumber) && (
+                <a
+                  href={publicTrackingCustomerUrl(selected.trackingNumber)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-sky-400 hover:underline"
+                >
+                  Customer tracking page <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
 
             {/* Customer info */}
@@ -331,6 +331,11 @@ export default function LogisticsDeliveriesPage() {
                   <div>
                     <p className="text-[10px] font-bold text-blue-400">PICKUP</p>
                     <p className="text-[12px] text-white">{selected.pickupAddress}</p>
+                    {mapsSearchUrl(selected.pickupAddress) && (
+                      <a href={mapsSearchUrl(selected.pickupAddress)} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-blue-400 hover:underline mt-1 inline-flex items-center gap-0.5">
+                        Open in Maps <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                 </div>
               )}
@@ -342,6 +347,11 @@ export default function LogisticsDeliveriesPage() {
                   <p className="text-[10px] font-bold text-emerald-400">DELIVERY</p>
                   <p className="text-[12px] text-white">{selected.deliveryAddress}</p>
                   {selected.city && <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.30)' }}>{selected.city}{selected.state ? `, ${selected.state}` : ''}</p>}
+                  {mapsSearchUrl(selected.deliveryAddress) && (
+                    <a href={mapsSearchUrl(selected.deliveryAddress)} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-emerald-400 hover:underline mt-1 inline-flex items-center gap-0.5">
+                      Open in Maps <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -433,6 +443,7 @@ export default function LogisticsDeliveriesPage() {
                 <h3 className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.30)' }}>Update Status</h3>
                 {STATUS_FLOW[selected.status].map((nextStatus) => {
                   const cfg = STATUS_CONFIG[nextStatus];
+                  const NextIcon = cfg.icon;
                   const isFail = nextStatus === 'FAILED';
                   return (
                     <div key={nextStatus}>
@@ -451,7 +462,7 @@ export default function LogisticsDeliveriesPage() {
                         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold transition-all disabled:opacity-50"
                         style={{ background: `${cfg.color}18`, color: cfg.color, border: `1px solid ${cfg.border}` }}
                       >
-                        {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <cfg.icon className="w-4 h-4" />}
+                        {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <NextIcon className="w-4 h-4" />}
                         {nextStatus === 'IN_TRANSIT' && 'Mark as In Transit'}
                         {nextStatus === 'OUT_FOR_DELIVERY' && 'Out for Delivery'}
                         {nextStatus === 'DELIVERED' && 'Mark as Delivered'}

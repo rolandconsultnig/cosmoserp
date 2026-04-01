@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/resignation.controller');
-const { authenticate, requireTenantUser, requireRole } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser, requireRole, requireEnabledModule } = require('../middleware/auth.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('hrPayroll'));
 router.get('/', requireRole('OWNER', 'ADMIN', 'HR'), ctrl.list);
 router.patch('/:id', requireRole('OWNER', 'ADMIN', 'HR'), ctrl.decide);
 

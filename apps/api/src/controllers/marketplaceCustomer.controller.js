@@ -210,11 +210,14 @@ async function updateProfile(req, res) {
 async function listMyOrders(req, res) {
   try {
     const email = req.customer.email;
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status, escrowStatus } = req.query;
     const take = Math.min(Number(limit) || 20, 50);
     const skip = (Math.max(1, Number(page)) - 1) * take;
     const where = { buyerEmail: email };
     if (status) where.status = status;
+    if (escrowStatus && String(escrowStatus).trim()) {
+      where.escrowStatus = String(escrowStatus).trim();
+    }
 
     const [orders, total] = await Promise.all([
       prisma.marketplaceOrder.findMany({

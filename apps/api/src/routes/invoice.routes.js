@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/invoice.controller');
-const { authenticate, requireRole, requireKYC, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireKYC, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('sales'));
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);
 router.post('/', requireRole('OWNER','ADMIN','ACCOUNTANT','SALES'), requireKYC, ctrl.create);

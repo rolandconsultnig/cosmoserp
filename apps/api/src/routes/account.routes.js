@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
-const { paginate, paginatedResponse } = require('../utils/helpers');
+const { paginate, paginatedResponse, roundDecimal } = require('../utils/helpers');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('finance'));
 
 router.get('/', async (req, res) => {
   try {
@@ -466,6 +466,203 @@ router.get('/trial-balance', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (r
     res.json({ data: { asOf: asOfDate, rows, totals, isBalanced: Math.abs(totals.debit - totals.credit) < 0.01 } });
   } catch (e) {
     res.status(500).json({ error: 'Failed to generate trial balance' });
+  }
+});
+
+router.get('/bank-reconciliation/sessions', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const sessions = await prisma.bankReconciliationSession.findMany({
+      where: { tenantId: req.tenantId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        account: { select: { id: true, code: true, name: true } },
+        lines: { select: { id: true, status: true } },
+      },
+      take: 100,
+    });
+    const data = sessions.map((s) => ({
+      ...s,
+      matchedCount: (s.lines || []).filter((l) => l.status === 'MATCHED').length,
+      totalLines: (s.lines || []).length,
+    }));
+    res.json({ data });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch bank reconciliation sessions' });
+  }
+});
+
+router.post('/bank-reconciliation/sessions', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { accountId, statementDate, openingBalance, closingBalance, notes } = req.body || {};
+    if (!accountId || !statementDate) return res.status(400).json({ error: 'accountId and statementDate are required' });
+
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, tenantId: req.tenantId, isActive: true, type: 'ASSET' },
+      select: { id: true },
+    });
+    if (!account) return res.status(404).json({ error: 'Bank account not found (must be active ASSET account)' });
+
+    const session = await prisma.bankReconciliationSession.create({
+      data: {
+        tenantId: req.tenantId,
+        accountId,
+        statementDate: new Date(statementDate),
+        openingBalance: roundDecimal(parseFloat(openingBalance || 0)),
+        closingBalance: roundDecimal(parseFloat(closingBalance || 0)),
+        notes: notes ? String(notes).trim() : null,
+        createdById: req.user?.id || null,
+      },
+    });
+    res.status(201).json({ data: session });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create reconciliation session' });
+  }
+});
+
+router.get('/bank-reconciliation/sessions/:id', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const session = await prisma.bankReconciliationSession.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId },
+      include: {
+        account: { select: { id: true, code: true, name: true } },
+        lines: {
+          orderBy: { txDate: 'asc' },
+          include: { matchedJournal: { select: { id: true, reference: true, date: true, description: true } } },
+        },
+      },
+    });
+    if (!session) return res.status(404).json({ error: 'Reconciliation session not found' });
+
+    const matchedJournalIds = (session.lines || []).filter((l) => l.matchedJournalId).map((l) => l.matchedJournalId);
+    const candidates = await prisma.journalEntry.findMany({
+      where: {
+        tenantId: req.tenantId,
+        status: 'POSTED',
+        lines: { some: { accountId: session.accountId } },
+        id: matchedJournalIds.length ? { notIn: matchedJournalIds } : undefined,
+      },
+      orderBy: { date: 'desc' },
+      take: 300,
+      include: {
+        lines: { where: { accountId: session.accountId }, select: { debit: true, credit: true, accountId: true } },
+      },
+    });
+    const journals = candidates.map((j) => {
+      const lineAmount = (j.lines || []).reduce((sum, l) => sum + (parseFloat(l.debit || 0) - parseFloat(l.credit || 0)), 0);
+      return { ...j, lineAmount: roundDecimal(lineAmount) };
+    });
+
+    res.json({ data: { session, candidateJournals: journals } });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch reconciliation session details' });
+  }
+});
+
+router.post('/bank-reconciliation/sessions/:id/import-lines', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { lines } = req.body || {};
+    if (!Array.isArray(lines) || !lines.length) return res.status(400).json({ error: 'lines array is required' });
+    const session = await prisma.bankReconciliationSession.findFirst({ where: { id: req.params.id, tenantId: req.tenantId } });
+    if (!session) return res.status(404).json({ error: 'Reconciliation session not found' });
+    if (session.status !== 'OPEN') return res.status(409).json({ error: 'Only OPEN sessions can import lines' });
+
+    const payload = lines.map((l) => {
+      const debit = roundDecimal(parseFloat(l.debit || 0));
+      const credit = roundDecimal(parseFloat(l.credit || 0));
+      const amount = roundDecimal(credit - debit);
+      return {
+        sessionId: session.id,
+        tenantId: req.tenantId,
+        txDate: l.txDate ? new Date(l.txDate) : new Date(),
+        description: String(l.description || '').trim() || 'Bank statement line',
+        reference: l.reference ? String(l.reference).trim() : null,
+        debit,
+        credit,
+        amount,
+      };
+    });
+    await prisma.bankStatementLine.createMany({ data: payload });
+    res.status(201).json({ message: 'Statement lines imported', count: payload.length });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to import statement lines' });
+  }
+});
+
+router.post('/bank-reconciliation/lines/:lineId/match', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { journalEntryId } = req.body || {};
+    if (!journalEntryId) return res.status(400).json({ error: 'journalEntryId is required' });
+
+    const line = await prisma.bankStatementLine.findFirst({
+      where: { id: req.params.lineId, tenantId: req.tenantId },
+      include: { session: { select: { accountId: true, status: true } } },
+    });
+    if (!line) return res.status(404).json({ error: 'Statement line not found' });
+    if (line.session.status !== 'OPEN') return res.status(409).json({ error: 'Session is not open' });
+
+    const journal = await prisma.journalEntry.findFirst({
+      where: {
+        id: journalEntryId,
+        tenantId: req.tenantId,
+        status: 'POSTED',
+        lines: { some: { accountId: line.session.accountId } },
+      },
+      include: { lines: { where: { accountId: line.session.accountId }, select: { debit: true, credit: true } } },
+    });
+    if (!journal) return res.status(404).json({ error: 'Journal entry not found for selected bank account' });
+
+    const journalAmount = roundDecimal((journal.lines || []).reduce((s, l) => s + (parseFloat(l.debit || 0) - parseFloat(l.credit || 0)), 0));
+    const lineAmount = roundDecimal(parseFloat(line.amount || 0));
+    if (Math.abs(Math.abs(journalAmount) - Math.abs(lineAmount)) > 0.01) {
+      return res.status(422).json({ error: 'Amount mismatch between bank statement line and journal entry', lineAmount, journalAmount });
+    }
+
+    const updated = await prisma.bankStatementLine.update({
+      where: { id: line.id },
+      data: { status: 'MATCHED', matchedJournalId: journal.id, matchedAt: new Date() },
+    });
+    res.json({ data: updated });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to match statement line' });
+  }
+});
+
+router.post('/bank-reconciliation/lines/:lineId/unmatch', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const line = await prisma.bankStatementLine.findFirst({
+      where: { id: req.params.lineId, tenantId: req.tenantId },
+      include: { session: { select: { status: true } } },
+    });
+    if (!line) return res.status(404).json({ error: 'Statement line not found' });
+    if (line.session.status !== 'OPEN') return res.status(409).json({ error: 'Session is not open' });
+    const updated = await prisma.bankStatementLine.update({
+      where: { id: line.id },
+      data: { status: 'UNMATCHED', matchedJournalId: null, matchedAt: null },
+    });
+    res.json({ data: updated });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to unmatch statement line' });
+  }
+});
+
+router.post('/bank-reconciliation/sessions/:id/complete', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const session = await prisma.bankReconciliationSession.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId },
+      include: { lines: { select: { status: true } } },
+    });
+    if (!session) return res.status(404).json({ error: 'Reconciliation session not found' });
+    if (session.status !== 'OPEN') return res.status(409).json({ error: 'Session already completed' });
+    const hasUnmatched = (session.lines || []).some((l) => l.status !== 'MATCHED');
+    if (hasUnmatched) return res.status(422).json({ error: 'Cannot complete session with unmatched lines' });
+
+    const updated = await prisma.bankReconciliationSession.update({
+      where: { id: session.id },
+      data: { status: 'COMPLETED' },
+    });
+    res.json({ data: updated });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to complete reconciliation session' });
   }
 });
 

@@ -27,10 +27,16 @@ function auditAction(action, resource) {
   return async (req, res, next) => {
     const originalJson = res.json.bind(res);
     res.json = async (body) => {
-      if (res.statusCode < 400 && (req.user || req.admin)) {
+      const isSuccess = res.statusCode < 400;
+      const hasActor = Boolean(req.user || req.admin || req.companyId || req.agentId);
+      if (isSuccess && hasActor) {
         const impersonationMeta = req.impersonatedByAdminId
           ? { impersonatedByAdminId: req.impersonatedByAdminId }
           : undefined;
+        const logisticsMeta = (req.companyId || req.agentId)
+          ? { logisticsCompanyId: req.companyId || null, logisticsAgentId: req.agentId || null }
+          : undefined;
+        const meta = { ...(impersonationMeta || {}), ...(logisticsMeta || {}) };
         await createAuditLog({
           tenantId: req.tenantId,
           userId: req.user?.id,
@@ -39,7 +45,7 @@ function auditAction(action, resource) {
           resource,
           resourceId: req.params?.id || body?.data?.id,
           newValues: req.body,
-          metadata: impersonationMeta,
+          metadata: Object.keys(meta).length ? meta : undefined,
           req,
         });
       }

@@ -87,7 +87,9 @@ export default function ProductDetailPage() {
   );
 
   const totalStock = (product.stockLevels || []).reduce((s, sl) => s + sl.quantity, 0);
-  const inStock    = totalStock > 0;
+  const inStock = totalStock > 0;
+  const avgRatingValue = Number(product?.avgRating);
+  const hasAvgRating = Number.isFinite(avgRatingValue) && avgRatingValue > 0;
   const reviews    = product.reviews || [];
 
   const plainDesc = (product.description || '')
@@ -173,15 +175,15 @@ export default function ProductDetailPage() {
           {product.sku && <div className="text-xs text-gray-400">SKU: {product.sku}</div>}
 
           {/* Rating */}
-          {product.avgRating > 0 && (
+          {hasAvgRating && (
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1">
                 {[1,2,3,4,5].map((s) => (
-                  <Star key={s} className={cn('w-4 h-4', s <= Math.round(product.avgRating) ? 'star-fill' : 'star-empty')} />
+                  <Star key={s} className={cn('w-4 h-4', s <= Math.round(avgRatingValue) ? 'star-fill' : 'star-empty')} />
                 ))}
               </div>
               <span className="text-sm font-semibold text-brand-600">
-                {parseFloat(product.avgRating).toFixed(1)}
+                {avgRatingValue.toFixed(1)}
               </span>
               <span className="text-sm text-gray-400">({reviews.length} ratings)</span>
             </div>

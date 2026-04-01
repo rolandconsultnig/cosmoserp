@@ -52,15 +52,16 @@ const TRUST_ITEMS = [
 ];
 
 function StarRow({ rating, count }) {
-  if (!rating || rating <= 0) return null;
+  const ratingValue = Number(rating);
+  if (!Number.isFinite(ratingValue) || ratingValue <= 0) return null;
   return (
     <div className="flex items-center gap-1">
       <div className="flex">
         {[1, 2, 3, 4, 5].map((s) => (
-          <Star key={s} className={`w-3 h-3 ${s <= Math.round(rating) ? 'star-fill' : 'star-empty'}`} />
+          <Star key={s} className={`w-3 h-3 ${s <= Math.round(ratingValue) ? 'star-fill' : 'star-empty'}`} />
         ))}
       </div>
-      <span className="text-xs text-gray-500">{parseFloat(rating).toFixed(1)}</span>
+      <span className="text-xs text-gray-500">{ratingValue.toFixed(1)}</span>
       {count > 0 && <span className="text-xs text-gray-400">({count})</span>}
     </div>
   );
@@ -293,6 +294,15 @@ export default function HomePage() {
           >
             <span className="font-semibold">End to End Delivery (E2ED)</span>
             <ArrowRight className="w-5 h-5 text-amber-400" />
+          </Link>
+          <Link
+            to="/services/call-center"
+            className="bg-[#123524] text-white rounded-lg p-4 flex items-center justify-between hover:bg-[#184a33] transition-colors"
+          >
+            <span className="font-semibold flex items-center gap-2">
+              <Users className="w-4 h-4 text-amber-300" /> Call Center Services
+            </span>
+            <ArrowRight className="w-5 h-5 text-amber-300" />
           </Link>
           <Link
             to="/products?sort=newest"

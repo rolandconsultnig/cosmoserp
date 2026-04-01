@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import {
-  Zap, Clock, Wifi, WifiOff, LayoutDashboard, ShoppingCart,
+  Zap, Clock, WifiIcon, WifiOffIcon, LayoutDashboard, ShoppingCart,
   History, CalendarCheck, LogOut, User, Menu, X,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
@@ -32,8 +32,8 @@ function OnlineDot() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   return online
-    ? <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-    : <WifiOff className="w-3.5 h-3.5 text-red-400" />;
+    ? <WifiIcon className="w-3.5 h-3.5 text-emerald-400" />
+    : <WifiOffIcon className="w-3.5 h-3.5 text-red-400" />;
 }
 
 const navItems = [

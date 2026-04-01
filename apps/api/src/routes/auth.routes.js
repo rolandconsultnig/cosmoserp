@@ -4,6 +4,10 @@ const authController = require('../controllers/auth.controller');
 const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
 
 router.post('/login', authController.login);
+router.post('/webauthn/register/options', authenticate, authController.webAuthnRegistrationOptions);
+router.post('/webauthn/register/verify', authenticate, authController.webAuthnRegistrationVerify);
+router.post('/webauthn/authenticate/options', authController.webAuthnAuthenticationOptions);
+router.post('/webauthn/authenticate/verify', authController.webAuthnAuthenticationVerify);
 router.post('/admin/login', authController.adminLogin);
 router.post('/refresh', authController.refresh);
 router.post('/logout', authenticate, authController.logout);

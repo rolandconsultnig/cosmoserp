@@ -6,6 +6,7 @@ const SHOP_LINKS  = ['All Products', 'Electronics', 'Fashion', 'Food & Beverages
 const SELL_LINKS  = [
   { label: 'Seller Dashboard',    href: '/erp' },
   { label: 'Register Your Business', href: '/erp/register' },
+  { label: 'Call Center Services', href: '/services/call-center' },
   { label: 'Seller Guidelines',   href: '#' },
   { label: 'Logistics Partners',  href: '/partners-login' },
   { label: 'NRS Compliance',      href: '#' },

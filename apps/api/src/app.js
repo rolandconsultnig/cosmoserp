@@ -49,6 +49,10 @@ const publicRoutes = require('./routes/public.routes');
 const mailboxRoutes = require('./routes/mailbox.routes');
 const knowledgeBaseRoutes = require('./routes/knowledgeBase.routes');
 const pricingRoutes = require('./routes/pricing.routes');
+const apRoutes = require('./routes/ap.routes');
+const arRoutes = require('./routes/ar.routes');
+const budgetsRoutes = require('./routes/budgets.routes');
+const fixedAssetsRoutes = require('./routes/fixedAssets.routes');
 
 const { authenticate, requireRole, requireTenantUser } = require('./middleware/auth.middleware');
 
@@ -169,6 +173,10 @@ app.use('/api/staff-portal', staffPortalRoutes);
 app.use('/api/mailbox', mailboxRoutes);
 app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/pricing', pricingRoutes);
+app.use('/api/ap', apRoutes);
+app.use('/api/ar', arRoutes);
+app.use('/api/budgets', budgetsRoutes);
+app.use('/api/fixed-assets', fixedAssetsRoutes);
 app.use('/api/logistics', logisticsRoutes);
 app.use('/api/agents', authenticate, requireTenantUser, requireRole('FIELD_AGENT'), agentRoutes);
 app.use('/api/crm', authenticate, requireTenantUser, requireRole('CRM_MANAGER'), crmRoutes);

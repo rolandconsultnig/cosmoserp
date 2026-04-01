@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/attendance.controller');
-const { authenticate, requireTenantUser, requireRole } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser, requireRole, requireEnabledModule } = require('../middleware/auth.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('hrPayroll'));
 
 router.get('/shifts', requireRole('OWNER', 'ADMIN', 'HR'), ctrl.listShifts);
 router.post('/shifts', requireRole('OWNER', 'ADMIN', 'HR'), ctrl.createShift);

@@ -12,6 +12,39 @@ function sellerNetSum(lines) {
   return lines.reduce((s, l) => s + parseFloat(l.sellerNet || 0), 0);
 }
 
+/** Distinct seller tenants on the whole order (not filtered to current tenant). */
+async function orderSellerMeta(orderId) {
+  const rows = await prisma.marketplaceOrderLine.findMany({
+    where: { orderId },
+    select: { tenantId: true },
+  });
+  const sellerTenantCount = new Set(rows.map((r) => r.tenantId)).size;
+  return { sellerTenantCount, isMultiSeller: sellerTenantCount > 1 };
+}
+
+async function sellerMetaForOrderIds(orderIds) {
+  if (!orderIds.length) return new Map();
+  const lineRows = await prisma.marketplaceOrderLine.findMany({
+    where: { orderId: { in: orderIds } },
+    select: { orderId: true, tenantId: true },
+  });
+  const byOrder = new Map();
+  for (const row of lineRows) {
+    if (!byOrder.has(row.orderId)) byOrder.set(row.orderId, new Set());
+    byOrder.get(row.orderId).add(row.tenantId);
+  }
+  const out = new Map();
+  for (const id of orderIds) {
+    const set = byOrder.get(id);
+    const sellerTenantCount = set ? set.size : 0;
+    out.set(id, {
+      sellerTenantCount: sellerTenantCount || 0,
+      isMultiSeller: sellerTenantCount > 1,
+    });
+  }
+  return out;
+}
+
 async function listOrders(req, res) {
   try {
     const { page, limit, status } = req.query;
@@ -35,11 +68,17 @@ async function listOrders(req, res) {
       prisma.marketplaceOrder.count({ where }),
     ]);
 
-    const data = orders.map((o) => ({
-      ...o,
-      sellerLines: o.lines,
-      sellerNetTotal: sellerNetSum(o.lines),
-    }));
+    const metaById = await sellerMetaForOrderIds(orders.map((o) => o.id));
+    const data = orders.map((o) => {
+      const meta = metaById.get(o.id) || { sellerTenantCount: 0, isMultiSeller: false };
+      return {
+        ...o,
+        sellerLines: o.lines,
+        sellerNetTotal: sellerNetSum(o.lines),
+        sellerTenantCount: meta.sellerTenantCount,
+        isMultiSeller: meta.isMultiSeller,
+      };
+    });
 
     res.json(paginatedResponse(data, total, page, limit));
   } catch (error) {
@@ -61,11 +100,14 @@ async function getOrder(req, res) {
       },
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    const meta = await orderSellerMeta(order.id);
     res.json({
       data: {
         ...order,
         sellerLines: order.lines,
         sellerNetTotal: sellerNetSum(order.lines),
+        sellerTenantCount: meta.sellerTenantCount,
+        isMultiSeller: meta.isMultiSeller,
       },
     });
   } catch (error) {

@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
+    "@simplewebauthn/server": "^9.0.3",
     "archiver": "^7.0.0",
     "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",
