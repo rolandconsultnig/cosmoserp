@@ -7,11 +7,9 @@ const { createOtp, verifyAndConsumeOtp, PURPOSE_TTL_MS } = require('../services/
 
 const ROUNDS = 12;
 
+/** Only MARKETPLACE_DISABLE_EMAIL_VERIFICATION disables shopper OTP (explicit opt-in). */
 function isMarketplaceEmailVerificationDisabled() {
-  return (
-    process.env.MARKETPLACE_DISABLE_EMAIL_VERIFICATION === 'true' ||
-    process.env.DISABLE_MFA_EMAIL_CONFIRMATION === 'true'
-  );
+  return process.env.MARKETPLACE_DISABLE_EMAIL_VERIFICATION === 'true';
 }
 
 function signCustomerToken(payload) {
