@@ -12,7 +12,42 @@ import useAuthStore from '../../store/authStore';
 import { cn } from '../../lib/utils';
 import { LOGO_URL } from '../../lib/branding';
 
-function buildNavGroups(isMarketplaceSeller) {
+const DEFAULT_TENANT_MODULES = {
+  sales: true,
+  inventory: true,
+  operations: true,
+  hrPayroll: true,
+  finance: true,
+  customerCare: true,
+  pos: true,
+};
+
+function normalizeTenantModules(enabledModules) {
+  const normalized = { ...DEFAULT_TENANT_MODULES };
+  if (!enabledModules || typeof enabledModules !== 'object' || Array.isArray(enabledModules)) {
+    return normalized;
+  }
+
+  Object.keys(DEFAULT_TENANT_MODULES).forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(enabledModules, key)) {
+      normalized[key] = enabledModules[key] !== false;
+    }
+  });
+
+  return normalized;
+}
+
+function buildNavGroups(enabledModules) {
+  const modules = normalizeTenantModules(enabledModules);
+  const salesItems = [
+    ...(modules.pos ? [{ to: '/pos', icon: Zap, label: 'Point of Sale', highlight: true }] : []),
+    ...(modules.sales ? [
+      { to: '/promotion-pricing', icon: Percent, label: 'Promotion & pricing' },
+      { to: '/invoices', icon: FileText, label: 'Invoices' },
+      { to: '/quotes', icon: FileCheck, label: 'Quotations' },
+      { to: '/customers', icon: Users, label: 'Customers' },
+    ] : []),
+  ];
   const groups = [
   {
     label: 'Overview',
@@ -21,27 +56,21 @@ function buildNavGroups(isMarketplaceSeller) {
       { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
     ],
   },
-  {
-    label: 'Sales',
-    items: [
-      { to: '/pos',      icon: Zap,       label: 'Point of Sale', highlight: true },
-      { to: '/promotion-pricing', icon: Percent, label: 'Promotion & pricing' },
-      { to: '/invoices', icon: FileText,  label: 'Invoices' },
-      { to: '/quotes',   icon: FileCheck, label: 'Quotations' },
-      { to: '/customers',icon: Users,     label: 'Customers' },
-    ],
-  },
+  ...(salesItems.length ? [{ label: 'Sales', items: salesItems }] : []),
   ];
-  if (isMarketplaceSeller) {
+  groups.push({
+    label: 'Marketplace',
+    items: [
+      {
+        to: '/marketplace-orders',
+        icon: Store,
+        label: 'Orders & escrow',
+        title: 'Marketplace fulfillment, escrow release, and buyer protection',
+      },
+    ],
+  });
+  if (modules.inventory) {
     groups.push({
-      label: 'Marketplace',
-      items: [
-        { to: '/marketplace-orders', icon: Store, label: 'Market orders' },
-      ],
-    });
-  }
-  groups.push(
-  {
     label: 'Inventory',
     items: [
       { to: '/products', icon: Package, label: 'Products' },
@@ -50,16 +79,20 @@ function buildNavGroups(isMarketplaceSeller) {
       { to: '/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
       { to: '/suppliers', icon: Truck, label: 'Suppliers' },
     ],
-  },
-  {
+    });
+  }
+  if (modules.operations) {
+    groups.push({
     label: 'Operations',
     items: [
       { to: '/shipments', icon: Truck, label: 'Shipments' },
       { to: '/projects', icon: Receipt, label: 'Projects' },
       { to: '/tasks', icon: Search, label: 'Tasks' },
     ],
-  },
-  {
+    });
+  }
+  if (modules.hrPayroll) {
+    groups.push({
     label: 'HR & Payroll',
     items: [
       { to: '/employees', icon: UserSquare, label: 'Employees' },
@@ -71,25 +104,31 @@ function buildNavGroups(isMarketplaceSeller) {
       { to: '/announcements', icon: Bell, label: 'Announcements' },
       { to: '/payroll', icon: DollarSign, label: 'Payroll' },
     ],
-  },
-  {
+    });
+  }
+  if (modules.finance) {
+    groups.push({
     label: 'Finance',
     items: [
       { to: '/transactions-hub', icon: WalletCards, label: 'Transactions hub' },
       { to: '/finance', icon: Building2, label: 'Chart of Accounts' },
+      { to: '/accounts-payable', icon: FileText, label: 'Accounts Payable' },
       { to: '/nrs', icon: Shield, label: 'NRS / Tax' },
       { to: '/reports', icon: BarChart3, label: 'Reports' },
     ],
-  },
-  {
+    });
+  }
+  if (modules.customerCare) {
+    groups.push({
     label: 'Customer Care',
     items: [
       { to: '/knowledge-base', icon: BookOpen, label: 'Knowledge Base' },
       { to: '/mailbox', icon: Mail, label: 'Mailbox' },
       { to: '/support', icon: Headphones, label: 'Support & Calls' },
     ],
-  },
-  {
+    });
+  }
+  groups.push({
     label: 'Account',
     items: [
       { to: '/alerts', icon: Bell, label: 'Alerts' },
@@ -97,8 +136,7 @@ function buildNavGroups(isMarketplaceSeller) {
       { to: '/kyc', icon: ShieldCheck, label: 'KYC Verification' },
       { to: '/settings', icon: Settings, label: 'Settings' },
     ],
-  },
-  );
+  });
   return groups;
 }
 
@@ -107,7 +145,7 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, tenant, logout, impersonation } = useAuthStore();
   const navigate = useNavigate();
-  const navGroups = buildNavGroups(!!tenant?.isMarketplaceSeller);
+  const navGroups = buildNavGroups(tenant?.enabledModules);
 
   const handleLogout = async () => {
     await logout();
@@ -137,7 +175,7 @@ export default function AppLayout() {
             {(!collapsed || mobile) && (
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-1">{group.label}</div>
             )}
-            {group.items.map(({ to, icon: Icon, label, highlight }) => (
+            {group.items.map(({ to, icon: Icon, label, highlight, title: itemTitle }) => (
               <NavLink
                 key={to} to={to}
                 className={({ isActive }) => cn(
@@ -147,7 +185,7 @@ export default function AppLayout() {
                   highlight && !isActive && 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700',
                 )}
                 onClick={() => mobile && setMobileOpen(false)}
-                title={collapsed && !mobile ? label : undefined}
+                title={collapsed && !mobile ? (itemTitle || label) : itemTitle || undefined}
               >
                 <Icon className={cn('w-4 h-4 flex-shrink-0', highlight && 'text-emerald-500')} />
                 {(!collapsed || mobile) && <span>{label}</span>}

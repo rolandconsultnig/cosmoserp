@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Truck, Loader2 } from 'lucide-react';
 import CustomerAccountLayout from '../components/CustomerAccountLayout';
+import api from '../lib/api';
 
 function computeEta(order) {
   const created = new Date(order.createdAt);
@@ -34,9 +35,8 @@ function computeEta(order) {
 export default function CustomerTrackGoodsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['customer-orders-track'],
-    queryFn: () => import('../lib/api').then(({ default: api }) =>
-      api.get('/marketplace/customer/orders', { params: { page: 1, limit: 50 } }).then((r) => r.data)
-    ),
+    queryFn: () =>
+      api.get('/marketplace/customer/orders', { params: { page: 1, limit: 50 } }).then((r) => r.data),
   });
 
   const inTransit = useMemo(() => {

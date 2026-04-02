@@ -13,11 +13,25 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { LOGO_URL } from '../lib/branding';
+import api from '../lib/api';
 
 function randomBytes(size = 32) {
   const bytes = new Uint8Array(size);
   crypto.getRandomValues(bytes);
   return bytes;
+}
+
+function b64ToBuf(base64url) {
+  const base64 = String(base64url || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '==='.slice((base64.length + 3) % 4);
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+}
+
+function bufToB64(buf) {
+  const bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : new Uint8Array(buf);
+  let str = '';
+  for (const b of bytes) str += String.fromCharCode(b);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 export default function LoginPage() {
@@ -28,7 +42,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [bioLoading, setBioLoading] = useState(false);
   const [bioReady, setBioReady] = useState(false);
-  const { login } = useAuthStore();
+  const { login, setSession } = useAuthStore();
   const navigate = useNavigate();
 
   const isSecureContext = useMemo(() => window.isSecureContext || window.location.hostname === 'localhost', []);
@@ -80,22 +94,50 @@ export default function LoginPage() {
     setError('');
     setBioLoading(true);
     try {
-      // This prompts device biometric / passkey verification when a credential exists for this RP.
-      await navigator.credentials.get({
-        publicKey: {
-          challenge: randomBytes(),
-          userVerification: 'required',
-          timeout: 45000,
-          rpId: window.location.hostname,
-        },
-      });
-
-      if (!email || !password) {
-        setError('Biometric verified. Enter your email and password to complete sign-in.');
+      if (!email) {
+        setError('Enter your email to use passkey sign-in.');
         return;
       }
 
-      const data = await login(email, password);
+      const { data: optRes } = await api.post('/auth/webauthn/authenticate/options', { email });
+      const options = optRes?.options;
+      if (!options) {
+        setError('Could not start passkey sign-in.');
+        return;
+      }
+
+      const publicKey = {
+        ...options,
+        challenge: b64ToBuf(options.challenge),
+        allowCredentials: Array.isArray(options.allowCredentials)
+          ? options.allowCredentials.map((c) => ({
+              ...c,
+              id: b64ToBuf(c.id),
+            }))
+          : undefined,
+      };
+
+      const cred = await navigator.credentials.get({ publicKey });
+      if (!cred) {
+        setError('No credential returned.');
+        return;
+      }
+
+      const assertion = {
+        id: cred.id,
+        rawId: bufToB64(cred.rawId),
+        type: cred.type,
+        clientExtensionResults: cred.getClientExtensionResults?.() || {},
+        response: {
+          authenticatorData: bufToB64(cred.response.authenticatorData),
+          clientDataJSON: bufToB64(cred.response.clientDataJSON),
+          signature: bufToB64(cred.response.signature),
+          userHandle: cred.response.userHandle ? bufToB64(cred.response.userHandle) : null,
+        },
+      };
+
+      const { data } = await api.post('/auth/webauthn/authenticate/verify', { email, response: assertion });
+      await setSession(data);
       onLoginSuccess(data);
     } catch (err) {
       if (err?.name === 'NotAllowedError') {
@@ -103,7 +145,7 @@ export default function LoginPage() {
       } else if (err?.name === 'NotSupportedError') {
         setError('Biometric sign-in is not supported on this device/browser.');
       } else {
-        setError('Biometric sign-in failed. Use email and password.');
+        setError(err?.response?.data?.error || 'Biometric sign-in failed. Use email and password.');
       }
     } finally {
       setBioLoading(false);

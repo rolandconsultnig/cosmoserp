@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   User, Phone, MapPin, Truck, Car, Bike, Save, Loader2,
-  Shield, Star, Package, CheckCircle, Building2,
+  Star, Package, CheckCircle, Building2,
 } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/?$/, '') : '';
-const apiUrl = (path) => (API_BASE ? `${API_BASE}${path.startsWith('/') ? path : `/${path}`}` : `/api${path.startsWith('/') ? path : `/${path}`}`);
+import { logisticsJson } from '../lib/logisticsApi';
 
 const VEHICLE_ICONS = { BIKE: Bike, MOTORCYCLE: Bike, CAR: Car, VAN: Truck, TRUCK: Truck };
 
@@ -15,6 +13,7 @@ export default function LogisticsProfilePage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [togglingOnline, setTogglingOnline] = useState(false);
 
   // Editable fields
   const [phone, setPhone] = useState('');
@@ -24,40 +23,54 @@ export default function LogisticsProfilePage() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
 
-  const token = localStorage.getItem('logistics_token');
+  const loadProfile = useCallback(async () => {
+    try {
+      const r = await logisticsJson('/logistics/agent/profile');
+      const a = r.data;
+      setAgent(a);
+      setPhone(a.phone || '');
+      setVehicleType(a.vehicleType || '');
+      setVehiclePlate(a.vehiclePlate || '');
+      setCoverageZone(a.coverageZone || '');
+      setCity(a.city || '');
+      setState(a.state || '');
+    } catch {
+      setError('Could not load profile');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!token) return;
-    fetch(apiUrl('/logistics/agent/profile'), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((r) => {
-        const a = r.data;
-        setAgent(a);
-        setPhone(a.phone || '');
-        setVehicleType(a.vehicleType || '');
-        setVehiclePlate(a.vehiclePlate || '');
-        setCoverageZone(a.coverageZone || '');
-        setCity(a.city || '');
-        setState(a.state || '');
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [token]);
+    loadProfile();
+  }, [loadProfile]);
+
+  const setAvailability = async (nextOnline) => {
+    setTogglingOnline(true);
+    setError('');
+    try {
+      const data = await logisticsJson('/logistics/agent/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ isOnline: nextOnline }),
+      });
+      setAgent(data.data);
+      localStorage.setItem('logistics_agent', JSON.stringify(data.data));
+    } catch (err) {
+      setError(err.message || 'Could not update availability');
+    } finally {
+      setTogglingOnline(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
     setError('');
     setSuccess(false);
     try {
-      const res = await fetch(apiUrl('/logistics/agent/profile'), {
+      const data = await logisticsJson('/logistics/agent/profile', {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, vehicleType: vehicleType || undefined, vehiclePlate, coverageZone, city, state }),
       });
-      if (!res.ok) throw new Error('Failed to update profile');
-      const data = await res.json();
       setAgent(data.data);
       localStorage.setItem('logistics_agent', JSON.stringify(data.data));
       setSuccess(true);
@@ -158,6 +171,34 @@ export default function LogisticsProfilePage() {
               <span className="text-[12px] font-bold text-blue-400">{agent.company.name}</span>
             </div>
           )}
+        </div>
+      </div>
+
+      <div
+        className="rounded-xl border p-5 flex flex-wrap items-center justify-between gap-4"
+        style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)' }}
+      >
+        <div>
+          <h3 className="text-sm font-bold text-white">Shift availability</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            Mark yourself online when you are accepting runs. You were last seen {agent?.lastSeenAt ? new Date(agent.lastSeenAt).toLocaleString('en-NG', { dateStyle: 'short', timeStyle: 'short' }) : '—'}.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={togglingOnline || agent?.status !== 'ACTIVE'}
+          title={agent?.status !== 'ACTIVE' ? 'Your account must be approved (ACTIVE) before going online' : undefined}
+          onClick={() => setAvailability(!agent?.isOnline)}
+          className="relative w-14 h-8 rounded-full transition-colors disabled:opacity-40"
+          style={{ background: agent?.isOnline ? 'rgba(0,135,90,0.35)' : 'rgba(255,255,255,0.12)' }}
+        >
+          <span
+            className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform"
+            style={{ left: agent?.isOnline ? 'calc(100% - 1.75rem)' : '0.25rem' }}
+          />
+        </button>
+        <div className="w-full text-[11px] font-bold" style={{ color: agent?.isOnline ? '#4ADE80' : 'rgba(255,255,255,0.35)' }}>
+          {togglingOnline ? 'Updating…' : agent?.isOnline ? 'You appear online to dispatchers' : 'You appear offline'}
         </div>
       </div>
 

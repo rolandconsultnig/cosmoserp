@@ -9,13 +9,14 @@ import Seo from '../components/Seo';
 import { getSiteUrl } from '../lib/siteConfig';
 
 function StarRow({ rating, count }) {
-  if (!rating || rating <= 0) return null;
+  const ratingValue = Number(rating);
+  if (!Number.isFinite(ratingValue) || ratingValue <= 0) return null;
   return (
     <div className="flex items-center gap-1">
       {[1,2,3,4,5].map((s) => (
-        <Star key={s} className={`w-3 h-3 ${s <= Math.round(rating) ? 'star-fill' : 'star-empty'}`} />
+        <Star key={s} className={`w-3 h-3 ${s <= Math.round(ratingValue) ? 'star-fill' : 'star-empty'}`} />
       ))}
-      <span className="text-xs text-gray-500 ml-0.5">{parseFloat(rating).toFixed(1)}</span>
+      <span className="text-xs text-gray-500 ml-0.5">{ratingValue.toFixed(1)}</span>
       {count > 0 && <span className="text-xs text-gray-400">({count})</span>}
     </div>
   );

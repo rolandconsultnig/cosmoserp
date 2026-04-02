@@ -9,6 +9,10 @@ const transporter = nodemailer.createTransport({
   auth: process.env.SMTP_USER
     ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
     : undefined,
+  tls: {
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2',
+  },
 });
 
 const PLATFORM_EMAIL = process.env.PLATFORM_EMAIL || 'hello@cosmoserp.afrinict.com';
@@ -115,7 +119,7 @@ async function sendVerificationEmail(toEmail, fullName, token) {
   <p>Thanks for signing up. Please confirm your email by clicking the link below:</p>
   <p><a href="${verifyUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Verify email</a></p>
   <p>Or copy this link: ${verifyUrl}</p>
-  <p>This link expires in 24 hours.</p>
+  <p>This link expires in 5 minutes.</p>
   <p>If you didn't create an account, you can ignore this email.</p>
   <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
   </body></html>`;

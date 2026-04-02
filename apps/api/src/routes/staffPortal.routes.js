@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { authenticate, requireTenantUser, requireRole } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser, requireRole, requireEnabledModule } = require('../middleware/auth.middleware');
 const ctrl = require('../controllers/staffPortal.controller');
 const multer = require('multer');
 const path = require('path');
@@ -45,7 +45,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 
-router.use(authenticate, requireTenantUser, requireRole('STAFF', 'HR', 'ADMIN', 'OWNER'));
+router.use(authenticate, requireTenantUser, requireEnabledModule('hrPayroll'), requireRole('STAFF', 'HR', 'ADMIN', 'OWNER'));
 
 router.get('/me', ctrl.me);
 

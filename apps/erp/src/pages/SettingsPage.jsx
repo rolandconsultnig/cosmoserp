@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Save, Loader2, Plus, ImageIcon, Trash2, Users, UserPlus, ScrollText, Copy, Check } from 'lucide-react';
+import { Save, Loader2, Plus, ImageIcon, Trash2, Users, UserPlus, ScrollText, Copy, Check, Fingerprint } from 'lucide-react';
 import api from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { cn } from '../lib/utils';
@@ -11,10 +11,24 @@ function tenantLogoSrc(logoUrl) {
   return logoUrl;
 }
 
+function b64ToBuf(base64url) {
+  const base64 = String(base64url || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '==='.slice((base64.length + 3) % 4);
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+}
+
+function bufToB64(buf) {
+  const bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : new Uint8Array(buf);
+  let str = '';
+  for (const b of bytes) str += String.fromCharCode(b);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
 export default function SettingsPage() {
   const { user, tenant, updateTenant } = useAuthStore();
   const qc = useQueryClient();
   const [tab, setTab] = useState('business');
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [editableForm, setEditableForm] = useState({
     phone: '',
     website: '',
@@ -30,6 +44,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState('');
 
   const canManageUsers = user?.role === 'OWNER' || user?.role === 'ADMIN';
+
+  const isSecureContext = useMemo(() => window.isSecureContext || window.location.hostname === 'localhost', []);
 
   useEffect(() => {
     if (!tenant) return;
@@ -218,6 +234,74 @@ export default function SettingsPage() {
 
   const readonlyClass = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-slate-50 text-slate-600 cursor-not-allowed';
 
+  const registerPasskey = async () => {
+    if (passkeyLoading) return;
+    setError('');
+    setSuccess('');
+
+    const supported =
+      typeof window.PublicKeyCredential !== 'undefined' &&
+      typeof navigator.credentials !== 'undefined' &&
+      isSecureContext;
+
+    if (!supported) {
+      setError('Passkeys are not supported in this browser or context.');
+      return;
+    }
+
+    setPasskeyLoading(true);
+    try {
+      const { data } = await api.post('/auth/webauthn/register/options');
+      const options = data?.options;
+      if (!options) {
+        setError('Could not start passkey registration.');
+        return;
+      }
+
+      const publicKey = {
+        ...options,
+        challenge: b64ToBuf(options.challenge),
+        user: {
+          ...options.user,
+          id: b64ToBuf(options.user.id),
+        },
+        excludeCredentials: Array.isArray(options.excludeCredentials)
+          ? options.excludeCredentials.map((c) => ({
+              ...c,
+              id: b64ToBuf(c.id),
+            }))
+          : [],
+      };
+
+      const cred = await navigator.credentials.create({ publicKey });
+      if (!cred) {
+        setError('No credential returned.');
+        return;
+      }
+
+      const attestation = {
+        id: cred.id,
+        rawId: bufToB64(cred.rawId),
+        type: cred.type,
+        clientExtensionResults: cred.getClientExtensionResults?.() || {},
+        response: {
+          attestationObject: bufToB64(cred.response.attestationObject),
+          clientDataJSON: bufToB64(cred.response.clientDataJSON),
+          transports: cred.response.getTransports ? cred.response.getTransports() : undefined,
+        },
+      };
+
+      await api.post('/auth/webauthn/register/verify', { response: attestation });
+      setSuccess('Passkey added successfully.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (e) {
+      if (e?.name === 'NotAllowedError') setError('Passkey registration was cancelled or timed out.');
+      else setError(e.response?.data?.error || 'Passkey registration failed.');
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-5 animate-fade-in max-w-4xl">
       <div className="page-header">
@@ -225,7 +309,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit flex-wrap">
-        {[['business','Business Profile'],['currencies','Currencies'],['users','Users']].map(([t, l]) => (
+        {[['business','Business Profile'],['security','Security'],['currencies','Currencies'],['users','Users']].map(([t, l]) => (
           <button key={t} onClick={() => { setTab(t); setError(''); }} className={cn('px-4 py-1.5 rounded-lg text-sm font-medium transition', tab === t ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700')}>{l}</button>
         ))}
       </div>
@@ -401,6 +485,30 @@ export default function SettingsPage() {
               >
                 {bizMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'security' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Passkeys</div>
+                <div className="mt-1 text-sm text-slate-700">
+                  Add a passkey to sign in using fingerprint / Face ID on supported devices.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={registerPasskey}
+                disabled={passkeyLoading}
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm px-4 py-2 rounded-lg transition"
+              >
+                {passkeyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+                Add passkey
               </button>
             </div>
           </div>

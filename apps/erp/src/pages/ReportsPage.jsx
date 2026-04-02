@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, Scale, Clock, Package, Download } from 'lucide-react';
+import { TrendingUp, Scale, Clock, Package, Download, HandCoins } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
 
@@ -8,6 +8,7 @@ const REPORTS = [
   { id: 'pl', label: 'Profit & Loss', icon: TrendingUp, endpoint: '/reports/profit-loss', color: 'text-green-600', bg: 'bg-green-50' },
   { id: 'bs', label: 'Balance Sheet', icon: Scale, endpoint: '/reports/balance-sheet', color: 'text-blue-600', bg: 'bg-blue-50' },
   { id: 'ar', label: 'Aged Receivables', icon: Clock, endpoint: '/reports/aged-receivables', color: 'text-orange-600', bg: 'bg-orange-50' },
+  { id: 'ap', label: 'Aged Payables', icon: HandCoins, endpoint: '/reports/aged-payables', color: 'text-rose-600', bg: 'bg-rose-50' },
   { id: 'iv', label: 'Inventory Valuation', icon: Package, endpoint: '/reports/inventory-valuation', color: 'text-purple-600', bg: 'bg-purple-50' },
 ];
 
@@ -85,6 +86,20 @@ export default function ReportsPage() {
         ]);
       });
       downloadCsv(`aged-receivables-${stamp}.csv`, rows);
+    }
+    if (selectedReport === 'ap') {
+      const rows = [['Supplier', 'Bill #', 'Amount Due', 'Due Date', 'Days Overdue']];
+      (data.bills || []).forEach((b) => {
+        const days = Math.floor((Date.now() - new Date(b.dueDate)) / 86400000);
+        rows.push([
+          b.supplier?.name || '',
+          b.billNumber,
+          b.amountDue,
+          formatDate(b.dueDate),
+          days > 0 ? String(days) : '0',
+        ]);
+      });
+      downloadCsv(`aged-payables-${stamp}.csv`, rows);
     }
     if (selectedReport === 'iv') {
       const rows = [['SKU', 'Product', 'Qty', 'Unit', 'Cost Price', 'Cost Value', 'Retail Value']];
@@ -223,6 +238,44 @@ export default function ReportsPage() {
                   );
                 })}
                 {(data.invoices || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400">No outstanding receivables</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!isLoading && selectedReport === 'ap' && data && (
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Aged Payables</h2>
+            <p className="text-sm text-slate-500 mb-4">As at {formatDate(to)} · amounts by days past due date</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+              {[
+                { label: 'Not yet due', value: data.current },
+                { label: '1–30 days', value: data.days1_30 },
+                { label: '31–60 days', value: data.days31_60 },
+                { label: '61–90 days', value: data.days61_90 },
+                { label: '90+ days', value: data.over90 },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-slate-50 rounded-xl p-3">
+                  <div className="text-xs text-slate-500 mb-1">{label}</div>
+                  <div className="text-base font-bold text-slate-900">{formatCurrency(value || 0)}</div>
+                </div>
+              ))}
+            </div>
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs text-slate-500 border-b border-slate-100"><th className="text-left py-2 font-semibold">Supplier</th><th className="text-right py-2 font-semibold">Bill #</th><th className="text-right py-2 font-semibold">Amount Due</th><th className="text-right py-2 font-semibold">Due Date</th><th className="text-right py-2 font-semibold">Days Overdue</th></tr></thead>
+              <tbody>
+                {(data.bills || []).map((b) => {
+                  const days = Math.floor((Date.now() - new Date(b.dueDate)) / 86400000);
+                  return (
+                    <tr key={b.id} className="border-b border-slate-50">
+                      <td className="py-2.5">{b.supplier?.name}</td>
+                      <td className="py-2.5 text-right text-blue-700 font-medium">{b.billNumber}</td>
+                      <td className="py-2.5 text-right font-semibold">{formatCurrency(b.amountDue)}</td>
+                      <td className="py-2.5 text-right text-slate-500">{formatDate(b.dueDate)}</td>
+                      <td className="py-2.5 text-right text-slate-500">{days > 0 ? String(days) : '0'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

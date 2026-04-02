@@ -2,11 +2,227 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
-  Store, Loader2, Package, Truck, AlertTriangle, ShieldCheck, ChevronRight,
+  Store, Loader2, Package, Truck, AlertTriangle, ShieldCheck, ChevronRight, Check,
 } from 'lucide-react';
 import api from '../lib/api';
 import useAuthStore from '../store/authStore';
-import { formatCurrency, formatDate, getStatusColor, cn } from '../lib/utils';
+import { formatCurrency, formatDate, getStatusColor, getEscrowBadgeClass, cn } from '../lib/utils';
+
+/** Vertical steps: payment → prepare → ship → delivered → escrow (labels match seller actions). */
+function buildSellerOrderTimeline(detail) {
+  const paid = detail.paymentStatus === 'SUCCESS';
+  const st = detail.status;
+  const esc = detail.escrowStatus;
+  const disputed = st === 'DISPUTED' || esc === 'DISPUTED';
+  const refunded = st === 'REFUNDED' || esc === 'REFUNDED';
+  const cancelled = st === 'CANCELLED';
+
+  const steps = [];
+
+  steps.push({
+    key: 'payment',
+    title: 'Payment captured',
+    subtitle: paid
+      ? detail.paidAt
+        ? `Paid ${formatDate(detail.paidAt)}`
+        : 'Successful — you can fulfill'
+      : 'Fulfillment unlocks after payment succeeds',
+    state: paid ? 'complete' : 'current',
+    actionHint: paid ? null : 'No fulfillment actions until paid',
+  });
+
+  let prepState = 'upcoming';
+  let prepSub = 'Use “Mark processing” when you start packing';
+  if (!paid) {
+    prepState = 'blocked';
+    prepSub = 'Waiting for payment';
+  } else if (['PROCESSING', 'SHIPPED', 'DELIVERED'].includes(st)) {
+    prepState = 'complete';
+    prepSub = 'Processing started';
+  } else if (st === 'CONFIRMED') {
+    prepState = 'current';
+  } else if (cancelled || refunded) {
+    prepState = 'blocked';
+    prepSub = cancelled ? 'Order cancelled' : 'Order refunded';
+  } else if (disputed) {
+    prepState = 'blocked';
+    prepSub = 'Dispute opened — see escrow';
+  }
+  steps.push({
+    key: 'prep',
+    title: 'Preparing',
+    subtitle: prepSub,
+    state: prepState,
+    actionHint: paid && st === 'CONFIRMED' ? 'Eligible: Mark processing' : null,
+  });
+
+  let shipState = 'upcoming';
+  let shipSub = 'Use “Mark shipped” (tracking optional)';
+  if (!paid) {
+    shipState = 'blocked';
+    shipSub = 'Waiting for payment';
+  } else if (['SHIPPED', 'DELIVERED'].includes(st)) {
+    shipState = 'complete';
+    shipSub = detail.trackingNumber ? `Tracking: ${detail.trackingNumber}` : 'Marked shipped';
+  } else if (st === 'PROCESSING') {
+    shipState = 'current';
+  } else if (st === 'CONFIRMED') {
+    shipSub = 'Mark processing first';
+  } else if (cancelled || refunded || disputed) {
+    shipState = 'blocked';
+    shipSub = '—';
+  }
+  steps.push({
+    key: 'ship',
+    title: 'Shipped',
+    subtitle: shipSub,
+    state: shipState,
+    actionHint: paid && st === 'PROCESSING' ? 'Eligible: Mark shipped' : null,
+  });
+
+  let delState = 'upcoming';
+  let delSub = 'Courier / logistics marks delivered (or platform sync)';
+  if (!paid) {
+    delState = 'blocked';
+  } else if (st === 'DELIVERED') {
+    delState = 'complete';
+    delSub = detail.deliveredAt ? `Delivered ${formatDate(detail.deliveredAt)}` : 'Delivered to buyer';
+  } else if (st === 'SHIPPED') {
+    delState = 'current';
+    delSub = 'In transit — waiting for delivery confirmation';
+  } else if (cancelled || refunded) {
+    delState = 'blocked';
+    delSub = '—';
+  } else if (disputed) {
+    delState = 'blocked';
+    delSub = '—';
+  }
+  steps.push({
+    key: 'delivered',
+    title: 'Delivered',
+    subtitle: delSub,
+    state: delState,
+    actionHint: null,
+  });
+
+  let escState = 'upcoming';
+  let escSub = 'Funds stay protected until release after delivery';
+  let escHint = null;
+  if (disputed) {
+    escState = 'warning';
+    escSub = 'Escrow disputed — platform review';
+    escHint = 'Release not available';
+  } else if (refunded) {
+    escState = 'complete';
+    escSub = 'Refunded to buyer';
+  } else if (esc === 'RELEASED') {
+    escState = 'complete';
+    escSub = 'Released — record only; settle payouts per your process';
+  } else if (esc === 'HELD') {
+    if (st === 'DELIVERED') {
+      if (detail.isMultiSeller) {
+        escState = 'warning';
+        escSub = `Multi-seller cart (${detail.sellerTenantCount ?? '?'} sellers)`;
+        escHint = 'Release escrow only from the platform admin console';
+      } else {
+        escState = 'current';
+        escSub = 'Eligible to release escrow on this order';
+        escHint = 'Eligible: Release escrow';
+      }
+    } else {
+      escSub = 'Available only when order is DELIVERED and escrow is HELD';
+      escHint = st !== 'DELIVERED' ? 'Wait for delivery confirmation' : null;
+    }
+  } else if (cancelled) {
+    escState = 'blocked';
+    escSub = '—';
+  }
+  steps.push({
+    key: 'escrow',
+    title: 'Escrow',
+    subtitle: `${esc} · ${escSub}`,
+    state: escState,
+    actionHint: escHint,
+  });
+
+  return steps;
+}
+
+function timelineDotClass(state) {
+  if (state === 'complete') return 'bg-emerald-500 text-white border-emerald-600';
+  if (state === 'current') return 'bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-200';
+  if (state === 'warning') return 'bg-amber-500 text-white border-amber-600';
+  if (state === 'blocked') return 'bg-slate-200 text-slate-400 border-slate-300';
+  return 'bg-white text-slate-300 border-slate-200';
+}
+
+function timelineLineClass(state) {
+  if (state === 'complete') return 'bg-emerald-200';
+  if (state === 'current' || state === 'warning') return 'bg-indigo-200';
+  return 'bg-slate-100';
+}
+
+function ReleaseEscrowButton({ detail, releaseMutation }) {
+  if (detail.status !== 'DELIVERED' || detail.escrowStatus !== 'HELD') return null;
+  const canRelease = detail.paymentStatus === 'SUCCESS' && !detail.isMultiSeller;
+  const releaseTitle = !canRelease
+    ? detail.isMultiSeller
+      ? 'This order includes multiple sellers. Release escrow from the platform admin console.'
+      : 'Payment must be successful before releasing escrow.'
+    : undefined;
+  return (
+    <button
+      type="button"
+      onClick={() => canRelease && releaseMutation.mutate(detail.id)}
+      disabled={releaseMutation.isPending || !canRelease}
+      title={releaseTitle}
+      className={cn(
+        'inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50',
+        canRelease
+          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+          : 'bg-slate-200 text-slate-600 cursor-not-allowed',
+      )}
+    >
+      {releaseMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+      Release escrow
+    </button>
+  );
+}
+
+function SellerOrderTimeline({ detail }) {
+  const steps = buildSellerOrderTimeline(detail);
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+      <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Order &amp; escrow progress</h3>
+      <ol className="space-y-0">
+        {steps.map((s, i) => (
+          <li key={s.key} className="flex gap-3">
+            <div className="flex flex-col items-center shrink-0 w-7">
+              <div
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full border-2 text-[10px] font-bold shrink-0',
+                  timelineDotClass(s.state),
+                )}
+              >
+                {s.state === 'complete' ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : i + 1}
+              </div>
+              {i < steps.length - 1 && (
+                <div className={cn('w-0.5 flex-1 min-h-[12px] my-0.5', timelineLineClass(s.state))} />
+              )}
+            </div>
+            <div className={cn('pb-4', i === steps.length - 1 && 'pb-0')}>
+              <div className="text-sm font-bold text-slate-900">{s.title}</div>
+              <p className="text-xs text-slate-600 mt-0.5">{s.subtitle}</p>
+              {s.actionHint && (
+                <p className="text-[11px] font-semibold text-indigo-700 mt-1">{s.actionHint}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
 export default function MarketplaceOrdersPage() {
   const qc = useQueryClient();
@@ -25,7 +241,7 @@ export default function MarketplaceOrdersPage() {
     queryKey: ['marketplace-seller-orders', statusFilter],
     queryFn: () =>
       api.get('/seller/marketplace/orders', { params: { status: statusFilter || undefined, limit: 50 } }).then((r) => r.data),
-    enabled: !!tenant?.isMarketplaceSeller,
+    enabled: !!tenant?.id,
   });
 
   const { data: detail } = useQuery({
@@ -86,34 +302,28 @@ export default function MarketplaceOrdersPage() {
     },
   });
 
-  if (!tenant?.isMarketplaceSeller) {
-    return (
-      <div className="space-y-5 animate-fade-in max-w-lg">
-        <div className="page-header">
-          <h1 className="page-title">Marketplace orders</h1>
-          <p className="page-subtitle">Fulfillment for Cosmos Market</p>
-        </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-900">
-          <p className="font-semibold mb-2">Marketplace selling is off for this business</p>
-          <p className="text-amber-800 mb-3">Enable marketplace on products and ensure your tenant is flagged as a marketplace seller.</p>
-          <Link to="/products" className="text-amber-950 font-bold underline inline-flex items-center gap-1">
-            Go to Products <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const orders = listRes?.data || [];
 
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Marketplace orders</h1>
-          <p className="page-subtitle">Paid orders containing your listings — ship, track, escrow</p>
+          <h1 className="page-title">Marketplace orders &amp; escrow</h1>
+          <p className="page-subtitle">Fulfillment, buyer-protected payments, and escrow release for your listings</p>
         </div>
       </div>
+
+      {!tenant?.isMarketplaceSeller && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold mb-1">Marketplace selling is not enabled for this business</p>
+            <p className="text-amber-800">Turn on marketplace on products and ask your administrator to flag this tenant as a marketplace seller to receive orders here.</p>
+          </div>
+          <Link to="/products" className="shrink-0 text-amber-950 font-bold underline inline-flex items-center gap-1">
+            Products <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 items-center">
         <select
@@ -151,10 +361,20 @@ export default function MarketplaceOrdersPage() {
                 selectedId === o.id && 'bg-indigo-50',
               )}
             >
-              <div className="flex justify-between items-start gap-2">
+              <div className="flex justify-between items-start gap-2 flex-wrap">
                 <span className="font-semibold text-slate-900 text-sm">{o.orderNumber}</span>
-                <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-bold', getStatusColor(o.status))}>{o.status}</span>
+                <span className="flex flex-wrap gap-1 justify-end">
+                  {o.paymentStatus === 'SUCCESS' && o.escrowStatus && (
+                    <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-bold', getEscrowBadgeClass(o.escrowStatus))}>
+                      Escrow {o.escrowStatus}
+                    </span>
+                  )}
+                  <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-bold', getStatusColor(o.status))}>{o.status}</span>
+                </span>
               </div>
+              {o.isMultiSeller && (
+                <div className="text-[10px] font-semibold text-amber-800 mt-1">Multi-seller order — escrow via admin</div>
+              )}
               <div className="text-xs text-slate-500 mt-1">{formatDate(o.createdAt)}</div>
               <div className="text-sm font-bold text-emerald-700 mt-1">{formatCurrency(o.sellerNetTotal)} <span className="text-slate-400 font-normal">your net</span></div>
             </button>
@@ -174,9 +394,25 @@ export default function MarketplaceOrdersPage() {
                   <div>
                     <h2 className="text-lg font-bold text-slate-900">{detail.orderNumber}</h2>
                     <p className="text-sm text-slate-500">Buyer: {detail.buyerName} · {detail.buyerEmail}</p>
-                    <p className="text-xs text-slate-400 mt-1">Payment: {detail.paymentStatus} · Escrow: {detail.escrowStatus}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-bold', getStatusColor(detail.paymentStatus))}>
+                        Payment {detail.paymentStatus}
+                      </span>
+                      <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-bold', getEscrowBadgeClass(detail.escrowStatus))}>
+                        Escrow {detail.escrowStatus}
+                      </span>
+                      {detail.isMultiSeller && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-900">
+                          {detail.sellerTenantCount} sellers on order
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className={cn('h-fit px-3 py-1 rounded-full text-xs font-bold', getStatusColor(detail.status))}>{detail.status}</span>
+                </div>
+
+                <div className="mb-4">
+                  <SellerOrderTimeline detail={detail} />
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-3 text-sm mb-4">
@@ -243,17 +479,7 @@ export default function MarketplaceOrdersPage() {
                       </button>
                     </div>
                   )}
-                  {detail.status === 'DELIVERED' && detail.escrowStatus === 'HELD' && (
-                    <button
-                      type="button"
-                      onClick={() => releaseMutation.mutate(detail.id)}
-                      disabled={releaseMutation.isPending}
-                      className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
-                    >
-                      {releaseMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                      Release escrow (single-seller orders)
-                    </button>
-                  )}
+                  <ReleaseEscrowButton detail={detail} releaseMutation={releaseMutation} />
                   {!['DELIVERED', 'CANCELLED', 'REFUNDED', 'DISPUTED'].includes(detail.status) && (
                     <button
                       type="button"

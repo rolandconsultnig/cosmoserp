@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/project.controller');
-const { authenticate, requireTenantUser, requirePermission } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser, requirePermission, requireEnabledModule } = require('../middleware/auth.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('operations'));
 
 router.get('/', requirePermission('projects:view'), ctrl.list);
 router.post('/', requirePermission('projects:manage'), ctrl.create);

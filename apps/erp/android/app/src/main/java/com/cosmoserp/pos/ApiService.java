@@ -13,6 +13,9 @@ public interface ApiService {
     @POST("api/auth/login")
     Call<LoginResponse> login(@Body LoginRequest request);
 
+    @POST("api/auth/refresh")
+    Call<RefreshResponse> refresh(@Body RefreshRequest request);
+
     @GET("api/products")
     Call<ProductListResponse> getProducts(
             @Query("page") int page,

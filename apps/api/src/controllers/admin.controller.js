@@ -4,6 +4,16 @@ const { paginate, paginatedResponse } = require('../utils/helpers');
 const { createAuditLog } = require('../middleware/audit.middleware');
 const jwt = require('jsonwebtoken');
 
+const DEFAULT_TENANT_MODULES = {
+  sales: true,
+  inventory: true,
+  operations: true,
+  hrPayroll: true,
+  finance: true,
+  customerCare: true,
+  pos: true,
+};
+
 async function getNRSLogs(req, res) {
   try {
     const { page, limit, tenantId, status, search, from, to } = req.query;
@@ -35,6 +45,41 @@ async function getNRSLogs(req, res) {
     res.json(paginatedResponse(data, total, page, limit));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch NRS logs' });
+  }
+}
+
+async function updateTenantModules(req, res) {
+  try {
+    const { enabledModules } = req.body || {};
+    if (!enabledModules || typeof enabledModules !== 'object' || Array.isArray(enabledModules)) {
+      return res.status(400).json({ error: 'enabledModules object is required' });
+    }
+
+    const normalized = { ...DEFAULT_TENANT_MODULES };
+    Object.entries(enabledModules).forEach(([key, value]) => {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_TENANT_MODULES, key)) {
+        normalized[key] = value !== false;
+      }
+    });
+
+    const tenant = await prisma.tenant.update({
+      where: { id: req.params.tenantId },
+      data: { enabledModules: normalized },
+    });
+
+    await createAuditLog({
+      adminUserId: req.admin.id,
+      tenantId: tenant.id,
+      action: 'UPDATE_TENANT_MODULES',
+      resource: 'Tenant',
+      resourceId: tenant.id,
+      newValues: { enabledModules: normalized },
+      req,
+    });
+
+    res.json({ data: tenant, message: 'Tenant module access updated' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update tenant modules' });
   }
 }
 
@@ -1284,10 +1329,46 @@ async function updateMaintenanceMode(req, res) {
   }
 }
 
+async function testEmailSend(req, res) {
+  try {
+    const { to, subject, body } = req.body;
+    
+    if (!to || !subject || !body) {
+      return res.status(400).json({ error: 'to, subject, and body are required' });
+    }
+
+    const { sendMail } = require('../services/email.service');
+    
+    const result = await sendMail({
+      to,
+      subject,
+      text: body,
+      html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;"><p>${body.replace(/\n/g, '<br>')}</p></body></html>`,
+    });
+
+    await createAuditLog({
+      adminUserId: req.admin.id,
+      action: 'TEST_EMAIL_SENT',
+      resource: 'Email',
+      resourceId: to,
+      newValues: { to, subject },
+      req,
+    });
+
+    res.json({
+      data: result,
+      message: 'Test email sent successfully',
+    });
+  } catch (error) {
+    logger.error('Test email send error:', error);
+    res.status(500).json({ error: error.message || 'Failed to send test email' });
+  }
+}
+
 module.exports = {
   getNRSLogs, getNRSStats, retryNRSSubmission, getPlatformAnalytics, getAuditLogs, moderateListing, createAdminUser,
   getSubscriptionStats, listSubscriptions, updateTenantSubscription,
-  listTenants, getTenantDetail, adminUpdateKYC, adminUploadTenantLogo, adminRemoveTenantLogo, adminAddTenantNote, adminToggleTenantActive, adminGetTenantAuditLogs, adminToggleTenantUserStatus,
+  listTenants, getTenantDetail, adminUpdateKYC, adminUploadTenantLogo, adminRemoveTenantLogo, adminAddTenantNote, adminToggleTenantActive, updateTenantModules, adminGetTenantAuditLogs, adminToggleTenantUserStatus,
   suspendTenant, activateTenant, extendTrial,
   getFinanceOverview, listAllInvoices, flagInvoice, updateInvoiceStatus,
   getHROverview, listAllPayrollRuns, updatePayrollStatus,
@@ -1295,5 +1376,6 @@ module.exports = {
   getSupportStats, listAllTickets, updateTicketStatus, addTicketComment, getTicketDetail, escalateTicket,
   listAdminUsers, updateAdminUser, getTenantUsers, toggleUserStatus,
   getPlatformSettings, updatePlatformSettings, updateFeatureFlags, updateMaintenanceMode,
+  testEmailSend,
   impersonateTenant,
 };

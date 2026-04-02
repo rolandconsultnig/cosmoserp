@@ -6,7 +6,7 @@ const { logger } = require('../utils/logger');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email.service');
 
 const ROUNDS = 12;
-const VERIFICATION_EXPIRY_HOURS = 24;
+const VERIFICATION_EXPIRY_MINUTES = 5;
 
 function isMarketplaceEmailVerificationDisabled() {
   return (
@@ -29,10 +29,6 @@ function signCustomerToken(payload) {
 
 async function register(req, res) {
   try {
-    if (!process.env.JWT_SECRET) {
-      logger.error('Marketplace register: JWT_SECRET is not set');
-      return res.status(503).json({ error: 'Service temporarily unavailable' });
-    }
     const body = req.body || {};
     const email = typeof body.email === 'string' ? body.email : '';
     const password = typeof body.password === 'string' ? body.password : '';
@@ -43,11 +39,21 @@ async function register(req, res) {
     const fullNameTrimmed = fullName.trim();
     const phoneTrimmed = phone.trim() || null;
 
-    if (!normalizedEmail || !password || !fullNameTrimmed) {
-      return res.status(400).json({ error: 'Email, password, and full name are required' });
+    // Detailed validation with specific error messages
+    if (!normalizedEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+    if (!fullNameTrimmed) {
+      return res.status(400).json({ error: 'Full name is required' });
     }
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
 
     const existing = await prisma.marketplaceCustomer.findUnique({
@@ -60,7 +66,7 @@ async function register(req, res) {
     const passwordHash = await bcrypt.hash(password, ROUNDS);
     const disableVerification = isMarketplaceEmailVerificationDisabled();
     const verificationToken = disableVerification ? null : generateVerificationToken();
-    const verificationExpiresAt = disableVerification ? null : new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+    const verificationExpiresAt = disableVerification ? null : new Date(Date.now() + VERIFICATION_EXPIRY_MINUTES * 60 * 1000);
 
     const customer = await prisma.marketplaceCustomer.create({
       data: {
@@ -88,6 +94,11 @@ async function register(req, res) {
       });
     }
 
+    if (!process.env.JWT_SECRET) {
+      logger.error('Marketplace register: JWT_SECRET is not set for token issuance');
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
+    }
+
     const token = signCustomerToken({
       type: 'marketplace_customer',
       customerId: customer.id,
@@ -109,7 +120,159 @@ async function register(req, res) {
     if (error?.code === 'P2002') {
       return res.status(409).json({ error: 'An account with this email already exists. Please sign in.' });
     }
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: 'Registration failed', details: error.message });
+  }
+}
+
+async function registerSendOtp(req, res) {
+  try {
+    const body = req.body || {};
+    const email = typeof body.email === 'string' ? body.email : '';
+    const fullName = typeof body.fullName === 'string' ? body.fullName : '';
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const fullNameTrimmed = fullName.trim();
+
+    // Validation
+    if (!normalizedEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    if (!fullNameTrimmed) {
+      return res.status(400).json({ error: 'Full name is required' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Check if email already registered and verified
+    const existing = await prisma.marketplaceCustomer.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (existing && existing.emailVerified) {
+      return res.status(409).json({ error: 'An account with this email already exists. Please sign in.' });
+    }
+
+    // Generate verification token for OTP
+    const verificationToken = generateVerificationToken();
+    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_MINUTES * 60 * 1000);
+
+    let customer;
+    if (existing) {
+      // Update existing unverified record with new token
+      customer = await prisma.marketplaceCustomer.update({
+        where: { id: existing.id },
+        data: {
+          emailVerificationToken: verificationToken,
+          emailVerificationExpiresAt: verificationExpiresAt,
+          fullName: fullNameTrimmed, // Update in case they corrected it
+        },
+      });
+    } else {
+      // Create new customer with temporary password placeholder
+      customer = await prisma.marketplaceCustomer.create({
+        data: {
+          email: normalizedEmail,
+          fullName: fullNameTrimmed,
+          passwordHash: '', // Will be set after OTP verification
+          emailVerified: false,
+          emailVerificationToken: verificationToken,
+          emailVerificationExpiresAt: verificationExpiresAt,
+        },
+      });
+    }
+
+    // Send verification email with OTP
+    try {
+      await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
+    } catch (emailErr) {
+      logger.error('OTP email send failed:', emailErr);
+      return res.status(500).json({ error: 'Failed to send OTP email', details: emailErr.message });
+    }
+
+    res.status(201).json({
+      message: 'OTP sent to your email address',
+      email: customer.email,
+    });
+  } catch (error) {
+    logger.error('Marketplace registerSendOtp error:', error);
+    if (error?.code === 'P2002') {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
+    res.status(500).json({ error: 'Failed to send OTP', details: error.message });
+  }
+}
+
+async function completeRegistration(req, res) {
+  try {
+    if (!process.env.JWT_SECRET) {
+      logger.error('Marketplace completeRegistration: JWT_SECRET is not set');
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
+    }
+
+    const body = req.body || {};
+    const email = typeof body.email === 'string' ? body.email : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const phone = body.phone != null ? String(body.phone) : '';
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const phoneTrimmed = phone.trim() || null;
+
+    // Validation
+    if (!normalizedEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Find verified customer
+    const customer = await prisma.marketplaceCustomer.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer record not found. Please start registration again.' });
+    }
+
+    if (!customer.emailVerified) {
+      return res.status(400).json({ error: 'Email not yet verified. Please verify your OTP first.' });
+    }
+
+    // Update password and clear verification data
+    const passwordHash = await bcrypt.hash(password, ROUNDS);
+    const updated = await prisma.marketplaceCustomer.update({
+      where: { id: customer.id },
+      data: {
+        passwordHash,
+        phone: phoneTrimmed,
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
+    });
+
+    // Generate JWT token
+    const token = signCustomerToken({
+      type: 'marketplace_customer',
+      customerId: updated.id,
+      email: updated.email,
+    });
+
+    res.status(200).json({
+      message: 'Registration completed successfully',
+      accessToken: token,
+      customer: {
+        id: updated.id,
+        email: updated.email,
+        fullName: updated.fullName,
+        phone: updated.phone,
+      },
+    });
+  } catch (error) {
+    logger.error('Marketplace completeRegistration error:', error);
+    res.status(500).json({ error: 'Failed to complete registration', details: error.message });
   }
 }
 
@@ -210,11 +373,14 @@ async function updateProfile(req, res) {
 async function listMyOrders(req, res) {
   try {
     const email = req.customer.email;
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status, escrowStatus } = req.query;
     const take = Math.min(Number(limit) || 20, 50);
     const skip = (Math.max(1, Number(page)) - 1) * take;
     const where = { buyerEmail: email };
     if (status) where.status = status;
+    if (escrowStatus && String(escrowStatus).trim()) {
+      where.escrowStatus = String(escrowStatus).trim();
+    }
 
     const [orders, total] = await Promise.all([
       prisma.marketplaceOrder.findMany({
@@ -359,7 +525,7 @@ async function resendVerificationEmail(req, res) {
       return res.status(400).json({ error: 'Email is already verified. You can sign in.' });
     }
     const verificationToken = generateVerificationToken();
-    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_MINUTES * 60 * 1000);
     await prisma.marketplaceCustomer.update({
       where: { id: customer.id },
       data: {
@@ -581,6 +747,8 @@ async function uploadAvatar(req, res) {
 
 module.exports = {
   register,
+  registerSendOtp,
+  completeRegistration,
   login,
   verifyEmail,
   resendVerificationEmail,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,6 +10,8 @@ import {
 import api from '../lib/api';
 import useAuthStore from '../store/authStore';
 import { formatDate, formatCurrency, getStatusColor, getPlanColor, cn } from '../lib/utils';
+import { ACCOUNTING_SUBFEATURES } from '../../../shared/accountingSubfeatures';
+import { AccountingSubFeatureCatalog } from '../../../shared/accountingSubfeatureComponents';
 
 function tenantLogoSrc(logoUrl) {
   if (!logoUrl) return null;
@@ -30,6 +32,39 @@ const KYC_COLORS = {
   APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   REJECTED: 'bg-red-50 text-red-700 border-red-200',
 };
+
+const DEFAULT_TENANT_MODULES = {
+  sales: true,
+  inventory: true,
+  operations: true,
+  hrPayroll: true,
+  finance: true,
+  customerCare: true,
+  pos: true,
+};
+
+const TENANT_MODULE_DEFS = [
+  { key: 'sales', label: 'Sales' },
+  { key: 'inventory', label: 'Inventory' },
+  { key: 'operations', label: 'Operations' },
+  { key: 'hrPayroll', label: 'HR & Payroll' },
+  { key: 'finance', label: 'Finance' },
+  { key: 'customerCare', label: 'Customer Care' },
+  { key: 'pos', label: 'POS Terminal' },
+];
+
+function normalizeTenantModules(enabledModules) {
+  const normalized = { ...DEFAULT_TENANT_MODULES };
+  if (!enabledModules || typeof enabledModules !== 'object' || Array.isArray(enabledModules)) {
+    return normalized;
+  }
+  TENANT_MODULE_DEFS.forEach(({ key }) => {
+    if (Object.prototype.hasOwnProperty.call(enabledModules, key)) {
+      normalized[key] = enabledModules[key] !== false;
+    }
+  });
+  return normalized;
+}
 
 function InfoRow({ label, value, icon: Icon }) {
   return (
@@ -54,6 +89,7 @@ export default function TenantDetailPage() {
   const [impersonateModal, setImpersonateModal] = useState(false);
   const [impersonateReason, setImpersonateReason] = useState('');
   const [impersonateUserId, setImpersonateUserId] = useState('');
+  const [moduleDraft, setModuleDraft] = useState(DEFAULT_TENANT_MODULES);
 
   const invalidateAll = () => {
     qc.invalidateQueries(['admin-tenant', id]);
@@ -96,6 +132,11 @@ export default function TenantDetailPage() {
     onSuccess: invalidateAll,
   });
 
+  const modulesMutation = useMutation({
+    mutationFn: (enabledModules) => api.patch(`/admin/tenants/${id}/modules`, { enabledModules }),
+    onSuccess: invalidateAll,
+  });
+
   const logoMutation = useMutation({
     mutationFn: (file) => {
       const fd = new FormData();
@@ -132,6 +173,21 @@ export default function TenantDetailPage() {
     setImpersonateUserId((owner || first)?.id || '');
     setImpersonateReason('');
     setImpersonateModal(true);
+  };
+
+  useEffect(() => {
+    if (!data?.id) return;
+    setModuleDraft(normalizeTenantModules(data.enabledModules));
+  }, [data?.id, data?.enabledModules]);
+
+  const toggleTenantModule = (key) => {
+    if (modulesMutation.isPending) return;
+    const updated = {
+      ...moduleDraft,
+      [key]: !moduleDraft[key],
+    };
+    setModuleDraft(updated);
+    modulesMutation.mutate(updated);
   };
 
   if (isLoading) {
@@ -543,6 +599,38 @@ export default function TenantDetailPage() {
               </button>
             </div>
           )}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[14px] font-bold text-slate-900">ERP Modules</h2>
+              {modulesMutation.isPending && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Saving
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 mb-3">Enable or disable tenant access to ERP modules.</p>
+            <div className="space-y-1.5">
+              {TENANT_MODULE_DEFS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleTenantModule(key)}
+                  disabled={modulesMutation.isPending}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <span className="text-[12px] font-semibold text-slate-700">{label}</span>
+                  {moduleDraft[key] ? (
+                    <ToggleRight className="w-7 h-7 text-emerald-600" />
+                  ) : (
+                    <ToggleLeft className="w-7 h-7 text-slate-300" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <AccountingSubFeatureCatalog catalog={ACCOUNTING_SUBFEATURES} />
 
           {/* Activity Stats */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>

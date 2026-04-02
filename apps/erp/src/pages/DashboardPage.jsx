@@ -111,33 +111,33 @@ export default function DashboardPage() {
 
       {/* Module shortcuts: marketplace, logistics, reports, stock, alerts */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tenant?.isMarketplaceSeller ? (
-          <Link
-            to="/marketplace-orders"
-            className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-4 flex items-center gap-3 transition hover:shadow-md"
-          >
-            <Package className="w-6 h-6 text-indigo-600" />
-            <div>
-              <div className="text-sm font-semibold text-slate-800">Marketplace</div>
-              <div className="text-xs text-slate-600">
-                {d.marketplace?.fulfillmentQueue || 0} to fulfill
-                {(d.marketplace?.disputed || 0) > 0 && (
-                  <span className="text-orange-700 font-medium"> · {d.marketplace.disputed} disputed</span>
-                )}
-              </div>
+        <Link
+          to="/marketplace-orders"
+          className={cn(
+            'rounded-xl border p-4 flex items-center gap-3 transition hover:shadow-md',
+            tenant?.isMarketplaceSeller
+              ? 'border-indigo-200 bg-indigo-50/80'
+              : 'border-slate-100 bg-white',
+          )}
+        >
+          <Package className={cn('w-6 h-6', tenant?.isMarketplaceSeller ? 'text-indigo-600' : 'text-slate-400')} />
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Orders &amp; escrow</div>
+            <div className="text-xs text-slate-600">
+              {tenant?.isMarketplaceSeller ? (
+                <>
+                  {d.marketplace?.fulfillmentQueue || 0} to fulfill
+                  {(d.marketplace?.disputed || 0) > 0 && (
+                    <span className="text-orange-700 font-medium"> · {d.marketplace.disputed} disputed</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-slate-500">Marketplace hub — enable selling in Products to get orders</span>
+              )}
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
-          </Link>
-        ) : (
-          <Link to="/products" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
-            <Package className="w-6 h-6 text-slate-400" />
-            <div>
-              <div className="text-sm font-semibold text-slate-800">Cosmos Market</div>
-              <div className="text-xs text-slate-500">Publish products to sell online</div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
-          </Link>
-        )}
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+        </Link>
         <Link to="/shipments" className="rounded-xl border border-slate-100 bg-white p-4 flex items-center gap-3 hover:shadow-md transition">
           <Truck className="w-6 h-6 text-sky-600" />
           <div>

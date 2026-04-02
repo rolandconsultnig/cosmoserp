@@ -2,6 +2,32 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
 
+const DEFAULT_TENANT_MODULES = {
+  sales: true,
+  inventory: true,
+  operations: true,
+  hrPayroll: true,
+  finance: true,
+  customerCare: true,
+  pos: true,
+};
+
+function isModuleEnabledForTenant(tenant, moduleKey) {
+  if (!tenant || !moduleKey) return true;
+  if (!Object.prototype.hasOwnProperty.call(DEFAULT_TENANT_MODULES, moduleKey)) return true;
+
+  const enabledModules = tenant.enabledModules;
+  if (!enabledModules || typeof enabledModules !== 'object' || Array.isArray(enabledModules)) {
+    return DEFAULT_TENANT_MODULES[moduleKey] !== false;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(enabledModules, moduleKey)) {
+    return DEFAULT_TENANT_MODULES[moduleKey] !== false;
+  }
+
+  return enabledModules[moduleKey] !== false;
+}
+
 async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -39,6 +65,7 @@ async function authenticate(req, res, next) {
               subscriptionStatus: true,
               trialEndsAt: true,
               isActive: true,
+              enabledModules: true,
             },
           },
         },
@@ -89,6 +116,23 @@ async function authenticate(req, res, next) {
 function requireAdmin(req, res, next) {
   if (!req.isAdmin) return res.status(403).json({ error: 'Admin access required' });
   next();
+}
+
+function requireEnabledModule(moduleKey) {
+  return (req, res, next) => {
+    if (req.isAdmin) return next();
+    if (!req.user?.tenant) return res.status(401).json({ error: 'Authentication required' });
+
+    if (!isModuleEnabledForTenant(req.user.tenant, moduleKey)) {
+      return res.status(403).json({
+        error: 'This module is disabled for your tenant',
+        code: 'MODULE_DISABLED',
+        module: moduleKey,
+      });
+    }
+
+    return next();
+  };
 }
 
 function requireTenantUser(req, res, next) {
@@ -145,4 +189,4 @@ function authenticateMarketplace(req, res, next) {
   });
 }
 
-module.exports = { authenticate, authenticateMarketplace, requireAdmin, requireTenantUser, requireRole, requirePermission, requireKYC };
+module.exports = { authenticate, authenticateMarketplace, requireAdmin, requireTenantUser, requireRole, requirePermission, requireKYC, requireEnabledModule };

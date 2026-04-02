@@ -27,19 +27,25 @@ const useShopperAuthStore = create(
           return { ok: false, error: 'Password must be at least 8 characters.' };
         }
         try {
-          const { data } = await api.post('/marketplace/auth/register', {
+          const payload = {
             fullName: fullName.trim(),
             email: normalizedEmail,
-            phone: (phone || '').trim() || undefined,
             password,
-          });
+          };
+          // Only include phone if it's not empty
+          if (phone && String(phone).trim()) {
+            payload.phone = String(phone).trim();
+          }
+          
+          const { data } = await api.post('/marketplace/auth/register', payload);
           if (data.requiresVerification) {
             return { ok: true, requiresVerification: true, email: data.email };
           }
           get().setFromApi(data.customer, data.accessToken);
           return { ok: true };
         } catch (err) {
-          const msg = err.response?.data?.error || 'Registration failed.';
+          const msg = err.response?.data?.error || err.message || 'Registration failed.';
+          console.error('Register error:', err.response?.data || err.message);
           return { ok: false, error: msg };
         }
       },

@@ -10,6 +10,19 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('react-router') || id.includes('@tanstack/react-query')) return 'router-data';
+          if (id.includes('recharts')) return 'charts';
+          if (id.includes('lucide-react')) return 'icons';
+          if (id.includes('react') || id.includes('scheduler')) return 'react-vendor';
+        },
+      },
+    },
+  },
   server: {
     port: 3060,
     proxy: {

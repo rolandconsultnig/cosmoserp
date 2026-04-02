@@ -32,9 +32,12 @@ export default function LogisticsPartnersPage() {
         canonicalPath="/logistics"
         type="website"
       />
-      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <Truck className="w-6 h-6" /> Logistics Partners
-      </h1>
+      <div className="mb-6">
+        <img src="/cosmos-logo.png" alt="Cosmos Logo" className="h-12 mb-4 object-contain" />
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Truck className="w-6 h-6" /> Logistics Partners
+        </h1>
+      </div>
 
       {loading && <p>Loading...</p>}
       {error && <p className="text-red-500">{error}</p>}

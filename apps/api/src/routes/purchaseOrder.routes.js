@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
+const { Decimal } = require('@prisma/client/runtime/library');
+const { authenticate, requireRole, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
 const { generatePONumber, calculateVAT, roundDecimal, paginate, paginatedResponse } = require('../utils/helpers');
 const { createAuditLog } = require('../middleware/audit.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('inventory'));
 
 router.get('/', async (req, res) => {
   try {
@@ -114,6 +115,429 @@ router.post('/:id/receive', requireRole('OWNER','ADMIN','WAREHOUSE'), async (req
     });
     res.json({ message: 'Goods received and stock updated' });
   } catch (e) { res.status(500).json({ error: 'Failed to receive goods' }); }
+});
+
+// ─────────────────────────────────────────────
+// GOODS RECEIVED NOTES (GRN) - Management
+// ─────────────────────────────────────────────
+
+router.post('/:poId/grn', requireRole('OWNER','ADMIN','WAREHOUSE'), async (req, res) => {
+  try {
+    const { warehouseId, receivedLines, notes } = req.body;
+    if (!warehouseId || !receivedLines?.length) return res.status(400).json({ error: 'Warehouse and received lines are required' });
+    const po = await prisma.purchaseOrder.findFirst({ where: { id: req.params.poId, tenantId: req.tenantId }, include: { lines: true } });
+    if (!po) return res.status(404).json({ error: 'Purchase order not found' });
+
+    const grnCount = await prisma.goodsReceivedNote.count({ where: { tenantId: req.tenantId } });
+    const grnNumber = `GRN-${new Date().getFullYear()}-${String(grnCount + 1).padStart(5, '0')}`;
+
+    const grn = await prisma.goodsReceivedNote.create({
+      data: {
+        tenantId: req.tenantId,
+        poId: po.id,
+        grnNumber,
+        warehouseId,
+        notes,
+        status: 'PENDING',
+        createdById: req.user.id,
+        lines: {
+          create: receivedLines.map((rl) => ({
+            poLineId: rl.lineId,
+            quantity: po.lines.find((l) => l.id === rl.lineId)?.quantity || 0,
+            receivedQty: rl.quantity,
+            notes: rl.notes,
+          })),
+        },
+      },
+      include: { lines: { include: { poLine: true } } },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      for (const rl of receivedLines) {
+        const poLine = po.lines.find((l) => l.id === rl.lineId);
+        if (!poLine) continue;
+        await tx.purchaseOrderLine.update({ where: { id: rl.lineId }, data: { receivedQty: { increment: rl.quantity } } });
+        await tx.stockLevel.upsert({
+          where: { productId_warehouseId: { productId: poLine.productId, warehouseId } },
+          update: { quantity: { increment: rl.quantity } },
+          create: { tenantId: req.tenantId, productId: poLine.productId, warehouseId, quantity: rl.quantity },
+        });
+        await tx.stockMovement.create({
+          data: {
+            tenantId: req.tenantId,
+            productId: poLine.productId,
+            warehouseId,
+            type: 'PURCHASE_RECEIPT',
+            quantity: rl.quantity,
+            sourceId: grn.id,
+            sourceType: 'GRN',
+            createdById: req.user.id,
+          },
+        });
+      }
+      const allLines = await tx.purchaseOrderLine.findMany({ where: { poId: po.id } });
+      const fullyReceived = allLines.every((l) => l.receivedQty >= l.quantity);
+      await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: fullyReceived ? 'RECEIVED' : 'PARTIAL' } });
+    });
+
+    res.status(201).json({ data: grn, message: 'GRN created and stock updated' });
+  } catch (e) { res.status(500).json({ error: 'Failed to create GRN' }); }
+});
+
+router.get('/:poId/grns', async (req, res) => {
+  try {
+    const { page, limit, status } = req.query;
+    const { take, skip } = paginate(page, limit);
+    const where = { tenantId: req.tenantId, poId: req.params.poId };
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      prisma.goodsReceivedNote.findMany({
+        where,
+        take,
+        skip,
+        orderBy: { createdAt: 'desc' },
+        include: { lines: { include: { poLine: { include: { product: true } } } }, matchings: true },
+      }),
+      prisma.goodsReceivedNote.count({ where }),
+    ]);
+
+    res.json(paginatedResponse(data, total, page, limit));
+  } catch (e) { res.status(500).json({ error: 'Failed to fetch GRNs' }); }
+});
+
+router.get('/:poId/grn/:grnId', async (req, res) => {
+  try {
+    const grn = await prisma.goodsReceivedNote.findFirst({
+      where: { id: req.params.grnId, poId: req.params.poId, tenantId: req.tenantId },
+      include: { po: true, lines: { include: { poLine: { include: { product: true } } } }, matchings: true },
+    });
+    if (!grn) return res.status(404).json({ error: 'GRN not found' });
+    res.json({ data: grn });
+  } catch (e) { res.status(500).json({ error: 'Failed to fetch GRN' }); }
+});
+
+router.put('/:poId/grn/:grnId', requireRole('OWNER','ADMIN','WAREHOUSE'), async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const grn = await prisma.goodsReceivedNote.findFirst({
+      where: { id: req.params.grnId, poId: req.params.poId, tenantId: req.tenantId },
+    });
+    if (!grn) return res.status(404).json({ error: 'GRN not found' });
+
+    const updated = await prisma.goodsReceivedNote.update({
+      where: { id: grn.id },
+      data: { status: status || grn.status, notes: notes !== undefined ? notes : grn.notes },
+      include: { lines: { include: { poLine: { include: { product: true } } } } },
+    });
+
+    res.json({ data: updated });
+  } catch (e) { res.status(500).json({ error: 'Failed to update GRN' }); }
+});
+
+// ─────────────────────────────────────────────
+// PURCHASE ORDER AMENDMENTS
+// ─────────────────────────────────────────────
+
+router.post('/:poId/amendments', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { amendmentType, originalValue, newValue, reason } = req.body;
+    if (!amendmentType || !originalValue || !newValue) {
+      return res.status(400).json({ error: 'Amendment type, original value, and new value are required' });
+    }
+
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.poId, tenantId: req.tenantId },
+    });
+    if (!po) return res.status(404).json({ error: 'Purchase order not found' });
+
+    const amendmentCount = await prisma.purchaseOrderAmendment.count({
+      where: { tenantId: req.tenantId, poId: po.id },
+    });
+    const amendmentNumber = `AMD-${po.poNumber}-${String(amendmentCount + 1).padStart(3, '0')}`;
+
+    const amendment = await prisma.purchaseOrderAmendment.create({
+      data: {
+        tenantId: req.tenantId,
+        poId: po.id,
+        amendmentNumber,
+        amendmentType,
+        originalValue: String(originalValue),
+        newValue: String(newValue),
+        reason,
+        status: 'PENDING',
+        createdById: req.user.id,
+      },
+    });
+
+    res.status(201).json({ data: amendment });
+  } catch (e) { res.status(500).json({ error: 'Failed to create amendment' }); }
+});
+
+router.get('/:poId/amendments', async (req, res) => {
+  try {
+    const { page, limit, status } = req.query;
+    const { take, skip } = paginate(page, limit);
+    const where = { tenantId: req.tenantId, poId: req.params.poId };
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      prisma.purchaseOrderAmendment.findMany({
+        where,
+        take,
+        skip,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.purchaseOrderAmendment.count({ where }),
+    ]);
+
+    res.json(paginatedResponse(data, total, page, limit));
+  } catch (e) { res.status(500).json({ error: 'Failed to fetch amendments' }); }
+});
+
+router.post('/:poId/amendments/:amendmentId/approve', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const amendment = await prisma.purchaseOrderAmendment.findFirst({
+      where: { id: req.params.amendmentId, poId: req.params.poId, tenantId: req.tenantId },
+    });
+    if (!amendment) return res.status(404).json({ error: 'Amendment not found' });
+
+    const updated = await prisma.purchaseOrderAmendment.update({
+      where: { id: amendment.id },
+      data: { status: 'APPROVED', approvedBy: req.user.id, approvedAt: new Date() },
+    });
+
+    res.json({ data: updated, message: 'Amendment approved' });
+  } catch (e) { res.status(500).json({ error: 'Failed to approve amendment' }); }
+});
+
+router.post('/:poId/amendments/:amendmentId/reject', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const amendment = await prisma.purchaseOrderAmendment.findFirst({
+      where: { id: req.params.amendmentId, poId: req.params.poId, tenantId: req.tenantId },
+    });
+    if (!amendment) return res.status(404).json({ error: 'Amendment not found' });
+
+    const updated = await prisma.purchaseOrderAmendment.update({
+      where: { id: amendment.id },
+      data: { status: 'REJECTED' },
+    });
+
+    res.json({ data: updated, message: 'Amendment rejected' });
+  } catch (e) { res.status(500).json({ error: 'Failed to reject amendment' }); }
+});
+
+router.post('/:poId/amendments/:amendmentId/implement', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const amendment = await prisma.purchaseOrderAmendment.findFirst({
+      where: { id: req.params.amendmentId, poId: req.params.poId, tenantId: req.tenantId, status: 'APPROVED' },
+    });
+    if (!amendment) return res.status(404).json({ error: 'Amendment not found or not approved' });
+
+    const updated = await prisma.purchaseOrderAmendment.update({
+      where: { id: amendment.id },
+      data: { status: 'IMPLEMENTED', implementedAt: new Date() },
+    });
+
+    res.json({ data: updated, message: 'Amendment implemented' });
+  } catch (e) { res.status(500).json({ error: 'Failed to implement amendment' }); }
+});
+
+// ─────────────────────────────────────────────
+// PURCHASE ORDER MATCHING (2-Way & 3-Way)
+// ─────────────────────────────────────────────
+
+// Helper function to calculate variance percentage
+const calculateVariance = (poAmount, invoiceAmount) => {
+  if (poAmount === 0) return invoiceAmount === 0 ? 0 : 100;
+  return Math.abs((invoiceAmount - poAmount) / poAmount * 100);
+};
+
+// Two-way matching: PO vs Invoice
+router.post('/:poId/match-invoice', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { invoiceId, matchingDetails } = req.body;
+    if (!invoiceId) return res.status(400).json({ error: 'Invoice ID is required' });
+
+    const [po, invoice] = await Promise.all([
+      prisma.purchaseOrder.findFirst({
+        where: { id: req.params.poId, tenantId: req.tenantId },
+        include: { lines: true },
+      }),
+      prisma.vendorBill.findFirst({
+        where: { id: invoiceId, tenantId: req.tenantId },
+        include: { lines: true },
+      }),
+    ]);
+
+    if (!po) return res.status(404).json({ error: 'Purchase order not found' });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const matchings = [];
+    for (const invoiceLine of invoice.lines) {
+      const poLine = po.lines.find((l) => l.id === matchingDetails?.find((m) => m.invoiceLineId === invoiceLine.id)?.poLineId);
+      if (!poLine) continue;
+
+      const variancePercentage = calculateVariance(poLine.lineTotal, invoiceLine.lineTotal);
+      const matchStatus = variancePercentage === 0 ? 'MATCHED' : variancePercentage > 5 ? 'VARIANCE' : 'PARTIAL_MATCH';
+
+      const matching = await prisma.pOMatching.create({
+        data: {
+          tenantId: req.tenantId,
+          poId: po.id,
+          invoiceId: invoice.id,
+          matchingType: 'TWO_WAY',
+          poLineId: poLine.id,
+          invoiceLineId: invoiceLine.id,
+          poQuantity: poLine.quantity,
+          invoiceQuantity: invoiceLine.quantity,
+          poAmount: poLine.lineTotal,
+          invoiceAmount: invoiceLine.lineTotal,
+          matchStatus,
+          variancePercentage: new Decimal(variancePercentage.toFixed(2)),
+          varianceReason: variancePercentage > 5 ? 'Price or quantity variance exceeds threshold' : undefined,
+        },
+      });
+      matchings.push(matching);
+    }
+
+    res.status(201).json({ data: matchings, message: `${matchings.length} invoice line(s) matched to PO` });
+  } catch (e) { res.status(500).json({ error: 'Failed to match invoice to PO' }); }
+});
+
+// Three-way matching: PO vs GRN vs Invoice
+router.post('/:poId/match-with-grn', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { grnId, invoiceId, matchingDetails } = req.body;
+    if (!grnId || !invoiceId) return res.status(400).json({ error: 'GRN and Invoice IDs are required' });
+
+    const [po, grn, invoice] = await Promise.all([
+      prisma.purchaseOrder.findFirst({
+        where: { id: req.params.poId, tenantId: req.tenantId },
+        include: { lines: true },
+      }),
+      prisma.goodsReceivedNote.findFirst({
+        where: { id: grnId, tenantId: req.tenantId },
+        include: { lines: { include: { poLine: true } } },
+      }),
+      prisma.vendorBill.findFirst({
+        where: { id: invoiceId, tenantId: req.tenantId },
+        include: { lines: true },
+      }),
+    ]);
+
+    if (!po) return res.status(404).json({ error: 'Purchase order not found' });
+    if (!grn) return res.status(404).json({ error: 'GRN not found' });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const matchings = [];
+    for (const invoiceLine of invoice.lines) {
+      const matchDetail = matchingDetails?.find((m) => m.invoiceLineId === invoiceLine.id);
+      const poLine = po.lines.find((l) => l.id === matchDetail?.poLineId);
+      const grnLine = grn.lines.find((l) => l.id === matchDetail?.grnLineId);
+
+      if (!poLine || !grnLine) continue;
+
+      const qtyVariance = Math.abs(grnLine.receivedQty - invoiceLine.quantity);
+      const amtVariance = calculateVariance(poLine.lineTotal, invoiceLine.lineTotal);
+      let matchStatus = 'MATCHED';
+      let varianceReason = undefined;
+
+      if (qtyVariance > 0 || amtVariance > 0) {
+        if (qtyVariance > 0 && amtVariance > 5) {
+          matchStatus = 'VARIANCE';
+          varianceReason = `Quantity variance: ${qtyVariance} units, Amount variance: ${amtVariance.toFixed(2)}%`;
+        } else {
+          matchStatus = 'PARTIAL_MATCH';
+        }
+      }
+
+      const matching = await prisma.pOMatching.create({
+        data: {
+          tenantId: req.tenantId,
+          poId: po.id,
+          grnId: grn.id,
+          invoiceId: invoice.id,
+          matchingType: 'THREE_WAY',
+          poLineId: poLine.id,
+          grnLineId: grnLine.id,
+          invoiceLineId: invoiceLine.id,
+          poQuantity: poLine.quantity,
+          grnQuantity: grnLine.receivedQty,
+          invoiceQuantity: invoiceLine.quantity,
+          poAmount: poLine.lineTotal,
+          grnAmount: grnLine.poLine.lineTotal,
+          invoiceAmount: invoiceLine.lineTotal,
+          matchStatus,
+          variancePercentage: new Decimal(amtVariance.toFixed(2)),
+          varianceReason,
+        },
+      });
+      matchings.push(matching);
+    }
+
+    res.status(201).json({ data: matchings, message: `${matchings.length} line(s) matched (PO-GRN-Invoice)` });
+  } catch (e) { res.status(500).json({ error: 'Failed to perform three-way matching' }); }
+});
+
+// Get all matchings for a PO
+router.get('/:poId/matchings', async (req, res) => {
+  try {
+    const { page, limit, matchingType, matchStatus } = req.query;
+    const { take, skip } = paginate(page, limit);
+    const where = { tenantId: req.tenantId, poId: req.params.poId };
+    if (matchingType) where.matchingType = matchingType;
+    if (matchStatus) where.matchStatus = matchStatus;
+
+    const [data, total] = await Promise.all([
+      prisma.pOMatching.findMany({
+        where,
+        take,
+        skip,
+        orderBy: { createdAt: 'desc' },
+        include: { po: { select: { poNumber: true } }, grn: { select: { grnNumber: true } }, invoice: { select: { invoiceNumber: true } } },
+      }),
+      prisma.pOMatching.count({ where }),
+    ]);
+
+    res.json(paginatedResponse(data, total, page, limit));
+  } catch (e) { res.status(500).json({ error: 'Failed to fetch matchings' }); }
+});
+
+// Approve a matching result
+router.post('/:poId/matchings/:matchingId/approve', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { approvalNotes } = req.body;
+    const matching = await prisma.pOMatching.findFirst({
+      where: { id: req.params.matchingId, poId: req.params.poId, tenantId: req.tenantId },
+    });
+    if (!matching) return res.status(404).json({ error: 'Matching result not found' });
+
+    const updated = await prisma.pOMatching.update({
+      where: { id: matching.id },
+      data: { matchStatus: 'MATCHED', approvedBy: req.user.id, approvalNotes, approvedAt: new Date() },
+    });
+
+    res.json({ data: updated, message: 'Matching approved' });
+  } catch (e) { res.status(500).json({ error: 'Failed to approve matching' }); }
+});
+
+// Reject a matching result
+router.post('/:poId/matchings/:matchingId/reject', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
+  try {
+    const { reasonForRejection } = req.body;
+    const matching = await prisma.pOMatching.findFirst({
+      where: { id: req.params.matchingId, poId: req.params.poId, tenantId: req.tenantId },
+    });
+    if (!matching) return res.status(404).json({ error: 'Matching result not found' });
+
+    const updated = await prisma.pOMatching.update({
+      where: { id: matching.id },
+      data: { matchStatus: 'REJECTED', varianceReason: reasonForRejection },
+    });
+
+    res.json({ data: updated, message: 'Matching rejected' });
+  } catch (e) { res.status(500).json({ error: 'Failed to reject matching' }); }
 });
 
 module.exports = router;

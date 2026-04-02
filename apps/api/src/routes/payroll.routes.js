@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/payroll.controller');
-const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('hrPayroll'));
 router.get('/summary', ctrl.getSummary);
 router.get('/', ctrl.listRuns);
 router.post('/process', requireRole('OWNER','ADMIN','HR'), ctrl.processRun);

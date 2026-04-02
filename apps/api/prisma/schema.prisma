@@ -113,6 +113,7 @@ model Tenant {
   kycVerifiedBy       String?
   isActive            Boolean          @default(true)
   isMarketplaceSeller Boolean          @default(false)
+  enabledModules      Json?
   subscriptionPlan    SubscriptionPlan @default(STARTER)
   subscriptionStatus  SubStatus        @default(TRIAL)
   trialEndsAt         DateTime?
@@ -134,13 +135,25 @@ model Tenant {
   customers         Customer[]
   suppliers         Supplier[]
   invoices          Invoice[]
+  invoiceReminders  InvoiceReminder[]
+  invoiceImports    InvoiceImport[]
+  invoiceOCRData    InvoiceOCRData[]
+  recurringInvoices RecurringInvoice[]
+  invoiceApprovals  InvoiceApprovalWorkflow[]
+  invoiceDuplicateChecks InvoiceDuplicateCheck[]
+  invoiceNumbering  InvoiceNumbering?
   quotes            Quote[]
   purchaseOrders    PurchaseOrder[]
+  vendorBills       VendorBill[]
+  vendorBillPayments VendorBillPayment[]
+  vendorBillPaymentSchedules VendorBillPaymentSchedule[]
   warehouses        Warehouse[]
   employees         Employee[]
   payrollRuns       PayrollRun[]
   accounts          Account[]
   journalEntries    JournalEntry[]
+  budgets           Budget[]
+  budgetLines       BudgetLine[]
   taxFilings        TaxFiling[]
   subscriptions     Subscription[]
   marketplaceOrders MarketplaceOrder[]
@@ -168,6 +181,9 @@ model Tenant {
   leaveRequests     LeaveRequest[]
   resignations      Resignation[]
   intranetMessages  IntranetMessage[]
+  goodsReceivedNotes GoodsReceivedNote[] @relation("GRNs")
+  poAmendments      PurchaseOrderAmendment[] @relation("POAmendments")
+  poMatchings       POMatching[] @relation("POMatchings")
 
   @@index([kycStatus])
   @@index([subscriptionStatus])
@@ -313,6 +329,8 @@ model User {
   createdInvoices      Invoice[]       @relation("InvoiceCreator")
   auditLogs            AuditLog[]
   refreshTokens        RefreshToken[]
+  webAuthnCredentials  WebAuthnCredential[]
+  webAuthnChallenges   WebAuthnChallenge[]
   assignedTickets      SupportTicket[] @relation("AssignedTickets")
   ticketComments       TicketComment[]
   agentCallLogs        CallLog[]       @relation("AgentCallLogs")
@@ -569,6 +587,35 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model WebAuthnCredential {
+  id             String   @id @default(uuid())
+  userId         String
+  credentialId   String   @unique
+  publicKey      String
+  counter        Int      @default(0)
+  transports     Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WebAuthnChallenge {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  challenge String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 // ─────────────────────────────────────────────
 // FINANCE — CHART OF ACCOUNTS
 // ─────────────────────────────────────────────
@@ -593,6 +640,7 @@ model Account {
   parent       Account?      @relation("AccountHierarchy", fields: [parentId], references: [id])
   children     Account[]     @relation("AccountHierarchy")
   journalLines JournalLine[]
+  budgetLines  BudgetLine[]
 
   @@unique([tenantId, code])
   @@index([tenantId, type])
@@ -671,6 +719,68 @@ model AccountingPeriod {
   @@index([tenantId, isClosed])
 }
 
+enum BudgetStatus {
+  DRAFT
+  APPROVED
+  LOCKED
+}
+
+enum BudgetLineCategory {
+  OPEX
+  CAPEX
+  HEADCOUNT
+  SALARY
+  PROJECT
+}
+
+model Budget {
+  id          String       @id @default(uuid())
+  tenantId    String
+  name        String
+  fiscalYear  Int
+  startDate   DateTime
+  endDate     DateTime
+  status      BudgetStatus @default(DRAFT)
+  notes       String?
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id])
+  lines  BudgetLine[]
+
+  @@index([tenantId, fiscalYear])
+  @@unique([tenantId, name, fiscalYear])
+}
+
+model BudgetLine {
+  id             String             @id @default(uuid())
+  tenantId       String
+  budgetId       String
+  accountId      String
+  month          Int
+  amount         Decimal            @db.Decimal(18, 2)
+  category       BudgetLineCategory @default(OPEX)
+  costCenter     String             @default("")
+  projectCode    String             @default("")
+  headcount      Int?
+  allocationMode String?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  budget  Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([tenantId, budgetId])
+  @@index([tenantId, accountId, month])
+  @@index([tenantId, category])
+  @@index([tenantId, costCenter])
+  @@index([tenantId, projectCode])
+  @@unique([budgetId, accountId, month, category, costCenter, projectCode])
+}
+
 model TenantCurrency {
   id           String   @id @default(uuid())
   tenantId     String
@@ -721,28 +831,85 @@ model Customer {
   @@index([tenantId])
 }
 
+// ─────────────────────────────────────────────
+// VENDOR CATEGORIES & TYPES
+// ─────────────────────────────────────────────
+
+enum VendorCategory {
+  SUPPLIER
+  CONTRACTOR
+  UTILITY
+  SERVICE_PROVIDER
+  LOGISTICS
+  OTHER
+}
+
+enum VendorRating {
+  EXCELLENT
+  GOOD
+  AVERAGE
+  POOR
+}
+
 model Supplier {
-  id           String   @id @default(uuid())
-  tenantId     String
-  name         String
-  email        String?
-  phone        String?
-  address      String?
-  city         String?
-  state        String?
-  country      String   @default("Nigeria")
-  tin          String?
-  currency     String   @default("NGN")
-  paymentTerms Int      @default(30)
-  isActive     Boolean  @default(true)
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String          @id @default(uuid())
+  tenantId          String
+  name              String
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  state             String?
+  country           String          @default("Nigeria")
+  tin               String?
+  currency          String          @default("NGN")
+  paymentTerms      Int             @default(30)
+  
+  // Vendor categorization
+  category          VendorCategory  @default(SUPPLIER)
+  
+  // Bank account & payment details
+  bankName          String?
+  bankAccountNumber String?
+  bankCode          String?
+  accountHolderName String?
+  
+  // Vendor status
+  isActive          Boolean         @default(true)
+  isBlacklisted     Boolean         @default(false)
+  blacklistReason   String?
+  blacklistedAt     DateTime?
+  
+  // Performance tracking
+  performanceRating VendorRating    @default(AVERAGE)
+  totalOrders       Int             @default(0)
+  onTimeDeliveries  Int             @default(0)
+  qualityIssues     Int             @default(0)
+  
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id])
   purchaseOrders PurchaseOrder[]
+  vendorBills    VendorBill[]
+  ratings        VendorPerformanceRating[]
 
   @@index([tenantId])
+  @@index([isBlacklisted])
+}
+
+model VendorPerformanceRating {
+  id         String   @id @default(uuid())
+  tenantId   String
+  supplierId String
+  rating     VendorRating
+  feedback   String?
+  ratedAt    DateTime @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
 }
 
 // ─────────────────────────────────────────────
@@ -763,6 +930,7 @@ model Warehouse {
   updatedAt DateTime @updatedAt
 
   tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  grns        GoodsReceivedNote[]
   stockLevels StockLevel[]
   stockMoves  StockMovement[]
 
@@ -820,6 +988,7 @@ model Product {
   invoiceLines        InvoiceLine[]
   quoteLInes          QuoteLine[]
   poLines             PurchaseOrderLine[]
+  vendorBillLines     VendorBillLine[]
   landedCosts         LandedCost[]
   marketplaceListings MarketplaceListing[]
   posSaleLines        POSSaleLine[]
@@ -969,6 +1138,9 @@ model PurchaseOrder {
   tenant   Tenant              @relation(fields: [tenantId], references: [id])
   supplier Supplier            @relation(fields: [supplierId], references: [id])
   lines    PurchaseOrderLine[]
+  grns     GoodsReceivedNote[]
+  amendments PurchaseOrderAmendment[]
+  matchings  POMatching[]
 
   @@unique([tenantId, poNumber])
   @@index([tenantId])
@@ -996,6 +1168,296 @@ model PurchaseOrderLine {
 
   po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   product Product       @relation(fields: [productId], references: [id])
+  vendorBillLines VendorBillLine[]
+  grnLines GRNLine[]
+}
+
+// ─────────────────────────────────────────────
+// GOODS RECEIVED NOTES (GRN) & PO MATCHING
+// ─────────────────────────────────────────────
+
+model GoodsReceivedNote {
+  id              String   @id @default(uuid())
+  tenantId        String
+  poId            String
+  grnNumber       String   @unique
+  receiptDate     DateTime @default(now())
+  warehouseId     String?
+  notes           String?
+  status          GRNStatus @default(PENDING) // PENDING, PARTIAL, COMPLETE, REJECTED
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant       Tenant             @relation("GRNs", fields: [tenantId], references: [id])
+  po           PurchaseOrder      @relation(fields: [poId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse?         @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  lines        GRNLine[]
+  matchings    POMatching[]
+
+  @@index([tenantId])
+  @@index([poId])
+}
+
+model GRNLine {
+  id          String @id @default(uuid())
+  grnId       String
+  poLineId    String
+  quantity    Int
+  receivedQty Int @default(0)
+  notes       String?
+
+  grn    GoodsReceivedNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  poLine PurchaseOrderLine @relation(fields: [poLineId], references: [id], onDelete: Cascade)
+}
+
+model PurchaseOrderAmendment {
+  id              String   @id @default(uuid())
+  tenantId        String
+  poId            String
+  amendmentNumber String
+  amendmentType   AmendmentType // QUANTITY_CHANGE, PRICE_CHANGE, DATE_CHANGE, CANCELLATION
+  originalValue   String?
+  newValue        String?
+  reason          String?
+  status          AmendmentStatus @default(PENDING) // PENDING, APPROVED, REJECTED, IMPLEMENTED
+  approvedBy      String?
+  approvedAt      DateTime?
+  implementedAt   DateTime?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant        @relation("POAmendments", fields: [tenantId], references: [id])
+  po     PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([poId])
+}
+
+model POMatching {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  poId                  String
+  grnId                 String?
+  invoiceId             String?
+  matchingType          MatchingType // TWO_WAY (PO vs Invoice), THREE_WAY (PO vs GRN vs Invoice), GRN_ONLY, PARTIAL
+  poLineId              String?
+  grnLineId             String?
+  invoiceLineId         String?
+  poQuantity            Int?
+  grnQuantity           Int?
+  invoiceQuantity       Int?
+  poAmount              Decimal? @db.Decimal(18, 2)
+  grnAmount             Decimal? @db.Decimal(18, 2)
+  invoiceAmount         Decimal? @db.Decimal(18, 2)
+  matchStatus           MatchStatus // MATCHED, PARTIAL_MATCH, UNMATCHED, VARIANCE, REJECTED
+  varianceReason        String?
+  variancePercentage    Decimal? @db.Decimal(5, 2) // Percentage difference
+  approvedBy            String?
+  approvalNotes         String?
+  approvedAt            DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant       Tenant                 @relation("POMatchings", fields: [tenantId], references: [id])
+  po           PurchaseOrder          @relation(fields: [poId], references: [id], onDelete: Cascade)
+  grn          GoodsReceivedNote?     @relation(fields: [grnId], references: [id], onDelete: SetNull)
+  invoice      VendorBill?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([poId])
+  @@index([grnId])
+  @@index([invoiceId])
+}
+
+enum GRNStatus {
+  PENDING
+  PARTIAL
+  COMPLETE
+  REJECTED
+}
+
+enum AmendmentType {
+  QUANTITY_CHANGE
+  PRICE_CHANGE
+  DATE_CHANGE
+  CANCELLATION
+  OTHER
+}
+
+enum AmendmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+}
+
+enum MatchingType {
+  TWO_WAY      // PO vs Invoice
+  THREE_WAY    // PO vs GRN vs Invoice
+  GRN_ONLY     // GRN linkage only
+  PARTIAL      // Partial delivery/invoice
+}
+
+enum MatchStatus {
+  MATCHED
+  PARTIAL_MATCH
+  UNMATCHED
+  VARIANCE
+  REJECTED
+}
+
+// ─────────────────────────────────────────────
+// ACCOUNTS PAYABLE (Vendor Bills)
+// ─────────────────────────────────────────────
+
+enum VendorBillStatus {
+  DRAFT
+  POSTED
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+enum VendorBillLineMatchStatus {
+  UNMATCHED
+  MATCHED
+  PARTIAL
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BillScheduleStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model VendorBill {
+  id             String          @id @default(uuid())
+  tenantId       String
+  supplierId     String
+  billNumber     String         // human-readable vendor bill reference (unique per tenant)
+  billDate       DateTime       @default(now())
+  dueDate        DateTime
+  currency       String         @default("NGN")
+  exchangeRate   Decimal        @default(1) @db.Decimal(18, 6)
+
+  status         VendorBillStatus @default(DRAFT)
+  subtotal       Decimal        @db.Decimal(18, 2)
+  vatAmount      Decimal        @default(0) @db.Decimal(18, 2)
+  whtAmount      Decimal        @default(0) @db.Decimal(18, 2)
+  totalAmount    Decimal        @db.Decimal(18, 2)
+  amountPaid     Decimal        @default(0) @db.Decimal(18, 2)
+  amountDue      Decimal        @db.Decimal(18, 2)
+  approvalStatus ApprovalStatus @default(PENDING)
+
+  notes          String?
+  approvalNote   String?
+  rejectionReason String?
+  approvalRequestedAt DateTime?
+  approvedAt     DateTime?
+  approvedById   String?
+  postedAt       DateTime?
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  lines    VendorBillLine[]
+  payments VendorBillPayment[]
+  paymentSchedules VendorBillPaymentSchedule[]
+  matchings POMatching[]
+
+  @@unique([tenantId, billNumber])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, status])
+  @@index([tenantId, dueDate])
+}
+
+model VendorBillLine {
+  id            String                @id @default(uuid())
+  billId        String
+  poLineId      String?
+  productId     String?
+
+  description   String
+  quantity      Decimal              @db.Decimal(18, 3)
+  unitPrice     Decimal              @db.Decimal(18, 2)
+
+  vatRate       Decimal              @default(0.075) @db.Decimal(5, 4)
+  vatAmount     Decimal              @db.Decimal(18, 2)
+
+  whtRate       Decimal              @default(0) @db.Decimal(5, 4)
+  whtAmount     Decimal              @db.Decimal(18, 2)
+
+  lineSubtotal  Decimal              @db.Decimal(18, 2)
+  lineTotal     Decimal              @db.Decimal(18, 2)
+
+  matchedQty    Decimal              @db.Decimal(18, 3)
+  matchStatus   VendorBillLineMatchStatus @default(UNMATCHED)
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  bill           VendorBill         @relation(fields: [billId], references: [id], onDelete: Cascade)
+  poLine         PurchaseOrderLine? @relation(fields: [poLineId], references: [id], onDelete: SetNull)
+  product        Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([billId])
+  @@index([poLineId])
+  @@index([matchStatus])
+}
+
+model VendorBillPayment {
+  id           String        @id @default(uuid())
+  tenantId     String
+  billId       String
+
+  amount       Decimal       @db.Decimal(18, 2)
+  currency     String        @default("NGN")
+  exchangeRate Decimal       @default(1) @db.Decimal(18, 6)
+  method       String?
+  reference    String?       @unique
+  status       PaymentStatus @default(SUCCESS)
+  gateway      String?
+  gatewayRef   String?
+  paidAt       DateTime?
+  notes        String?
+
+  createdAt    DateTime     @default(now())
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id])
+  bill     VendorBill  @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, billId])
+}
+
+model VendorBillPaymentSchedule {
+  id          String           @id @default(uuid())
+  tenantId    String
+  billId      String
+  amount      Decimal          @db.Decimal(18, 2)
+  dueDate     DateTime
+  status      BillScheduleStatus @default(PENDING)
+  notes       String?
+  paidAt      DateTime?
+  createdById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id])
+  bill   VendorBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, dueDate, status])
+  @@index([billId])
 }
 
 // ─────────────────────────────────────────────
@@ -1103,6 +1565,7 @@ model Invoice {
   lines     InvoiceLine[]
   payments  Payment[]
   nrsLogs   NRSLog[]
+  reminders InvoiceReminder[]
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId, status])
@@ -1173,6 +1636,178 @@ enum PaymentStatus {
   SUCCESS
   FAILED
   REFUNDED
+}
+
+model InvoiceReminder {
+  id          String   @id @default(uuid())
+  tenantId    String
+  invoiceId   String
+  channel     String   @default("EMAIL")
+  recipient   String?
+  status      String   @default("SENT")
+  sentAt      DateTime?
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([invoiceId])
+}
+
+// ─────────────────────────────────────────────
+// INVOICE MANAGEMENT FEATURES
+// ─────────────────────────────────────────────
+
+model InvoiceImport {
+  id              String             @id @default(uuid())
+  tenantId        String
+  fileName        String
+  fileSize        Int
+  fileUrl         String
+  importType      String             @default("CSV") // CSV, EXCEL, JSON
+  status          String             @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  totalRecords    Int                @default(0)
+  successCount    Int                @default(0)
+  failureCount    Int                @default(0)
+  errors          Json?              // Array of import errors
+  duplicatesFound Int                @default(0)
+  mappingConfig   Json?              // Column mapping config
+  createdById     String?
+  uploadedAt      DateTime           @default(now())
+  processedAt     DateTime?
+  createdAt       DateTime           @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([createdAt])
+}
+
+model InvoiceOCRData {
+  id              String   @id @default(uuid())
+  tenantId        String
+  invoiceId       String?
+  fileName        String
+  fileUrl         String
+  fileType        String   // PDF, IMAGE, etc.
+  ocrStatus       String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED, MANUAL_REVIEW
+  extractedText   String?  @db.Text
+  extractedData   Json?    // Parsed fields: amount, date, vendor, invoice number, etc.
+  confidence      Float?   // OCR confidence score 0-100
+  manualEdits     Json?    // Track manual corrections
+  isValidated     Boolean  @default(false)
+  validatedAt     DateTime?
+  validatedBy     String?
+  validationNotes String?
+  processedAt     DateTime?
+  createdById     String?
+  createdAt       DateTime @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, ocrStatus])
+  @@index([invoiceId])
+}
+
+model RecurringInvoice {
+  id              String   @id @default(uuid())
+  tenantId        String
+  customerId      String
+  templateName    String
+  frequency       String   @default("MONTHLY") // MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL, CUSTOM
+  dayOfMonth      Int      @default(1)
+  startDate       DateTime
+  endDate         DateTime?
+  isActive        Boolean  @default(true)
+  nextInvoiceDate DateTime
+  lastInvoiceDate DateTime?
+  invoiceCount    Int      @default(0)
+  currency        String   @default("NGN")
+  subtotal        Decimal  @db.Decimal(18, 2)
+  vatRate         Decimal  @default(0.075) @db.Decimal(5, 4)
+  description     String?
+  lines           Json?    // Array of recurring invoice line items
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, isActive])
+  @@index([nextInvoiceDate])
+}
+
+model InvoiceApprovalWorkflow {
+  id              String   @id @default(uuid())
+  tenantId        String
+  invoiceId       String
+  workflowStatus  String   @default("PENDING") // PENDING, IN_REVIEW, APPROVED, REJECTED, RECALL
+  currentApprover String?  // User ID
+  approverLevel   Int      @default(1)
+  maxApprovalLevels Int    @default(2)
+  approvalHistory Json?    // Array of approval records with timestamp, approver, status, notes
+  rejectionReason String?
+  approvedAt      DateTime?
+  approvedBy      String?
+  estimatedCompletionDate DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, workflowStatus])
+  @@index([invoiceId])
+  @@index([currentApprover])
+}
+
+model InvoiceDuplicateCheck {
+  id                String   @id @default(uuid())
+  tenantId          String
+  invoiceId         String?
+  supplierId        String?
+  vendorInvoiceNo   String
+  vendorName        String
+  amount            Decimal  @db.Decimal(18, 2)
+  currency          String   @default("NGN")
+  invoiceDate       DateTime
+  duplicateOf       String?  // ID of the original invoice if duplicate detected
+  matchConfidence   Float?   // 0-100 score
+  matchReason       String?  // Why it was flagged as duplicate
+  isDuplicate       Boolean  @default(false)
+  isApproved        Boolean  @default(false)
+  approvedBy        String?
+  approvedAt        DateTime?
+  notes             String?
+  checkStatus       String   @default("PENDING") // PENDING, VERIFIED, APPROVED, REJECTED
+  createdAt         DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, isDuplicate])
+  @@index([invoiceId])
+  @@index([checkStatus])
+}
+
+model InvoiceNumbering {
+  id              String   @id @default(uuid())
+  tenantId        String   @unique
+  currentNumber   Int      @default(1000)
+  prefix          String   @default("INV")
+  suffix          String?
+  formatPattern   String   @default("{PREFIX}-{NUMBER}-{YEAR}") // Pattern for invoice numbering
+  separator       String   @default("-")
+  yearFormat      String   @default("YYYY") // YYYY or YY
+  resetFrequency  String   @default("YEARLY") // YEARLY, MONTHLY, NONE
+  lastResetDate   DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
 
 // ─────────────────────────────────────────────
@@ -2086,8 +2721,9 @@ model LogisticsCompany {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  agents     LogisticsAgent[]
-  deliveries Delivery[]
+  agents          LogisticsAgent[]
+  deliveries      Delivery[]
+  supportTickets  LogisticsSupportTicket[]
 
   @@index([status])
 }
@@ -2117,9 +2753,10 @@ model LogisticsAgent {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  company    LogisticsCompany? @relation(fields: [companyId], references: [id])
-  tenant     Tenant?           @relation(fields: [tenantId], references: [id])
-  deliveries Delivery[]
+  company         LogisticsCompany?        @relation(fields: [companyId], references: [id])
+  tenant          Tenant?                  @relation(fields: [tenantId], references: [id])
+  deliveries      Delivery[]
+  supportTickets  LogisticsSupportTicket[]
 
   @@index([companyId])
   @@index([status])
@@ -2159,6 +2796,7 @@ model Delivery {
   deliveredAt          DateTime?
   failedAt             DateTime?
   expectedDeliveryDate DateTime?
+  deliveryKind         DeliveryKind     @default(STANDARD)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
@@ -2210,6 +2848,29 @@ enum DeliveryPriority {
   EXPRESS
   STANDARD
   ECONOMY
+}
+
+enum DeliveryKind {
+  STANDARD
+  RETURN
+}
+
+model LogisticsSupportTicket {
+  id        String   @id @default(uuid())
+  companyId String?
+  agentId   String?
+  subject   String
+  message   String   @db.Text
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company LogisticsCompany? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  agent   LogisticsAgent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([agentId])
+  @@index([status])
 }
 
 // ─────────────────────────────────────────────

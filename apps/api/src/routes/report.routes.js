@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
+const ap = require('../controllers/ap.controller');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('finance'));
 
 router.get('/profit-loss', requireRole('OWNER','ADMIN','ACCOUNTANT'), async (req, res) => {
   try {
@@ -153,5 +154,7 @@ router.get('/inventory-valuation', requireRole('OWNER','ADMIN','ACCOUNTANT','WAR
     });
   } catch (e) { res.status(500).json({ error: 'Failed to generate inventory valuation' }); }
 });
+
+router.get('/aged-payables', requireRole('OWNER','ADMIN','ACCOUNTANT'), ap.getAgedPayables);
 
 module.exports = router;

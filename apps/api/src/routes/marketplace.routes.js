@@ -9,6 +9,8 @@ const { authenticateMarketplace } = require('../middleware/auth.middleware');
 const { singleAvatarUpload } = require('../middleware/upload.middleware');
 
 router.post('/auth/register', customerCtrl.register);
+router.post('/auth/register/send-otp', customerCtrl.registerSendOtp);
+router.post('/auth/register/complete', customerCtrl.completeRegistration);
 router.post('/auth/login', customerCtrl.login);
 router.post('/auth/forgot-password', customerCtrl.forgotPassword);
 router.post('/auth/reset-password', customerCtrl.resetPassword);

@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, requireRole, requireKYC, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireRole, requireKYC, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 const prisma = require('../config/prisma');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 const nrsService = require('../services/nrs.service');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('finance'));
 
 router.get('/logs', async (req, res) => {
   try {

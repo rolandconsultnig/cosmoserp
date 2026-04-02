@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Search, Download, Send, MessageCircle, Shield, RefreshCw, Eye } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, formatDate, getStatusColor, cn } from '../lib/utils';
+import InvoiceManagementNav from '../components/InvoiceManagementNav';
 
 export default function InvoicesPage() {
   const [search, setSearch] = useState('');
@@ -31,6 +32,7 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
+      <InvoiceManagementNav />
       <div className="page-header">
         <div>
           <h1 className="page-title">Invoices</h1>

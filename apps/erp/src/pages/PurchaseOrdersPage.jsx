@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, X, Loader2, ShoppingCart, CheckCircle } from 'lucide-react';
+import { Plus, Search, X, Loader2, ShoppingCart, CheckCircle, Package, FileText, GitCompare } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, formatDate, getStatusColor, cn } from '../lib/utils';
 
@@ -86,6 +87,7 @@ function CreatePOModal({ onClose }) {
 }
 
 export default function PurchaseOrdersPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
@@ -147,6 +149,27 @@ export default function PurchaseOrdersPage() {
                   <td className="px-5 py-3"><span className={cn('px-2 py-1 rounded-full text-xs font-medium', getStatusColor(po.status))}>{po.status}</span></td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => navigate(`/purchase-orders/${po.id}/grns`)}
+                        title="Manage GRNs"
+                        className="text-xs text-purple-600 border border-purple-200 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1"
+                      >
+                        <Package className="w-3 h-3" /> GRN
+                      </button>
+                      <button
+                        onClick={() => navigate(`/purchase-orders/${po.id}/amendments`)}
+                        title="Track amendments"
+                        className="text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1"
+                      >
+                        <FileText className="w-3 h-3" /> Amend
+                      </button>
+                      <button
+                        onClick={() => navigate(`/purchase-orders/${po.id}/matching`)}
+                        title="View matching"
+                        className="text-xs text-cyan-600 border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1"
+                      >
+                        <GitCompare className="w-3 h-3" /> Match
+                      </button>
                       {po.status === 'DRAFT' && (
                         <button onClick={() => approveMutation.mutate({ id: po.id, status: 'APPROVED' })} disabled={approveMutation.isPending}
                           className="text-xs text-green-600 border border-green-200 bg-green-50 hover:bg-green-100 px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1">
@@ -156,7 +179,7 @@ export default function PurchaseOrdersPage() {
                       {po.status === 'APPROVED' && (
                         <button onClick={() => approveMutation.mutate({ id: po.id, status: 'RECEIVED' })} disabled={approveMutation.isPending}
                           className="text-xs text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1">
-                          <ShoppingCart className="w-3 h-3" /> Receive Goods
+                          <ShoppingCart className="w-3 h-3" /> Receive
                         </button>
                       )}
                     </div>

@@ -6,8 +6,8 @@ import {
   CreditCard, Banknote, Smartphone, CheckCircle, Printer,
   RotateCcw, X, ShoppingCart, Tag, Percent, Hash,
   ChevronDown, Loader2, AlertCircle, Zap, Receipt, FileText, Mail, MessageCircle, Camera,
-  Star, Award, QrCode, Menu, WifiOff, Bell, Filter, Grid3x3, List,
-  ArrowLeft, MoreVertical
+  Star, Award, QrCode, Menu, WifiIcon, WifiOffIcon, Bell, Filter, Grid3x3, List,
+  ArrowLeft, MoreVertical, BarChart3, Settings
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency, cn } from '../lib/utils';
@@ -146,7 +146,7 @@ export default function MobilePOSScreen() {
             <button className={`mobile-touch-target p-2 rounded-lg ${
               isOnline ? 'text-green-600' : 'text-orange-500'
             }`}>
-              {isOnline ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
+              {isOnline ? <WifiIcon className="w-5 h-5" /> : <WifiOffIcon className="w-5 h-5" />}
             </button>
             
             {/* Notifications */}

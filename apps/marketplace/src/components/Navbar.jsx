@@ -176,6 +176,12 @@ export default function Navbar() {
                 {cat}
               </Link>
             ))}
+            <Link
+              to="/services/call-center"
+              className="whitespace-nowrap text-amber-200 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/15 transition-colors flex-shrink-0"
+            >
+              Call Center Services
+            </Link>
             <Link to="/products" className="whitespace-nowrap text-amber-300 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/15 transition-colors flex-shrink-0 ml-auto">
               Today's Deals →
             </Link>

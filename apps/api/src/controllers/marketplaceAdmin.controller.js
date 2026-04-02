@@ -121,26 +121,70 @@ async function listEscrowOrders(req, res) {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
     const skip = (Math.max(1, page) - 1) * limit;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const escrowStatus = String(req.query.escrowStatus || 'HELD').toUpperCase();
+    const allowedEscrowStatuses = new Set(['HELD', 'RELEASED', 'DISPUTED', 'REFUNDED', 'ALL']);
+    const activeEscrowStatus = allowedEscrowStatuses.has(escrowStatus) ? escrowStatus : 'HELD';
 
     const where = {
       paymentStatus: 'SUCCESS',
-      escrowStatus: 'HELD',
-      status: 'DELIVERED',
+    };
+    if (activeEscrowStatus !== 'ALL') {
+      where.escrowStatus = activeEscrowStatus;
+    }
+    if (activeEscrowStatus === 'HELD') {
+      where.status = 'DELIVERED';
+    }
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { buyerEmail: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const summaryWhere = {
+      paymentStatus: 'SUCCESS',
+      ...(search
+        ? {
+          OR: [
+            { orderNumber: { contains: search, mode: 'insensitive' } },
+            { buyerEmail: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+        : {}),
     };
 
-    const [orders, total] = await Promise.all([
+    const [orders, total, groupedSummary] = await Promise.all([
       prisma.marketplaceOrder.findMany({
         where,
         include: {
           lines: { select: { tenantId: true, sellerNet: true, productName: true } },
           sellerPayouts: true,
         },
-        orderBy: { deliveredAt: 'desc' },
+        orderBy: [{ deliveredAt: 'desc' }, { createdAt: 'desc' }],
         take: limit,
         skip,
       }),
       prisma.marketplaceOrder.count({ where }),
+      prisma.marketplaceOrder.groupBy({
+        by: ['escrowStatus'],
+        where: summaryWhere,
+        _count: { escrowStatus: true },
+      }),
     ]);
+
+    const summary = {
+      HELD: 0,
+      RELEASED: 0,
+      DISPUTED: 0,
+      REFUNDED: 0,
+      total: 0,
+    };
+    for (const row of groupedSummary) {
+      if (summary[row.escrowStatus] === undefined) continue;
+      summary[row.escrowStatus] = row._count.escrowStatus;
+      summary.total += row._count.escrowStatus;
+    }
 
     const data = orders.map((o) => {
       const tenantIds = [...new Set(o.lines.map((l) => l.tenantId))];
@@ -153,6 +197,10 @@ async function listEscrowOrders(req, res) {
         orderNumber: o.orderNumber,
         buyerEmail: o.buyerEmail,
         totalAmount: o.totalAmount,
+        paymentStatus: o.paymentStatus,
+        status: o.status,
+        escrowStatus: o.escrowStatus,
+        createdAt: o.createdAt,
         deliveredAt: o.deliveredAt,
         lines: o.lines,
         sellerPayouts: o.sellerPayouts,
@@ -162,7 +210,7 @@ async function listEscrowOrders(req, res) {
       };
     });
 
-    res.json({ data, page, limit, total });
+    res.json({ data, page, limit, total, summary });
   } catch (e) {
     logger.error('listEscrowOrders', e);
     res.status(500).json({ error: 'Failed to list orders' });
@@ -225,6 +273,11 @@ async function executePaystackPayouts(req, res) {
       include: { lines: true, sellerPayouts: true },
     });
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.paymentStatus !== 'SUCCESS') return res.status(400).json({ error: 'Order not paid' });
+    if (order.status !== 'DELIVERED') return res.status(400).json({ error: 'Order must be DELIVERED before payout' });
+    if (order.escrowStatus !== 'RELEASED') {
+      return res.status(400).json({ error: `Escrow is ${order.escrowStatus}. Release escrow before payout.` });
+    }
 
     const perTenant = {};
     for (const l of order.lines) {

@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, Fragment } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Truck, LayoutDashboard, Package, User, LogOut, Menu, X,
-  ChevronLeft, ChevronRight, MapPin, Clock, Wifi, WifiOff,
+  LayoutDashboard, Package, User, LogOut, Menu, X,
+  ChevronLeft, ChevronRight, MapPin, Clock, WifiIcon, WifiOffIcon,
+  BarChart3, FileText, Users, RotateCcw, CreditCard,
+  Headphones, CalendarClock,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LOGO_URL } from '../../lib/branding';
@@ -30,14 +32,76 @@ function OnlineDot() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   return online
-    ? <Wifi className="w-3.5 h-3.5 text-blue-400" />
-    : <WifiOff className="w-3.5 h-3.5 text-red-400" />;
+    ? <WifiIcon className="w-3.5 h-3.5 text-blue-400" />
+    : <WifiOffIcon className="w-3.5 h-3.5 text-red-400" />;
 }
 
-const navItems = [
-  { to: '/logistics/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/logistics/deliveries', icon: Package,         label: 'My Deliveries' },
-  { to: '/logistics/profile',    icon: User,            label: 'Profile' },
+/** Agent (driver) — execution + workspace */
+const agentNavGroups = [
+  {
+    label: 'Delivery',
+    items: [
+      { to: '/logistics/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/logistics/deliveries', icon: Package, label: 'My deliveries' },
+      { to: '/logistics/profile', icon: User, label: 'Profile' },
+    ],
+  },
+  {
+    label: 'Workspace',
+    items: [
+      { to: '/logistics/analytics', icon: BarChart3, label: 'Performance' },
+      { to: '/logistics/documents', icon: FileText, label: 'Documents' },
+      { to: '/logistics/support', icon: Headphones, label: 'Support' },
+    ],
+  },
+];
+
+/** Company (fleet / 3PL) — full portal map */
+const companyNavGroups = [
+  {
+    label: 'Operations',
+    items: [
+      { to: '/logistics/company', icon: LayoutDashboard, label: 'Overview', end: true },
+      { to: '/logistics/company/deliveries', icon: Package, label: 'Shipments' },
+      { to: '/logistics/company/schedule', icon: CalendarClock, label: 'Schedule' },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { to: '/logistics/company/analytics', icon: BarChart3, label: 'Analytics' },
+    ],
+  },
+  {
+    label: 'Fleet',
+    items: [
+      { to: '/logistics/company/carriers', icon: Users, label: 'Carriers' },
+    ],
+  },
+  {
+    label: 'Documentation',
+    items: [
+      { to: '/logistics/company/documents', icon: FileText, label: 'Documents & POD' },
+    ],
+  },
+  {
+    label: 'After delivery',
+    items: [
+      { to: '/logistics/company/returns', icon: RotateCcw, label: 'Returns' },
+    ],
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: '/logistics/company/billing', icon: CreditCard, label: 'Billing' },
+    ],
+  },
+  {
+    label: 'Help',
+    items: [
+      { to: '/logistics/company/support', icon: Headphones, label: 'Support' },
+    ],
+  },
 ];
 
 function useLogisticsAuth() {
@@ -53,6 +117,8 @@ export default function LogisticsLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { agent, company, type } = useLogisticsAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navGroups = type === 'company' ? companyNavGroups : agentNavGroups;
 
   const today = new Date().toLocaleDateString('en-NG', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
@@ -75,12 +141,27 @@ export default function LogisticsLayout() {
     navigate('/logistics-login');
   };
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!localStorage.getItem('logistics_token')) {
       navigate('/logistics-login');
     }
   }, [navigate]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('logistics_token');
+    const t = localStorage.getItem('logistics_type');
+    if (!token) return;
+    const p = location.pathname;
+    if (t === 'company') {
+      const agentPaths = ['/logistics/dashboard', '/logistics/deliveries', '/logistics/profile', '/logistics/analytics', '/logistics/documents', '/logistics/support'];
+      if (agentPaths.includes(p)) {
+        navigate('/logistics/company', { replace: true });
+      }
+    }
+    if (t === 'agent' && p.startsWith('/logistics/company')) {
+      navigate('/logistics/dashboard', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const Sidebar = ({ mobile = false }) => (
     <aside
@@ -135,29 +216,39 @@ export default function LogisticsLayout() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-2">
-        {(!collapsed || mobile) && (
-          <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider px-3 mb-2">
-            Delivery Center
-          </div>
-        )}
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) => cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all mb-0.5',
-              collapsed && !mobile ? 'justify-center px-2' : '',
-              isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300',
+        {navGroups.map((group, gi) => (
+          <Fragment key={group.label}>
+            {(!collapsed || mobile) && (
+              <div
+                className={cn(
+                  'text-[10px] font-bold text-slate-600 uppercase tracking-wider px-3 mb-1.5',
+                  gi > 0 && 'mt-3 pt-2 border-t border-white/[0.06]',
+                )}
+              >
+                {group.label}
+              </div>
             )}
-            style={({ isActive }) => isActive
-              ? { background: 'rgba(0,82,204,0.20)', color: '#60A5FA' }
-              : {}}
-            onClick={() => mobile && setMobileOpen(false)}
-            title={collapsed && !mobile ? label : undefined}
-          >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {(!collapsed || mobile) && <span>{label}</span>}
-          </NavLink>
+            {group.items.map(({ to, icon: Icon, label, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={Boolean(end)}
+                className={({ isActive }) => cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all mb-0.5',
+                  collapsed && !mobile ? 'justify-center px-2' : '',
+                  isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300',
+                )}
+                style={({ isActive }) => isActive
+                  ? { background: 'rgba(0,82,204,0.20)', color: '#60A5FA' }
+                  : {}}
+                onClick={() => mobile && setMobileOpen(false)}
+                title={collapsed && !mobile ? label : undefined}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {(!collapsed || mobile) && <span className="leading-tight">{label}</span>}
+              </NavLink>
+            ))}
+          </Fragment>
         ))}
       </nav>
 

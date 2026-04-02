@@ -1,8 +1,8 @@
 const router = require('express').Router();
-const { authenticate, requireTenantUser } = require('../middleware/auth.middleware');
+const { authenticate, requireTenantUser, requireEnabledModule } = require('../middleware/auth.middleware');
 const pos = require('../controllers/pos.controller');
 
-router.use(authenticate, requireTenantUser);
+router.use(authenticate, requireTenantUser, requireEnabledModule('pos'));
 
 router.post('/sale', pos.createSale);
 router.post('/offline-sync', pos.syncOfflineSales);
