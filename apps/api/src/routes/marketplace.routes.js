@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/marketplace.controller');
 const customerCtrl = require('../controllers/marketplaceCustomer.controller');
@@ -11,8 +11,6 @@ const { singleAvatarUpload } = require('../middleware/upload.middleware');
 router.post('/auth/register/send-otp', customerCtrl.sendRegistrationOtp);
 router.post('/auth/register/resend-otp', customerCtrl.resendRegistrationOtp);
 router.post('/auth/register', customerCtrl.register);
-router.post('/auth/register/send-otp', customerCtrl.registerSendOtp);
-router.post('/auth/register/complete', customerCtrl.completeRegistration);
 router.post('/auth/login', customerCtrl.login);
 router.post('/auth/forgot-password', customerCtrl.forgotPassword);
 router.post('/auth/reset-password', customerCtrl.resetPassword);
@@ -42,7 +40,7 @@ router.get('/support/tickets', authenticateMarketplace, platformSupport.listMyTi
 router.get('/support/tickets/:id', authenticateMarketplace, platformSupport.getMyTicket);
 router.post('/support/tickets/:id/messages', authenticateMarketplace, platformSupport.addMessage);
 
-// Customer wallet (with escrow support — deposit/checkout flow can use wallet later)
+// Customer wallet (with escrow support ΓÇö deposit/checkout flow can use wallet later)
 const walletCtrl = require('../controllers/wallet.controller');
 router.get('/customer/wallet', authenticateMarketplace, walletCtrl.getMyWallet);
 router.post('/customer/wallet/deposit', authenticateMarketplace, walletCtrl.initiateDeposit);
