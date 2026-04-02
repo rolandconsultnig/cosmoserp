@@ -118,6 +118,8 @@ model Tenant {
   subscriptionStatus  SubStatus        @default(TRIAL)
   trialEndsAt         DateTime?
   subscriptionEndsAt  DateTime?
+  /// Set when business email is verified (OTP at registration). Existing rows backfilled to createdAt.
+  emailVerifiedAt     DateTime?
   nrsTaxpayerId       String?
   nrsRegisteredAt     DateTime?
   bankName            String?
@@ -583,6 +585,29 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum EmailOtpPurpose {
+  TENANT_REGISTRATION
+  ERP_PASSWORD_RESET
+  ADMIN_PASSWORD_RESET
+  MARKETPLACE_REGISTRATION
+  MARKETPLACE_PASSWORD_RESET
+}
+
+/// One-time codes emailed for registration verification and password recovery (hashed at rest).
+model EmailOtp {
+  id         String           @id @default(uuid())
+  email      String
+  purpose    EmailOtpPurpose
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int              @default(0)
+  createdAt  DateTime         @default(now())
+
+  @@index([email, purpose])
+  @@index([expiresAt])
 }
 
 model WebAuthnCredential {

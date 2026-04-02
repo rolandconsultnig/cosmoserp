@@ -1,12 +1,11 @@
 const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/email.service');
+const { sendOtpEmail, sendMarketplaceWelcomeEmail } = require('../services/email.service');
+const { createOtp, verifyAndConsumeOtp, PURPOSE_TTL_MS } = require('../services/otp.service');
 
 const ROUNDS = 12;
-const VERIFICATION_EXPIRY_HOURS = 24;
 
 function isMarketplaceEmailVerificationDisabled() {
   return (
@@ -15,16 +14,130 @@ function isMarketplaceEmailVerificationDisabled() {
   );
 }
 
-function generateVerificationToken() {
-  return crypto.randomBytes(32).toString('hex');
-}
-
 function signCustomerToken(payload) {
   return jwt.sign(
     payload,
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
+}
+
+/**
+ * Send MARKETPLACE_REGISTRATION OTP if email is free (no customer yet).
+ * @returns {{ ok: true }} or { error, status, retryAfterSec? }
+ */
+async function deliverMarketplaceRegistrationOtp(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) {
+    return { error: 'Email is required', status: 400 };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return { error: 'Invalid email address', status: 400 };
+  }
+
+  const taken = await prisma.marketplaceCustomer.findUnique({ where: { email: normalized } });
+  if (taken) {
+    return { error: 'An account with this email already exists. Please sign in.', status: 409 };
+  }
+
+  let otpResult;
+  try {
+    otpResult = await createOtp(normalized, 'MARKETPLACE_REGISTRATION');
+  } catch (e) {
+    if (e.message === 'RATE_LIMITED') {
+      return {
+        error: 'Please wait a minute before requesting another code.',
+        status: 429,
+        retryAfterSec: e.retryAfterSec || 60,
+      };
+    }
+    if (e.message === 'INVALID_EMAIL') {
+      return { error: 'Invalid email address', status: 400 };
+    }
+    logger.error('Marketplace registration OTP createOtp failed:', e);
+    const prismaCode = e && e.code;
+    if (prismaCode === 'P2021') {
+      return {
+        error:
+          'Email verification is not available yet. Ensure the API database has the latest migrations applied (EmailOtp table).',
+        status: 503,
+      };
+    }
+    if (prismaCode === 'P1001' || e.name === 'PrismaClientInitializationError') {
+      return { error: 'Database is unavailable. Try again in a moment.', status: 503 };
+    }
+    throw e;
+  }
+
+  const ttlMinutes = Math.round((PURPOSE_TTL_MS.MARKETPLACE_REGISTRATION || 86400000) / 60000);
+  try {
+    await sendOtpEmail(otpResult.normalizedEmail, otpResult.code, {
+      title: 'Your Cosmos Marketplace registration code',
+      tagline: 'customer registration',
+      ttlMinutes,
+    });
+  } catch (emailErr) {
+    logger.error('Marketplace registration OTP email failed:', emailErr);
+    const body = {
+      error: 'Could not send email. Check SMTP settings or try again later.',
+      status: 503,
+    };
+    if (process.env.NODE_ENV === 'development' && emailErr?.message) {
+      body.detail = emailErr.message;
+    }
+    return body;
+  }
+
+  return { ok: true };
+}
+
+async function sendRegistrationOtp(req, res) {
+  try {
+    if (isMarketplaceEmailVerificationDisabled()) {
+      return res.json({
+        message: 'Email verification is disabled on this server. You can register without a code.',
+        disabled: true,
+      });
+    }
+    const result = await deliverMarketplaceRegistrationOtp(req.body?.email);
+    if (!result.ok) {
+      const body = { error: result.error };
+      if (result.retryAfterSec != null) body.retryAfterSec = result.retryAfterSec;
+      if (result.detail != null) body.detail = result.detail;
+      return res.status(result.status).json(body);
+    }
+    res.json({ message: 'Verification code sent. Check your inbox.' });
+  } catch (error) {
+    logger.error('sendRegistrationOtp error:', error);
+    const hint =
+      process.env.NODE_ENV === 'development' && error && error.message
+        ? { detail: error.message }
+        : {};
+    res.status(500).json({ error: 'Failed to send verification code', ...hint });
+  }
+}
+
+async function resendRegistrationOtp(req, res) {
+  try {
+    if (isMarketplaceEmailVerificationDisabled()) {
+      return res.json({ message: 'Email verification is disabled on this server.', disabled: true });
+    }
+    const result = await deliverMarketplaceRegistrationOtp(req.body?.email);
+    if (!result.ok) {
+      const body = { error: result.error };
+      if (result.retryAfterSec != null) body.retryAfterSec = result.retryAfterSec;
+      if (result.detail != null) body.detail = result.detail;
+      return res.status(result.status).json(body);
+    }
+    res.json({ message: 'A new verification code has been sent. Check your inbox.' });
+  } catch (error) {
+    logger.error('resendRegistrationOtp error:', error);
+    const hint =
+      process.env.NODE_ENV === 'development' && error && error.message
+        ? { detail: error.message }
+        : {};
+    res.status(500).json({ error: 'Failed to resend verification code', ...hint });
+  }
 }
 
 async function register(req, res) {
@@ -43,11 +156,26 @@ async function register(req, res) {
     const fullNameTrimmed = fullName.trim();
     const phoneTrimmed = phone.trim() || null;
 
+    const da = body.deliveryAddress && typeof body.deliveryAddress === 'object' ? body.deliveryAddress : {};
+    const deliveryLine = String(da.address ?? '').trim();
+    const deliveryCity = String(da.city ?? '').trim();
+    const deliveryState = String(da.state ?? '').trim();
+    const deliveryRecipient = String(da.recipientName ?? '').trim() || fullNameTrimmed;
+
     if (!normalizedEmail || !password || !fullNameTrimmed) {
       return res.status(400).json({ error: 'Email, password, and full name are required' });
     }
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!deliveryLine || deliveryLine.length < 5) {
+      return res.status(400).json({ error: 'Delivery street address is required (at least 5 characters).' });
+    }
+    if (!deliveryCity) {
+      return res.status(400).json({ error: 'Delivery city is required.' });
+    }
+    if (!deliveryState) {
+      return res.status(400).json({ error: 'Delivery state is required.' });
     }
 
     const existing = await prisma.marketplaceCustomer.findUnique({
@@ -59,34 +187,56 @@ async function register(req, res) {
 
     const passwordHash = await bcrypt.hash(password, ROUNDS);
     const disableVerification = isMarketplaceEmailVerificationDisabled();
-    const verificationToken = disableVerification ? null : generateVerificationToken();
-    const verificationExpiresAt = disableVerification ? null : new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
-
-    const customer = await prisma.marketplaceCustomer.create({
-      data: {
-        email: normalizedEmail,
-        passwordHash,
-        fullName: fullNameTrimmed,
-        phone: phoneTrimmed,
-        emailVerified: disableVerification ? true : false,
-        emailVerificationToken: verificationToken,
-        emailVerificationExpiresAt: verificationExpiresAt,
-      },
-    });
 
     if (!disableVerification) {
-      try {
-        await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
-      } catch (emailErr) {
-        logger.error('Verification email send failed:', emailErr);
-        // still succeed registration; user can request resend
+      const otpStr = String(body.otp ?? body.code ?? '').trim();
+      if (!otpStr) {
+        return res.status(400).json({
+          error: 'Email verification code is required. Use “Email code” on the registration form first.',
+        });
       }
-      return res.status(201).json({
-        message: 'Account created. Please check your email to verify your account before signing in.',
-        email: customer.email,
-        requiresVerification: true,
-      });
+      const verify = await verifyAndConsumeOtp(normalizedEmail, 'MARKETPLACE_REGISTRATION', otpStr);
+      if (!verify.ok) {
+        const msg = {
+          INVALID_OR_EXPIRED: 'Invalid or expired code. Request a new code.',
+          INVALID_CODE: 'Incorrect code.',
+          TOO_MANY_ATTEMPTS: 'Too many incorrect attempts. Request a new code.',
+        }[verify.error] || 'Verification failed';
+        return res.status(400).json({ error: msg });
+      }
     }
+
+    const customer = await prisma.$transaction(async (tx) => {
+      const c = await tx.marketplaceCustomer.create({
+        data: {
+          email: normalizedEmail,
+          passwordHash,
+          fullName: fullNameTrimmed,
+          phone: phoneTrimmed,
+          emailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpiresAt: null,
+        },
+      });
+      await tx.marketplaceCustomerAddress.create({
+        data: {
+          customerId: c.id,
+          label: 'Delivery',
+          name: deliveryRecipient,
+          phone: phoneTrimmed,
+          address: deliveryLine,
+          city: deliveryCity,
+          state: deliveryState,
+          isDefault: true,
+        },
+      });
+      return c;
+    });
+
+    sendMarketplaceWelcomeEmail(customer.email, {
+      fullName: customer.fullName,
+      needsEmailVerification: false,
+    }).catch((err) => logger.warn('Marketplace welcome email failed:', err.message));
 
     const token = signCustomerToken({
       type: 'marketplace_customer',
@@ -315,9 +465,35 @@ async function verifyEmail(req, res) {
     if (isMarketplaceEmailVerificationDisabled()) {
       return res.json({ message: 'Email verification is disabled on this server. You can sign in.', disabled: true });
     }
+
+    const bodyEmail = (req.body?.email || '').trim().toLowerCase();
+    const bodyCode = req.body?.code ?? req.body?.otp;
+    if (bodyEmail && bodyCode != null && String(bodyCode).trim() !== '') {
+      const v = await verifyAndConsumeOtp(bodyEmail, 'MARKETPLACE_REGISTRATION', bodyCode);
+      if (!v.ok) {
+        const msg = {
+          INVALID_OR_EXPIRED: 'Invalid or expired code. Request a new one from the sign-in page.',
+          INVALID_CODE: 'Incorrect code.',
+          TOO_MANY_ATTEMPTS: 'Too many incorrect attempts. Request a new code.',
+        }[v.error] || 'Verification failed';
+        return res.status(400).json({ error: msg });
+      }
+      const customer = await prisma.marketplaceCustomer.findUnique({ where: { email: bodyEmail } });
+      if (!customer) return res.status(400).json({ error: 'Account not found' });
+      await prisma.marketplaceCustomer.update({
+        where: { id: customer.id },
+        data: {
+          emailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpiresAt: null,
+        },
+      });
+      return res.json({ message: 'Email verified. You can now sign in.', email: customer.email });
+    }
+
     const token = (req.query.token || req.body?.token || '').trim();
     if (!token) {
-      return res.status(400).json({ error: 'Verification token is required' });
+      return res.status(400).json({ error: 'Verification code or link token is required' });
     }
     const customer = await prisma.marketplaceCustomer.findFirst({
       where: { emailVerificationToken: token },
@@ -361,25 +537,28 @@ async function resendVerificationEmail(req, res) {
     if (customer.emailVerified) {
       return res.status(400).json({ error: 'Email is already verified. You can sign in.' });
     }
-    const verificationToken = generateVerificationToken();
-    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
-    await prisma.marketplaceCustomer.update({
-      where: { id: customer.id },
-      data: {
-        emailVerificationToken: verificationToken,
-        emailVerificationExpiresAt: verificationExpiresAt,
-      },
-    });
     try {
-      await sendVerificationEmail(customer.email, customer.fullName, verificationToken);
-    } catch (emailErr) {
-      logger.error('Marketplace resendVerification email send failed:', emailErr);
+      const otpResult = await createOtp(email, 'MARKETPLACE_REGISTRATION');
+      const ttlMinutes = Math.round((PURPOSE_TTL_MS.MARKETPLACE_REGISTRATION || 86400000) / 60000);
+      await sendOtpEmail(customer.email, otpResult.code, {
+        title: 'Your Cosmos Marketplace verification code',
+        tagline: 'account verification',
+        ttlMinutes,
+      });
+    } catch (err) {
+      if (err.message === 'RATE_LIMITED') {
+        return res.status(429).json({
+          error: 'Please wait a minute before requesting another code.',
+          retryAfterSec: err.retryAfterSec || 60,
+        });
+      }
+      logger.error('Marketplace resendVerification OTP send failed:', err);
       return res.status(503).json({
-        error: 'Verification email could not be sent. The server may not have email configured. Please try again later or contact support.',
+        error: 'Verification email could not be sent. Please try again later or contact support.',
         code: 'EMAIL_SEND_FAILED',
       });
     }
-    res.json({ message: 'Verification email sent. Please check your inbox.' });
+    res.json({ message: 'Verification code sent. Please check your inbox.' });
   } catch (error) {
     logger.error('Marketplace resendVerification error:', error);
     res.status(500).json({ error: 'Failed to send verification email' });
@@ -421,9 +600,34 @@ async function forgotPassword(req, res) {
 
 async function resetPassword(req, res) {
   try {
-    const { token, password } = req.body;
-    if (!token || !password || password.length < 8) {
-      return res.status(400).json({ error: 'Valid token and password (min 8 chars) required' });
+    const { token, password, email, code } = req.body;
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    if (email && code) {
+      const normalized = String(email).trim().toLowerCase();
+      const v = await verifyAndConsumeOtp(normalized, 'MARKETPLACE_PASSWORD_RESET', code);
+      if (!v.ok) {
+        const msg = {
+          INVALID_OR_EXPIRED: 'Invalid or expired code.',
+          INVALID_CODE: 'Incorrect code.',
+          TOO_MANY_ATTEMPTS: 'Too many incorrect attempts. Request a new code.',
+        }[v.error] || 'Verification failed';
+        return res.status(400).json({ error: msg });
+      }
+      const customer = await prisma.marketplaceCustomer.findUnique({ where: { email: normalized } });
+      if (!customer) return res.status(400).json({ error: 'Account not found' });
+      const passwordHash = await bcrypt.hash(password, ROUNDS);
+      await prisma.marketplaceCustomer.update({
+        where: { id: customer.id },
+        data: { passwordHash },
+      });
+      return res.json({ message: 'Password reset successful' });
+    }
+
+    if (!token) {
+      return res.status(400).json({ error: 'Enter the code from your email and your new password, or use a reset link from an older email.' });
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.type !== 'marketplace_reset' || !decoded.customerId) {
@@ -583,6 +787,8 @@ async function uploadAvatar(req, res) {
 }
 
 module.exports = {
+  sendRegistrationOtp,
+  resendRegistrationOtp,
   register,
   login,
   verifyEmail,

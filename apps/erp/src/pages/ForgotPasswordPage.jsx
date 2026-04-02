@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import api from '../lib/api';
 import { LOGO_URL } from '../lib/branding';
 
+const ERP_RESET_EMAIL_KEY = 'cosmos_erp_reset_email';
+
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -15,7 +18,9 @@ export default function ForgotPasswordPage() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email: email.trim().toLowerCase() });
+      const normalized = email.trim().toLowerCase();
+      await api.post('/auth/forgot-password', { email: normalized });
+      sessionStorage.setItem(ERP_RESET_EMAIL_KEY, normalized);
       setSent(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
@@ -37,11 +42,18 @@ export default function ForgotPasswordPage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Forgot password?</h1>
-          <p className="text-slate-500 text-sm mb-6">Enter your email and we’ll send you a link to reset your password.</p>
+          <p className="text-slate-500 text-sm mb-6">Enter your email and we’ll send a 6-digit code to reset your password.</p>
 
           {sent ? (
-            <div className="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm mb-4">
-              If that email exists, a reset link has been sent. Check your inbox (and spam).
+            <div className="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm mb-4 space-y-3">
+              <p>If that email exists, a reset code has been sent. Check your inbox (and spam).</p>
+              <button
+                type="button"
+                onClick={() => navigate('/reset-password')}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg py-2.5 text-sm"
+              >
+                Enter code &amp; new password
+              </button>
             </div>
           ) : (
             <>
@@ -68,7 +80,7 @@ export default function ForgotPasswordPage() {
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-lg py-2.5 text-sm transition flex items-center justify-center gap-2"
                 >
                   {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {loading ? 'Sending…' : 'Send reset link'}
+                  {loading ? 'Sending…' : 'Send reset code'}
                 </button>
               </form>
             </>

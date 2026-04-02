@@ -2,17 +2,52 @@ const nodemailer = require('nodemailer');
 const { logger } = require('../utils/logger');
 const { formatCurrency } = require('../utils/helpers');
 
+/** Strip one pair of surrounding quotes from .env values (e.g. SMTP_HOST="mail.example.com"). */
+function envPlain(key) {
+  const raw = process.env[key];
+  if (raw == null) return raw;
+  let v = String(raw).trim();
+  if (
+    (v.startsWith('"') && v.endsWith('"') && v.length >= 2) ||
+    (v.startsWith("'") && v.endsWith("'") && v.length >= 2)
+  ) {
+    v = v.slice(1, -1);
+  }
+  return v;
+}
+
+const smtpHost = envPlain('SMTP_HOST') || 'smtp.ethereal.email';
+const smtpUser = envPlain('SMTP_USER');
+const smtpPass = envPlain('SMTP_PASS');
+const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+const smtpSecure =
+  process.env.SMTP_SECURE === 'true' ||
+  smtpPort === 465 ||
+  String(process.env.SMTP_SECURE || '').toLowerCase() === '1';
+
+/** cPanel / shared hosts often use certs Node rejects unless this is false. */
+function smtpTlsRejectUnauthorized() {
+  const v = String(process.env.SMTP_TLS_REJECT_UNAUTHORIZED ?? 'true').trim().toLowerCase();
+  return v !== 'false' && v !== '0' && v !== 'no';
+}
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: process.env.SMTP_USER
-    ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    : undefined,
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpSecure,
+  auth: smtpUser ? { user: smtpUser, pass: smtpPass || '' } : undefined,
+  connectionTimeout: 25_000,
+  greetingTimeout: 25_000,
+  socketTimeout: 25_000,
+  tls: {
+    rejectUnauthorized: smtpTlsRejectUnauthorized(),
+    minVersion: 'TLSv1.2',
+  },
 });
 
 const PLATFORM_EMAIL = process.env.PLATFORM_EMAIL || 'hello@cosmoserp.afrinict.com';
-const FROM = process.env.MAIL_FROM || process.env.SMTP_USER || PLATFORM_EMAIL;
+const FROM =
+  envPlain('MAIL_FROM') || smtpUser || envPlain('EMAIL_FROM') || PLATFORM_EMAIL;
 
 async function sendMail({ to, subject, text, html }) {
   if (!to) {
@@ -30,7 +65,8 @@ async function sendMail({ to, subject, text, html }) {
     logger.info(`Email sent to ${to}: ${subject}`);
     return { status: 'sent', messageId: info.messageId };
   } catch (err) {
-    logger.error('Email send error:', err.message);
+    const extra = err.response || err.responseCode ? ` code=${err.responseCode}` : '';
+    logger.error(`Email send error:${extra}`, err.message);
     throw new Error(`Email delivery failed: ${err.message}`);
   }
 }
@@ -232,6 +268,96 @@ async function sendPayrollApprovalNotificationEmail(toEmail, tenantName, run, ap
   return sendMail({ to: toEmail.trim(), subject, text, html });
 }
 
+/** 6-digit OTP for registration / password reset (never log the code). */
+async function sendOtpEmail(toEmail, code, { title, tagline, ttlMinutes = 15 } = {}) {
+  const subject = title || 'Your verification code';
+  const head = tagline ? `Use this code to continue with ${tagline}:` : 'Use this code to continue:';
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+  <h2>${subject}</h2>
+  <p>Hi,</p>
+  <p>${head}</p>
+  <p style="font-size:28px;font-weight:bold;letter-spacing:0.2em;margin:20px 0;">${code}</p>
+  <p>This code expires in <strong>${ttlMinutes}</strong> minutes. If you didn’t request it, you can ignore this email.</p>
+  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  </body></html>`;
+  const text = `${subject}\n\n${head}\n\n${code}\n\nExpires in ${ttlMinutes} minutes.\n\n— Cosmos ERP`;
+  return sendMail({ to: toEmail, subject, text, html });
+}
+
+function erpLoginAbsoluteUrl() {
+  const base = (process.env.ERP_URL || process.env.API_PUBLIC_URL || process.env.API_URL || 'http://localhost:3060').replace(/\/$/, '');
+  return `${base}/erp/login`;
+}
+
+function marketplaceLoginAbsoluteUrl() {
+  const base = (process.env.MARKETPLACE_URL || process.env.MARKET_URL || 'http://localhost:5174').replace(/\/$/, '');
+  return `${base}/login`;
+}
+
+function marketplaceVerifyAbsoluteUrl(email) {
+  const base = (process.env.MARKETPLACE_URL || process.env.MARKET_URL || 'http://localhost:5174').replace(/\/$/, '');
+  const q = email ? `?email=${encodeURIComponent(email)}` : '';
+  return `${base}/verify-email${q}`;
+}
+
+/** Welcome email after ERP tenant registration (trial). */
+async function sendTenantWelcomeEmail(toEmail, { businessName, trialEndsAt } = {}) {
+  if (process.env.DISABLE_WELCOME_EMAILS === 'true') {
+    return { status: 'skipped', reason: 'disabled' };
+  }
+  const safeName = escapeHtmlLite(businessName || 'your business');
+  const loginUrl = erpLoginAbsoluteUrl();
+  const trialEnd =
+    trialEndsAt instanceof Date
+      ? trialEndsAt.toLocaleDateString('en-NG', { dateStyle: 'long' })
+      : trialEndsAt
+        ? new Date(trialEndsAt).toLocaleDateString('en-NG', { dateStyle: 'long' })
+        : '';
+  const subject = `Welcome to Cosmos ERP — ${businessName || 'your business'}`;
+  const trialLine = trialEnd
+    ? `<p>Your <strong>5-day free trial</strong> is active. It ends on <strong>${escapeHtmlLite(trialEnd)}</strong>. Complete KYC in the app to unlock all features.</p>`
+    : '<p>Your <strong>5-day free trial</strong> is active. Complete KYC in the app to unlock all features.</p>';
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+  <h2>Welcome aboard</h2>
+  <p>Hi ${safeName},</p>
+  <p>Thank you for registering <strong>${safeName}</strong> on Cosmos ERP. We’re glad you’re here.</p>
+  ${trialLine}
+  <p><a href="${loginUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Sign in to Cosmos ERP</a></p>
+  <p style="font-size:12px;color:#64748b;">If the button doesn’t work, copy: ${loginUrl}</p>
+  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  </body></html>`;
+  const text = `Welcome to Cosmos ERP, ${businessName || 'your business'}!\n\nYour trial is active${trialEnd ? ` until ${trialEnd}` : ''}. Sign in: ${loginUrl}\n\n— Cosmos ERP`;
+  return sendMail({ to: toEmail, subject, text, html });
+}
+
+/** Welcome email after marketplace customer registration. */
+async function sendMarketplaceWelcomeEmail(toEmail, { fullName, needsEmailVerification } = {}) {
+  if (process.env.DISABLE_WELCOME_EMAILS === 'true') {
+    return { status: 'skipped', reason: 'disabled' };
+  }
+  const safeName = escapeHtmlLite(fullName || 'there');
+  const loginUrl = marketplaceLoginAbsoluteUrl();
+  const verifyUrl = marketplaceVerifyAbsoluteUrl(toEmail);
+  const verifyBlock = needsEmailVerification
+    ? `<p>We sent a <strong>6-digit code</strong> to this address. Enter it on our verification page to confirm your email, then you can sign in.</p>
+       <p><a href="${verifyUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Verify your email</a></p>
+       <p style="font-size:12px;color:#64748b;">Or open: ${verifyUrl}</p>`
+    : `<p>You can sign in anytime with the email and password you chose.</p>
+       <p><a href="${loginUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Sign in to Marketplace</a></p>
+       <p style="font-size:12px;color:#64748b;">Or open: ${loginUrl}</p>`;
+  const subject = 'Welcome to Cosmos Marketplace';
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
+  <h2>Welcome, ${safeName}!</h2>
+  <p>Thanks for creating your Cosmos Marketplace account.</p>
+  ${verifyBlock}
+  <p style="margin-top:24px;color:#64748b;">— Cosmos Marketplace (${PLATFORM_EMAIL})</p>
+  </body></html>`;
+  const textPlain = needsEmailVerification
+    ? `Welcome, ${fullName || 'there'}!\n\nVerify your email with the code we sent, then sign in: ${verifyUrl}\n\n— Cosmos Marketplace`
+    : `Welcome, ${fullName || 'there'}!\n\nSign in: ${loginUrl}\n\n— Cosmos Marketplace`;
+  return sendMail({ to: toEmail, subject, text: textPlain, html });
+}
+
 async function sendPasswordResetEmail(toEmail, name, resetLink, portalLabel) {
   const subject = `Reset your password – Cosmos ERP${portalLabel ? ` (${portalLabel})` : ''}`;
   const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
@@ -253,6 +379,9 @@ module.exports = {
   sendQuotation,
   sendInvoiceEmail,
   sendVerificationEmail,
+  sendOtpEmail,
+  sendTenantWelcomeEmail,
+  sendMarketplaceWelcomeEmail,
   sendPasswordResetEmail,
   sendDeliveryStatusUpdateEmail,
   sendPayrollApprovalNotificationEmail,

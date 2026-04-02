@@ -3,7 +3,9 @@ import { Mail } from 'lucide-react';
 
 export default function VerifyEmailSentPage() {
   const [searchParams] = useSearchParams();
-  const email = searchParams.get('email') || 'your email';
+  const email = searchParams.get('email') || '';
+
+  const verifyHref = email ? `/verify-email?email=${encodeURIComponent(email)}` : '/verify-email';
 
   return (
     <div className="max-w-md mx-auto px-4 py-10">
@@ -13,14 +15,22 @@ export default function VerifyEmailSentPage() {
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Check your email</h1>
         <p className="text-gray-600 text-sm mb-4">
-          We sent a verification link to <strong>{email}</strong>. Click the link to verify your account, then sign in.
+          We sent a <strong>6-digit verification code</strong>
+          {email ? (
+            <> to <strong>{email}</strong>.</>
+          ) : (
+            '.'
+          )}
         </p>
         <p className="text-gray-500 text-xs mb-6">
-          The link expires in 24 hours. If you don&apos;t see the email, check your spam folder.
+          Enter the code on the next screen to verify your account. Codes expire in 24 hours. Check spam if needed.
         </p>
-        <Link to="/login" className="btn-buy inline-block py-2.5 px-5 rounded-xl font-semibold text-sm">
-          Go to sign in
+        <Link to={verifyHref} className="btn-buy inline-block py-2.5 px-5 rounded-xl font-semibold text-sm mb-3">
+          Enter verification code
         </Link>
+        <p className="text-sm text-gray-600">
+          <Link to="/login" className="text-brand-600 font-semibold hover:underline">Back to sign in</Link>
+        </p>
       </div>
     </div>
   );

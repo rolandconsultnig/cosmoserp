@@ -18,7 +18,60 @@ const useShopperAuthStore = create(
         });
       },
 
-      register: async ({ fullName, email, phone, password }) => {
+      sendRegisterOtp: async (email) => {
+        const normalized = (email || '').trim().toLowerCase();
+        if (!normalized) {
+          return { ok: false, error: 'Enter your email first.' };
+        }
+        try {
+          const { data } = await api.post('/marketplace/auth/register/send-otp', { email: normalized });
+          if (data.disabled) {
+            return { ok: true, disabled: true, message: data.message };
+          }
+          return { ok: true, message: data.message };
+        } catch (err) {
+          const d = err.response?.data;
+          const base = d?.error || 'Could not send code.';
+          const detail = d?.detail ? ` ${d.detail}` : '';
+          return {
+            ok: false,
+            error: `${base}${detail}`.trim(),
+            retryAfterSec: d?.retryAfterSec,
+          };
+        }
+      },
+
+      resendRegisterOtp: async (email) => {
+        const normalized = (email || '').trim().toLowerCase();
+        if (!normalized) {
+          return { ok: false, error: 'Enter your email first.' };
+        }
+        try {
+          const { data } = await api.post('/marketplace/auth/register/resend-otp', { email: normalized });
+          if (data.disabled) return { ok: true, disabled: true };
+          return { ok: true };
+        } catch (err) {
+          const d = err.response?.data;
+          return {
+            ok: false,
+            error: d?.error || 'Could not resend code.',
+            retryAfterSec: d?.retryAfterSec,
+          };
+        }
+      },
+
+      register: async ({
+        fullName,
+        email,
+        phone,
+        password,
+        deliveryRecipientName,
+        deliveryAddress,
+        deliveryCity,
+        deliveryState,
+        otp,
+        omitOtp,
+      }) => {
         const normalizedEmail = (email || '').trim().toLowerCase();
         if (!fullName || !normalizedEmail || !password) {
           return { ok: false, error: 'Full name, email, and password are required.' };
@@ -26,16 +79,38 @@ const useShopperAuthStore = create(
         if (password.length < 8) {
           return { ok: false, error: 'Password must be at least 8 characters.' };
         }
+        const dAddr = String(deliveryAddress || '').trim();
+        const dCity = String(deliveryCity || '').trim();
+        const dState = String(deliveryState || '').trim();
+        if (!dAddr || dAddr.length < 5) {
+          return { ok: false, error: 'Delivery street address is required (at least 5 characters).' };
+        }
+        if (!dCity || !dState) {
+          return { ok: false, error: 'Delivery city and state are required.' };
+        }
+        if (!omitOtp) {
+          const otpStr = String(otp || '').trim();
+          if (!otpStr) {
+            return { ok: false, error: 'Enter the verification code from your email (request a code first).' };
+          }
+        }
         try {
-          const { data } = await api.post('/marketplace/auth/register', {
+          const payload = {
             fullName: fullName.trim(),
             email: normalizedEmail,
             phone: (phone || '').trim() || undefined,
             password,
-          });
-          if (data.requiresVerification) {
-            return { ok: true, requiresVerification: true, email: data.email };
-          }
+            deliveryAddress: {
+              address: dAddr,
+              city: dCity,
+              state: dState,
+            },
+          };
+          const rName = String(deliveryRecipientName || '').trim();
+          if (rName) payload.deliveryAddress.recipientName = rName;
+          if (!omitOtp) payload.otp = String(otp || '').trim();
+
+          const { data } = await api.post('/marketplace/auth/register', payload);
           get().setFromApi(data.customer, data.accessToken);
           return { ok: true };
         } catch (err) {

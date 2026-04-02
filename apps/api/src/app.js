@@ -25,6 +25,7 @@ const employeeRoutes = require('./routes/employee.routes');
 const taxRoutes = require('./routes/tax.routes');
 const nrsRoutes = require('./routes/nrs.routes');
 const marketplaceRoutes = require('./routes/marketplace.routes');
+const marketplaceCustomerCtrl = require('./controllers/marketplaceCustomer.controller');
 const marketplaceSellerRoutes = require('./routes/marketplaceSeller.routes');
 const adminRoutes = require('./routes/admin.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
@@ -157,6 +158,9 @@ app.use('/api/tax', taxRoutes);
 app.use('/api/nrs', nrsRoutes);
 app.use('/api/seller/marketplace', marketplaceSellerRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
+// Explicit fallbacks so OTP routes work even if an older `marketplace.routes` is cached or the process wasn’t restarted.
+app.post('/api/marketplace/auth/register/send-otp', marketplaceCustomerCtrl.sendRegistrationOtp);
+app.post('/api/marketplace/auth/register/resend-otp', marketplaceCustomerCtrl.resendRegistrationOtp);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);

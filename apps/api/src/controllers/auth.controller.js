@@ -12,7 +12,8 @@ const {
 } = require('@simplewebauthn/server/helpers');
 const { logger } = require('../utils/logger');
 const { createAuditLog } = require('../middleware/audit.middleware');
-const { sendPasswordResetEmail } = require('../services/email.service');
+const { sendOtpEmail } = require('../services/email.service');
+const { createOtp, verifyAndConsumeOtp, PURPOSE_TTL_MS } = require('../services/otp.service');
 
 function signToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
@@ -108,11 +109,17 @@ async function webAuthnAuthenticationOptions(req, res) {
     const user = await prisma.user.findFirst({
       where: { email: email.toLowerCase(), isActive: true },
       include: {
-        tenant: { select: { id: true, isActive: true } },
+        tenant: { select: { id: true, isActive: true, emailVerifiedAt: true } },
       },
     });
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
     if (!user.tenant?.isActive) return res.status(403).json({ error: 'Your business account has been suspended' });
+    if (!user.tenant?.emailVerifiedAt) {
+      return res.status(403).json({
+        error: 'Please verify your business email before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
 
     const creds = await prisma.webAuthnCredential.findMany({
       where: { userId: user.id },
@@ -151,12 +158,19 @@ async function webAuthnAuthenticationVerify(req, res) {
             id: true, businessName: true, tradingName: true, logoUrl: true,
             kycStatus: true, subscriptionStatus: true, subscriptionPlan: true, isActive: true,
             enabledModules: true,
+            emailVerifiedAt: true,
           },
         },
       },
     });
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
     if (!user.tenant?.isActive) return res.status(403).json({ error: 'Your business account has been suspended' });
+    if (!user.tenant?.emailVerifiedAt) {
+      return res.status(403).json({
+        error: 'Please verify your business email before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
 
     const expectedChallenge = await consumeLatestChallenge({ userId: user.id, type: 'authentication' });
     if (!expectedChallenge) return res.status(400).json({ error: 'Authentication challenge expired. Try again.' });
@@ -298,6 +312,7 @@ async function login(req, res) {
             id: true, businessName: true, tradingName: true, logoUrl: true,
             kycStatus: true, subscriptionStatus: true, subscriptionPlan: true, isActive: true,
             enabledModules: true,
+            emailVerifiedAt: true,
           },
         },
       },
@@ -309,6 +324,13 @@ async function login(req, res) {
 
     if (!user.tenant.isActive) {
       return res.status(403).json({ error: 'Your business account has been suspended' });
+    }
+
+    if (!user.tenant.emailVerifiedAt) {
+      return res.status(403).json({
+        error: 'Please verify your business email before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
     }
 
     const accessToken = signToken({ id: user.id, tenantId: user.tenantId, role: user.role, type: 'user' });
@@ -477,17 +499,26 @@ async function forgotPassword(req, res) {
       include: { tenant: { select: { businessName: true } } },
     });
     if (user) {
-      const resetToken = jwt.sign({ id: user.id, type: 'reset' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      const baseUrl = getErpBaseUrl().replace(/\/$/, '');
-      const resetLink = `${baseUrl}/erp/reset-password?token=${encodeURIComponent(resetToken)}`;
       try {
-        await sendPasswordResetEmail(user.email, `${user.firstName} ${user.lastName}`.trim(), resetLink, 'ERP');
-      } catch (emailErr) {
-        logger.error('ERP forgot-password email failed:', emailErr);
+        const otpResult = await createOtp(normalized, 'ERP_PASSWORD_RESET');
+        const ttlMinutes = Math.round((PURPOSE_TTL_MS.ERP_PASSWORD_RESET || 900000) / 60000);
+        await sendOtpEmail(user.email, otpResult.code, {
+          title: 'Your Cosmos ERP password reset code',
+          tagline: 'password reset',
+          ttlMinutes,
+        });
+      } catch (err) {
+        if (err.message === 'RATE_LIMITED') {
+          return res.status(429).json({
+            error: 'Please wait a minute before requesting another code.',
+            retryAfterSec: err.retryAfterSec || 60,
+          });
+        }
+        logger.error('ERP forgot-password OTP email failed:', err);
         return res.status(503).json({ error: 'Could not send reset email. Please try again later.' });
       }
     }
-    res.json({ message: 'If that email exists, a reset link has been sent.' });
+    res.json({ message: 'If that email exists, a reset code has been sent.' });
   } catch (error) {
     logger.error('Forgot password error:', error);
     res.status(500).json({ error: 'Failed to process request' });
@@ -496,9 +527,32 @@ async function forgotPassword(req, res) {
 
 async function resetPassword(req, res) {
   try {
-    const { token, password } = req.body;
-    if (!token || !password || password.length < 8) {
-      return res.status(400).json({ error: 'Valid token and password (min 8 chars) required' });
+    const { token, password, email, code } = req.body;
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    if (email && code) {
+      const normalized = String(email).trim().toLowerCase();
+      const v = await verifyAndConsumeOtp(normalized, 'ERP_PASSWORD_RESET', code);
+      if (!v.ok) {
+        const msg = {
+          INVALID_OR_EXPIRED: 'Invalid or expired code. Request a new one from Forgot password.',
+          INVALID_CODE: 'Incorrect code.',
+          TOO_MANY_ATTEMPTS: 'Too many incorrect attempts. Request a new code.',
+        }[v.error] || 'Verification failed';
+        return res.status(400).json({ error: msg });
+      }
+      const user = await prisma.user.findFirst({ where: { email: normalized } });
+      if (!user) return res.status(400).json({ error: 'Account not found' });
+      const passwordHash = await bcrypt.hash(password, 12);
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+      await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+      return res.json({ message: 'Password reset successful' });
+    }
+
+    if (!token) {
+      return res.status(400).json({ error: 'Enter the code from your email and your new password, or use the reset link from an older email.' });
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.type !== 'reset') return res.status(400).json({ error: 'Invalid reset token' });
@@ -521,17 +575,26 @@ async function adminForgotPassword(req, res) {
 
     const admin = await prisma.adminUser.findUnique({ where: { email: normalized } });
     if (admin) {
-      const resetToken = jwt.sign({ id: admin.id, type: 'admin_reset' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      const baseUrl = getAdminBaseUrl().replace(/\/$/, '');
-      const resetLink = `${baseUrl}/admin/reset-password?token=${encodeURIComponent(resetToken)}`;
       try {
-        await sendPasswordResetEmail(admin.email, `${admin.firstName} ${admin.lastName}`.trim(), resetLink, 'Admin');
-      } catch (emailErr) {
-        logger.error('Admin forgot-password email failed:', emailErr);
+        const otpResult = await createOtp(normalized, 'ADMIN_PASSWORD_RESET');
+        const ttlMinutes = Math.round((PURPOSE_TTL_MS.ADMIN_PASSWORD_RESET || 900000) / 60000);
+        await sendOtpEmail(admin.email, otpResult.code, {
+          title: 'Your Cosmos Admin password reset code',
+          tagline: 'admin password reset',
+          ttlMinutes,
+        });
+      } catch (err) {
+        if (err.message === 'RATE_LIMITED') {
+          return res.status(429).json({
+            error: 'Please wait a minute before requesting another code.',
+            retryAfterSec: err.retryAfterSec || 60,
+          });
+        }
+        logger.error('Admin forgot-password OTP email failed:', err);
         return res.status(503).json({ error: 'Could not send reset email. Please try again later.' });
       }
     }
-    res.json({ message: 'If that email exists, a reset link has been sent.' });
+    res.json({ message: 'If that email exists, a reset code has been sent.' });
   } catch (error) {
     logger.error('Admin forgot password error:', error);
     res.status(500).json({ error: 'Failed to process request' });
@@ -540,9 +603,31 @@ async function adminForgotPassword(req, res) {
 
 async function adminResetPassword(req, res) {
   try {
-    const { token, password } = req.body;
-    if (!token || !password || password.length < 8) {
-      return res.status(400).json({ error: 'Valid token and password (min 8 chars) required' });
+    const { token, password, email, code } = req.body;
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    if (email && code) {
+      const normalized = String(email).trim().toLowerCase();
+      const v = await verifyAndConsumeOtp(normalized, 'ADMIN_PASSWORD_RESET', code);
+      if (!v.ok) {
+        const msg = {
+          INVALID_OR_EXPIRED: 'Invalid or expired code.',
+          INVALID_CODE: 'Incorrect code.',
+          TOO_MANY_ATTEMPTS: 'Too many incorrect attempts. Request a new code.',
+        }[v.error] || 'Verification failed';
+        return res.status(400).json({ error: msg });
+      }
+      const admin = await prisma.adminUser.findUnique({ where: { email: normalized } });
+      if (!admin) return res.status(400).json({ error: 'Account not found' });
+      const passwordHash = await bcrypt.hash(password, 12);
+      await prisma.adminUser.update({ where: { id: admin.id }, data: { passwordHash } });
+      return res.json({ message: 'Password reset successful' });
+    }
+
+    if (!token) {
+      return res.status(400).json({ error: 'Enter the code from your email and your new password, or use a reset link from an older email.' });
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.type !== 'admin_reset') return res.status(400).json({ error: 'Invalid reset token' });
