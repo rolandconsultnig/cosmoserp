@@ -12,7 +12,8 @@
     "db:seed": "node prisma/seed.js",
     "db:create-tenant-admin": "node prisma/create-tenant-admin.js",
     "db:seed-dnl": "node prisma/seed-dnl-limited.js",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "env:init": "node scripts/init-local-env.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

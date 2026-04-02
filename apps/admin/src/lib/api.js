@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -21,6 +21,9 @@ function isAdminAuthPublicPath(pathname) {
 }
 
 api.interceptors.request.use((config) => {
+  if (typeof config.url === 'string' && config.url.startsWith('/') && !config.url.startsWith('//')) {
+    config.url = config.url.slice(1);
+  }
   const token = localStorage.getItem('admin_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;

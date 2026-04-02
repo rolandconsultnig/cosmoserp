@@ -8,20 +8,19 @@ import useCartStore from '../store/cartStore';
 import Seo from '../components/Seo';
 import { getSiteUrl } from '../lib/siteConfig';
 
-/* Hero carousel: iconic Nigeria (Wikimedia + Unsplash for reliable CDN / resolution).
- * If you change the number of slides, update `.hero-carousel-track--N` and `@keyframes hero-carousel-N` in index.css. */
+/* Hero carousel: Unsplash CDN only (Wikimedia is blocked by OpaqueResponseBlocking in some browsers). */
 const HERO_SLIDES = [
   {
-    src: 'https://upload.wikimedia.org/wikipedia/commons/e/ee/Aerial_view_of_Marina%2C_Lagos_Island_East%2C_Lagos-Nigeria.jpg',
-    alt: 'Lagos Island, Nigeria — aerial view over Marina and the business district',
+    src: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=1920&q=85',
+    alt: 'Urban skyline — modern business and commerce',
   },
   {
     src: 'https://images.unsplash.com/photo-1722442746061-054e1cb47540?w=1920&q=85',
     alt: 'Abuja, Nigeria — Federal Capital city streets and skyline',
   },
   {
-    src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/National_Arts_Theatre%2C_Igammu%2C_Lagos_State%2C_Nigeria.jpg/1600px-National_Arts_Theatre%2C_Igammu%2C_Lagos_State%2C_Nigeria.jpg',
-    alt: 'National Arts Theatre, Iganmu, Lagos — landmark culture and FESTAC heritage',
+    src: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1920&q=85',
+    alt: 'Lagos, Nigeria — coastal city, boats and metropolitan shoreline',
   },
   {
     src: 'https://images.unsplash.com/photo-1744907895363-d351aa6019ef?w=1920&q=85',

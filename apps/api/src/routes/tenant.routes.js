@@ -5,6 +5,8 @@ const kycCtrl = require('../controllers/kyc.controller');
 const { authenticate, requireAdmin, requireTenantUser } = require('../middleware/auth.middleware');
 const { singleKycUpload, singleTenantLogoUpload } = require('../middleware/upload.middleware');
 
+router.post('/register/send-otp', ctrl.sendRegistrationOtp);
+router.post('/register/resend-otp', ctrl.resendRegistrationOtp);
 router.post('/register', ctrl.register);
 router.get('/me', authenticate, requireTenantUser, ctrl.getMyTenant);
 router.put('/me', authenticate, requireTenantUser, ctrl.updateMyTenant);

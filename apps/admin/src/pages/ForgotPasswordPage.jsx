@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, Zap, Mail } from 'lucide-react';
 import api from '../lib/api';
 
+const ADMIN_RESET_EMAIL_KEY = 'cosmos_admin_reset_email';
+
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -14,7 +17,9 @@ export default function ForgotPasswordPage() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/admin/forgot-password', { email: email.trim().toLowerCase() });
+      const normalized = email.trim().toLowerCase();
+      await api.post('/auth/admin/forgot-password', { email: normalized });
+      sessionStorage.setItem(ADMIN_RESET_EMAIL_KEY, normalized);
       setSent(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
@@ -47,11 +52,19 @@ export default function ForgotPasswordPage() {
             </div>
           </div>
           <h1 className="text-[24px] font-bold text-slate-900 mb-1">Forgot password?</h1>
-          <p className="text-sm text-slate-500 mb-6">Enter your admin email and we’ll send you a reset link.</p>
+          <p className="text-sm text-slate-500 mb-6">Enter your admin email and we’ll send a 6-digit reset code.</p>
 
           {sent ? (
-            <div className="rounded-xl bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm mb-4">
-              If that email exists, a reset link has been sent. Check your inbox (and spam).
+            <div className="rounded-xl bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm mb-4 space-y-3">
+              <p>If that email exists, a reset code has been sent. Check your inbox (and spam).</p>
+              <button
+                type="button"
+                onClick={() => navigate('/reset-password')}
+                className="w-full flex items-center justify-center gap-2 text-white font-semibold rounded-xl py-3 text-sm"
+                style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', boxShadow: '0 2px 8px rgba(79,70,229,0.35)' }}
+              >
+                Enter code &amp; new password
+              </button>
             </div>
           ) : (
             <>
@@ -82,7 +95,7 @@ export default function ForgotPasswordPage() {
                   style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', boxShadow: '0 2px 8px rgba(79,70,229,0.35)' }}
                 >
                   {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {loading ? 'Sending…' : 'Send reset link'}
+                  {loading ? 'Sending…' : 'Send reset code'}
                 </button>
               </form>
             </>

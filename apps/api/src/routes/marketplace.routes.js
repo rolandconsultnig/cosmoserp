@@ -8,6 +8,8 @@ const budgetCtrl = require('../controllers/budget.controller');
 const { authenticateMarketplace } = require('../middleware/auth.middleware');
 const { singleAvatarUpload } = require('../middleware/upload.middleware');
 
+router.post('/auth/register/send-otp', customerCtrl.sendRegistrationOtp);
+router.post('/auth/register/resend-otp', customerCtrl.resendRegistrationOtp);
 router.post('/auth/register', customerCtrl.register);
 router.post('/auth/register/send-otp', customerCtrl.registerSendOtp);
 router.post('/auth/register/complete', customerCtrl.completeRegistration);

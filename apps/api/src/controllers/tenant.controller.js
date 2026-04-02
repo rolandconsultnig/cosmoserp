@@ -3,20 +3,144 @@ const prisma = require('../config/prisma');
 const { logger } = require('../utils/logger');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 const { createAuditLog } = require('../middleware/audit.middleware');
+const { createOtp, verifyAndConsumeOtp, PURPOSE_TTL_MS } = require('../services/otp.service');
+const { sendOtpEmail, sendTenantWelcomeEmail } = require('../services/email.service');
+
+/**
+ * Send tenant registration OTP if email is valid and not already registered.
+ * @returns {{ ok: true }} or { error: string, status: number, retryAfterSec?: number }
+ */
+async function deliverTenantRegistrationOtp(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) {
+    return { error: 'Email is required', status: 400 };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return { error: 'Invalid email address', status: 400 };
+  }
+
+  const existingTenant = await prisma.tenant.findUnique({ where: { email: normalized } });
+  if (existingTenant) {
+    return { error: 'A business with this email already exists', status: 409 };
+  }
+
+  let otpResult;
+  try {
+    otpResult = await createOtp(normalized, 'TENANT_REGISTRATION');
+  } catch (e) {
+    if (e.message === 'RATE_LIMITED') {
+      return {
+        error: 'Please wait a minute before requesting another code.',
+        status: 429,
+        retryAfterSec: e.retryAfterSec || 60,
+      };
+    }
+    if (e.message === 'INVALID_EMAIL') {
+      return { error: 'Invalid email address', status: 400 };
+    }
+    logger.error('Tenant registration OTP createOtp failed:', e);
+    const prismaCode = e && e.code;
+    if (prismaCode === 'P2021') {
+      return {
+        error:
+          'Email verification is not available yet. Ensure the API database has the latest migrations applied (EmailOtp table).',
+        status: 503,
+      };
+    }
+    if (prismaCode === 'P1001' || e.name === 'PrismaClientInitializationError') {
+      return { error: 'Database is unavailable. Try again in a moment.', status: 503 };
+    }
+    throw e;
+  }
+
+  const ttlMinutes = Math.round((PURPOSE_TTL_MS.TENANT_REGISTRATION || 900000) / 60000);
+  try {
+    await sendOtpEmail(otpResult.normalizedEmail, otpResult.code, {
+      title: 'Your Cosmos ERP registration code',
+      tagline: 'business registration',
+      ttlMinutes,
+    });
+  } catch (emailErr) {
+    logger.error('Tenant registration OTP email failed:', emailErr);
+    return {
+      error: 'Could not send email. Check SMTP settings or try again later.',
+      status: 503,
+    };
+  }
+
+  return { ok: true };
+}
+
+async function sendRegistrationOtp(req, res) {
+  try {
+    const result = await deliverTenantRegistrationOtp(req.body?.email);
+    if (!result.ok) {
+      const body = { error: result.error };
+      if (result.retryAfterSec != null) body.retryAfterSec = result.retryAfterSec;
+      return res.status(result.status).json(body);
+    }
+    res.json({ message: 'Verification code sent. Check your inbox.' });
+  } catch (error) {
+    logger.error('sendRegistrationOtp error:', error);
+    res.status(500).json({ error: 'Failed to send verification code' });
+  }
+}
+
+async function resendRegistrationOtp(req, res) {
+  try {
+    const result = await deliverTenantRegistrationOtp(req.body?.email);
+    if (!result.ok) {
+      const body = { error: result.error };
+      if (result.retryAfterSec != null) body.retryAfterSec = result.retryAfterSec;
+      return res.status(result.status).json(body);
+    }
+    res.json({ message: 'A new verification code has been sent. Check your inbox.' });
+  } catch (error) {
+    logger.error('resendRegistrationOtp error:', error);
+    res.status(500).json({ error: 'Failed to resend verification code' });
+  }
+}
 
 async function register(req, res) {
   try {
-    const { businessName, email, phone, password, address, city, state, tin, rcNumber, businessType, industry } = req.body;
+    const {
+      businessName, email, phone, password, address, city, state, tin, rcNumber, businessType, industry, otp,
+    } = req.body;
     if (!businessName || !email || !phone || !password) {
       return res.status(400).json({ error: 'Business name, email, phone, and password are required' });
     }
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+    const addrLine = String(address || '').trim();
+    const cityTrim = String(city || '').trim();
+    const stateTrim = String(state || '').trim();
+    if (!addrLine || addrLine.length < 5) {
+      return res.status(400).json({ error: 'Business street address is required (at least 5 characters).' });
+    }
+    if (!cityTrim) return res.status(400).json({ error: 'City is required.' });
+    if (!stateTrim) return res.status(400).json({ error: 'State is required.' });
+
+    const otpStr = String(otp || '').trim();
+    if (!otpStr) {
+      return res.status(400).json({ error: 'Email verification code is required. Request a code first.' });
+    }
+
+    const verify = await verifyAndConsumeOtp(email, 'TENANT_REGISTRATION', otpStr);
+    if (!verify.ok) {
+      const msg = {
+        INVALID_OR_EXPIRED: 'Invalid or expired verification code. Request a new code.',
+        INVALID_CODE: 'Incorrect verification code.',
+        TOO_MANY_ATTEMPTS: 'Too many incorrect attempts. Request a new code.',
+      }[verify.error] || 'Verification failed';
+      return res.status(400).json({ error: msg });
+    }
 
     const existingTenant = await prisma.tenant.findUnique({ where: { email: email.toLowerCase() } });
     if (existingTenant) return res.status(409).json({ error: 'A business with this email already exists' });
 
     const passwordHash = await bcrypt.hash(password, 12);
     const trialEndsAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    const now = new Date();
 
     const result = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
@@ -24,9 +148,9 @@ async function register(req, res) {
           businessName,
           email: email.toLowerCase(),
           phone,
-          address: address || '',
-          city: city || '',
-          state: state || '',
+          address: addrLine,
+          city: cityTrim,
+          state: stateTrim,
           tin,
           rcNumber,
           businessType: businessType || 'SOLE_PROPRIETORSHIP',
@@ -35,6 +159,7 @@ async function register(req, res) {
           subscriptionPlan: 'STARTER',
           subscriptionStatus: 'TRIAL',
           trialEndsAt,
+          emailVerifiedAt: now,
         },
       });
 
@@ -56,6 +181,12 @@ async function register(req, res) {
     });
 
     logger.info(`New tenant registered: ${businessName} (${email})`);
+
+    sendTenantWelcomeEmail(result.tenant.email, {
+      businessName: result.tenant.businessName,
+      trialEndsAt: result.tenant.trialEndsAt,
+    }).catch((err) => logger.warn('Tenant welcome email failed:', err.message));
+
     res.status(201).json({
       message: 'Business registered successfully. Your 5-day free trial has started. Please complete KYC to unlock all features.',
       tenantId: result.tenant.id,
@@ -346,6 +477,8 @@ async function toggleActive(req, res) {
 }
 
 module.exports = {
+  sendRegistrationOtp,
+  resendRegistrationOtp,
   register,
   getMyTenant,
   updateMyTenant,
