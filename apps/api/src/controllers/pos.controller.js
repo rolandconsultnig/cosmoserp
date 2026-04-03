@@ -645,7 +645,7 @@ exports.createInvoiceFromSale = async (req, res) => {
 
     const sendEmail = req.body.sendEmail === true;
     const sendWhatsApp = req.body.sendWhatsApp === true;
-    const tenantName = invoice.tenant?.tradingName || invoice.tenant?.businessName || 'Cosmos ERP';
+    const tenantName = invoice.tenant?.tradingName || invoice.tenant?.businessName || 'Mixtio ERP';
 
     if (sendEmail || sendWhatsApp) {
       let pdfPath = null;
@@ -698,7 +698,7 @@ exports.sendReceipt = async (req, res) => {
       where: { id: tenantId },
       select: { businessName: true, tradingName: true },
     });
-    const tenantName = tenant?.tradingName || tenant?.businessName || 'Cosmos ERP';
+    const tenantName = tenant?.tradingName || tenant?.businessName || 'Mixtio ERP';
 
     const receiptPayload = {
       receiptNo: sale.receiptNumber,

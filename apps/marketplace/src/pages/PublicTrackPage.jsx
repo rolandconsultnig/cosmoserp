@@ -53,8 +53,8 @@ export default function PublicTrackPage() {
   return (
     <div className="max-w-lg mx-auto px-4 py-10">
       <Seo
-        title={activeCode ? `Track ${activeCode} | CosmosERP` : 'Track shipment | CosmosERP'}
-        description="Track your CosmosERP shipment with your tracking number."
+        title={activeCode ? `Track ${activeCode} | Mixtio` : 'Track shipment | Mixtio'}
+        description="Track your Mixtio shipment with your tracking number."
         path={activeCode ? `/track/${encodeURIComponent(activeCode)}` : '/track'}
       />
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-6">

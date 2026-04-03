@@ -16,7 +16,7 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-24 text-center">
-        <Seo title="Shopping cart" description="Your Cosmos Market cart is empty." canonicalPath="/cart" noindex />
+        <Seo title="Shopping cart" description="Your Mixio Marketplace cart is empty." canonicalPath="/cart" noindex />
         <div className="w-24 h-24 bg-brand-50 border-2 border-brand-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <ShoppingCart className="w-12 h-12 text-brand-300" />
         </div>
@@ -31,7 +31,7 @@ export default function CartPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
-      <Seo title="Shopping cart" description="Review items in your Cosmos Market cart before checkout." canonicalPath="/cart" noindex />
+      <Seo title="Shopping cart" description="Review items in your Mixio Marketplace cart before checkout." canonicalPath="/cart" noindex />
       <h1 className="text-2xl font-extrabold text-gray-900 mb-6 flex items-center gap-3">
         Shopping Cart
         <span className="text-base font-normal text-gray-400">({itemCount} item{itemCount !== 1 ? 's' : ''})</span>

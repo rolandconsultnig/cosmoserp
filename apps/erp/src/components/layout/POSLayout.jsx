@@ -72,7 +72,7 @@ export default function POSLayout() {
       )}
         style={{ borderColor: 'rgba(255,255,255,0.08)' }}
       >
-        <img src={LOGO_URL} alt="Cosmos" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
+        <img src={LOGO_URL} alt="Mixtio ERP" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-black text-white text-sm leading-tight">POS Terminal</div>

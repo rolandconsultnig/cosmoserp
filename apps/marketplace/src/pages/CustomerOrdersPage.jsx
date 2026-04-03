@@ -46,7 +46,7 @@ export default function CustomerOrdersPage() {
       </div>
       <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
       <p className="text-sm text-gray-600 mb-6">
-        Payments on Cosmos Market use escrow.{' '}
+        Payments on Mixio Marketplace use escrow.{' '}
         <Link to="/account/escrow" className="text-brand-600 font-semibold hover:underline">View escrow hub</Link>
       </p>
 

@@ -11,7 +11,7 @@ const DEMO_POS_EMAIL = 'andpos@afrinict.net';
 const DEMO_LOGISTICS_EMAIL = 'ogadriver@afrinict.com';
 
 async function main() {
-  console.log('🌱 Seeding Cosmos ERP database...');
+  console.log('🌱 Seeding Mixtio ERP database...');
 
   // ── Remove any old demo admin accounts (keep only the designated admin) ─────
   const existingAdmins = await prisma.adminUser.findMany({ select: { email: true } });

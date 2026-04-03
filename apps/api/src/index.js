@@ -9,7 +9,7 @@ async function start() {
   try {
     await connectRedis();
     app.listen(PORT, () => {
-      logger.info(`🚀 Cosmos ERP API running on port ${PORT} [${process.env.NODE_ENV}]`);
+      logger.info(`🚀 Mixtio ERP API running on port ${PORT} [${process.env.NODE_ENV}]`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

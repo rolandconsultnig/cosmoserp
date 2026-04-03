@@ -65,7 +65,7 @@ export default function CustomerEscrowPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Escrow &amp; buyer protection</h1>
           <p className="text-sm text-gray-600 mt-1">
-            See how your payments are protected on Cosmos Market and track escrow status on every order.
+            See how your payments are protected on Mixio Marketplace and track escrow status on every order.
           </p>
         </div>
       </div>

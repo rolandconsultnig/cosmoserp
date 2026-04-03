@@ -65,7 +65,7 @@ export default function NRSPage() {
 
       {/* NRS info */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-        <div className="font-semibold mb-1">🛡️ How Cosmos ERP NRS Integration Works</div>
+        <div className="font-semibold mb-1">🛡️ How Mixtio ERP NRS Integration Works</div>
         <ul className="space-y-1 text-blue-700">
           <li>• <strong>B2B/B2G:</strong> Every invoice is submitted in real-time to obtain an IRN (Invoice Reference Number) and Cryptographic Stamp</li>
           <li>• <strong>B2C:</strong> Retail sales over ₦50,000 are reported automatically within 24 hours (T+1 rule)</li>

@@ -123,7 +123,7 @@ export default function LogisticsCompanyAnalyticsPage() {
               Alerts &amp; notifications
             </div>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.40)' }}>
-              SMS and email to customers are sent when drivers update status through the Cosmos API. For operational follow-up,
+              SMS and email to customers are sent when drivers update status through the Mixtio API. For operational follow-up,
               use <Link to="/logistics/company/deliveries" className="text-blue-400 font-semibold hover:underline">shipments</Link>
               {' '}and the exception counts on this page.
             </p>

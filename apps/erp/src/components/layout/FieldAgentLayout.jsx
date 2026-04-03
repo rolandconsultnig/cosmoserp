@@ -50,7 +50,7 @@ export default function FieldAgentLayout() {
       )}
     >
       <div className={cn('flex items-center h-14 border-b border-emerald-800 px-3', collapsed && !mobile ? 'justify-center' : 'gap-2.5')}>
-        <img src={LOGO_URL} alt="Cosmos" className="h-8 w-auto object-contain flex-shrink-0" />
+        <img src={LOGO_URL} alt="Mixtio ERP" className="h-8 w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
             <div className="font-bold text-white text-sm">Field Agent</div>

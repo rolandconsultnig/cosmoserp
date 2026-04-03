@@ -733,7 +733,7 @@ export default function TenantDetailPage() {
               </button>
             </div>
             <p className="text-[13px] text-slate-500 mb-3">
-              Opens Cosmos ERP in a new browser tab. Choose the user to act as (defaults to owner). Optional reason is stored in the audit log.
+              Opens Mixtio ERP in a new browser tab. Choose the user to act as (defaults to owner). Optional reason is stored in the audit log.
             </p>
             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">User</label>
             {(t.users || []).filter((u) => u.isActive).length === 0 ? (

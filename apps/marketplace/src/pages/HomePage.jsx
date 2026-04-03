@@ -171,14 +171,14 @@ export default function HomePage() {
   return (
     <div>
       <Seo
-        fullTitle="Cosmos Market — Buy from Nigerian Businesses"
+        fullTitle="Mixio Marketplace — Buy from Nigerian Businesses"
         description="Shop verified Nigerian sellers with secure escrow, nationwide delivery, and NRS tax receipts. Electronics, fashion, food, agriculture, and more."
         canonicalPath="/"
         type="website"
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'WebSite',
-          name: 'Cosmos Market',
+          name: 'Mixio Marketplace',
           url: getSiteUrl() || 'https://cosmoserp.com.ng',
           potentialAction: {
             '@type': 'SearchAction',
@@ -385,9 +385,9 @@ export default function HomePage() {
 
         {/* Sell CTA */}
         <section className="bg-gray-800 rounded-lg p-8 text-center">
-          <h2 className="text-xl font-bold text-white mb-2">Sell on Cosmos Market</h2>
+          <h2 className="text-xl font-bold text-white mb-2">Sell on Mixio Marketplace</h2>
           <p className="text-gray-300 text-sm mb-4 max-w-lg mx-auto">
-            List your products from your Cosmos ERP. Reach millions of customers with KYC verification and NRS-compliant receipts.
+            List your products from your Mixtio ERP. Reach millions of customers with KYC verification and NRS-compliant receipts.
           </p>
           <a
             href="https://erp.cosmosng.com/register"

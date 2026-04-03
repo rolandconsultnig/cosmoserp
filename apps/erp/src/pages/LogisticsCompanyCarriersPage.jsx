@@ -31,7 +31,7 @@ export default function LogisticsCompanyCarriersPage() {
           Carriers &amp; drivers
         </h1>
         <p className="text-[12px] mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-          Your active drivers on Cosmos: contact details, vehicle, online status, and delivery counts. Use this roster to coordinate dispatch alongside the shipments list.
+          Your active drivers on Mixtio: contact details, vehicle, online status, and delivery counts. Use this roster to coordinate dispatch alongside the shipments list.
         </p>
       </div>
 

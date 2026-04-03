@@ -97,12 +97,12 @@ export default function ProfessionalWebLoginPage() {
                 <div className="relative">
                   <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-lg opacity-50"></div>
                   <div className="relative bg-white p-3 rounded-2xl shadow-2xl">
-                    <img src={LOGO_URL} alt="CosmosERP" className="h-12 w-auto" />
+                    <img src={LOGO_URL} alt="Mixtio" className="h-12 w-auto" />
                   </div>
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-                    CosmosERP
+                    Mixtio
                   </h1>
                   <p className="text-blue-200 text-lg">Enterprise Resource Planning</p>
                 </div>
@@ -176,7 +176,7 @@ export default function ProfessionalWebLoginPage() {
                 <Building2 className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-              <p className="text-blue-200">Sign in to your CosmosERP workspace</p>
+              <p className="text-blue-200">Sign in to your Mixtio workspace</p>
             </div>
 
             {/* Error Display */}
@@ -281,7 +281,7 @@ export default function ProfessionalWebLoginPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-3">
-                    <span>Sign in to CosmosERP</span>
+                    <span>Sign in to Mixtio</span>
                     <ArrowRight className="w-5 h-5" />
                   </div>
                 )}
@@ -351,7 +351,7 @@ export default function ProfessionalWebLoginPage() {
                     ))}
                   </div>
                   <p className="text-sm text-blue-100 italic">
-                    "CosmosERP transformed how we manage our business operations. Highly recommended!"
+                    "Mixtio transformed how we manage our business operations. Highly recommended!"
                   </p>
                   <p className="text-xs text-blue-300 mt-2">— Tunde A., Lagos</p>
                 </div>
@@ -388,7 +388,7 @@ export default function ProfessionalWebLoginPage() {
 
       {/* Bottom Branding */}
       <div className="absolute bottom-4 left-4 right-4 text-center text-blue-300/50 text-sm">
-        <p>© 2024 CosmosERP. Empowering Nigerian Businesses with Enterprise-Grade Solutions.</p>
+        <p>© 2024 Mixtio. Empowering Nigerian Businesses with Enterprise-Grade Solutions.</p>
       </div>
     </div>
  pig);

@@ -587,7 +587,7 @@ function ReceiptModal({ sale, tenant, user, onNewSale }) {
 
           <div className="px-5 py-3 text-center">
             <p className="text-[11px] text-slate-400">Thank you for your patronage!</p>
-            <p className="text-[10px] text-slate-300 mt-0.5">Powered by Cosmos ERP</p>
+            <p className="text-[10px] text-slate-300 mt-0.5">Powered by Mixtio ERP</p>
           </div>
         </div>
 

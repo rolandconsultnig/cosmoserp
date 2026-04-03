@@ -49,7 +49,7 @@ export default function AgentLoginPage() {
               </div>
               <div>
                 <div className="font-bold text-lg leading-tight">Customer Care Portal</div>
-                <div className="text-green-100 text-xs">Cosmos ERP — Agent Access</div>
+                <div className="text-green-100 text-xs">Mixtio ERP — Agent Access</div>
               </div>
             </div>
             <p className="text-green-100 text-sm">
@@ -126,7 +126,7 @@ export default function AgentLoginPage() {
         </div>
 
         <p className="text-center text-green-200 text-xs mt-4 opacity-70">
-          © {new Date().getFullYear()} Roland Consult · Cosmos ERP Platform
+          © {new Date().getFullYear()} Roland Consult · Mixtio ERP Platform
         </p>
       </div>
     </div>

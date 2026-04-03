@@ -128,11 +128,11 @@ app.use('/api', globalLimiter);
 app.use('/api/auth', authLimiter);
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Cosmos ERP API', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'Mixtio ERP API', timestamp: new Date().toISOString() });
 });
 /** Same payload as /health — reachable via Vite proxy `/api` (ERP/marketplace dev). */
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Cosmos ERP API', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'Mixtio ERP API', timestamp: new Date().toISOString() });
 });
 
 const uploadsPath = path.isAbsolute(UPLOAD_BASE) ? UPLOAD_BASE : path.join(process.cwd(), UPLOAD_BASE);

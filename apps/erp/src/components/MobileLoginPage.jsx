@@ -94,7 +94,7 @@ export default function MobileLoginPage() {
           {/* Logo with mobile optimization */}
           <div className="flex justify-center mb-6">
             <div className="bg-white p-4 rounded-2xl shadow-lg">
-              <img src={LOGO_URL} alt="Cosmos ERP" className="h-12 w-auto" />
+              <img src={LOGO_URL} alt="Mixtio ERP" className="h-12 w-auto" />
             </div>
           </div>
           
@@ -243,7 +243,7 @@ export default function MobileLoginPage() {
           {/* Register Link - Enhanced */}
           <div className="mt-6 text-center bg-blue-50 p-4 rounded-2xl">
             <p className="text-gray-700 text-sm font-medium mb-3">
-              🇳🇬 New to CosmosERP?
+              🇳🇬 New to Mixtio?
             </p>
             <Link 
               to="/register" 

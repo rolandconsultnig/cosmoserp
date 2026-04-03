@@ -32,7 +32,7 @@ export default function OrderConfirmationPage() {
           <CheckCircle className="w-12 h-12 text-green-500" />
         </div>
         <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Order Confirmed!</h1>
-        <p className="text-gray-500 text-sm">Thank you for shopping on Cosmos Market. Your order has been placed successfully.</p>
+        <p className="text-gray-500 text-sm">Thank you for shopping on Mixio Marketplace. Your order has been placed successfully.</p>
       </div>
 
       {/* Order details card */}

@@ -420,7 +420,7 @@ async function toggleMarketplace(req, res) {
 
     res.json({
       data: updated,
-      message: isMarketplace ? 'Product published to Cosmos Market' : 'Product removed from Cosmos Market',
+      message: isMarketplace ? 'Product published to Mixio Marketplace' : 'Product removed from Mixio Marketplace',
     });
   } catch (error) {
     logger.error('Toggle marketplace error:', error);

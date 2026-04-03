@@ -83,7 +83,7 @@ async function authenticate(req, res, next) {
         new Date(user.tenant.trialEndsAt).getTime() < Date.now()
       ) {
         return res.status(402).json({
-          error: 'Your free trial has ended. Please upgrade to continue using Cosmos ERP.',
+          error: 'Your free trial has ended. Please upgrade to continue using Mixtio ERP.',
           code: 'TRIAL_EXPIRED',
           trialEndsAt: user.tenant.trialEndsAt,
         });

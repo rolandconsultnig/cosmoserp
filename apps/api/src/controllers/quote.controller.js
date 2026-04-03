@@ -121,7 +121,7 @@ async function sendQuote(req, res) {
     if (!quote) return res.status(404).json({ error: 'Quote not found' });
     await prisma.quote.update({ where: { id: quote.id }, data: { status: 'SENT' } });
 
-    const tenantName = quote.tenant?.tradingName || quote.tenant?.businessName || 'Cosmos ERP';
+    const tenantName = quote.tenant?.tradingName || quote.tenant?.businessName || 'Mixtio ERP';
     const sendEmail = req.body.sendEmail === true;
     const sendWhatsApp = req.body.sendWhatsApp === true;
     const results = { email: null, whatsapp: null };

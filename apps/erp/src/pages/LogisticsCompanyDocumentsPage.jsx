@@ -121,7 +121,7 @@ export default function LogisticsCompanyDocumentsPage() {
 
       <div className="rounded-xl border p-4 text-xs text-slate-400" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
         <p className="font-bold text-slate-300 mb-1 flex items-center gap-2"><Package className="w-4 h-4" /> Bills of lading &amp; invoices</p>
-        <p>Generate tax invoices and BOLs from the seller&apos;s Cosmos ERP tenant or marketplace order flows. This portal focuses on execution documents (POD) and tracking.</p>
+        <p>Generate tax invoices and BOLs from the seller&apos;s Mixtio ERP tenant or marketplace order flows. This portal focuses on execution documents (POD) and tracking.</p>
       </div>
     </div>
   );

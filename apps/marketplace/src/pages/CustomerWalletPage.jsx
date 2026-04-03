@@ -105,7 +105,7 @@ export default function CustomerWalletPage() {
       const amountStr = window.prompt('Enter amount (NGN):');
       const amount = Number(amountStr);
       if (!amount || amount <= 0) return;
-      const email = window.prompt('Recipient Cosmos email:') || undefined;
+      const email = window.prompt('Recipient Mixio email:') || undefined;
       endpoint = '/marketplace/customer/wallet/transfer-cosmos';
       extra = { amount, recipientEmail: email };
     } else {
@@ -150,7 +150,7 @@ export default function CustomerWalletPage() {
             <p className="text-2xl font-bold text-gray-900">{currency} {balance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-2">Use your Cosmos wallet for quick payments and transfers.</p>
+        <p className="text-xs text-gray-500 mt-2">Use your Mixio wallet for quick payments and transfers.</p>
 
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button
@@ -191,7 +191,7 @@ export default function CustomerWalletPage() {
             disabled={actionLoading}
             className="btn-outline w-full justify-between disabled:opacity-60"
           >
-            <span>Transfer to Cosmos Account</span>
+            <span>Transfer to Mixtio Account</span>
           </button>
           <button
             type="button"
@@ -300,7 +300,7 @@ export default function CustomerWalletPage() {
                 <option value="wallet">Wallet balance (NGN)</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                Transfers are currently simulated and debited from your Cosmos wallet balance.
+                Transfers are currently simulated and debited from your Mixio wallet balance.
               </p>
             </div>
             <button

@@ -70,7 +70,7 @@ const PACKAGES = [
   {
     title: 'Growth Operations',
     audience: 'For teams managing higher ticket volume and customer retention',
-    features: ['Inbound plus outbound campaigns', 'Escalation matrix and supervisor QA', 'CRM or Cosmos ERP workflow alignment', 'SLA dashboards and call quality scorecards'],
+    features: ['Inbound plus outbound campaigns', 'Escalation matrix and supervisor QA', 'CRM or Mixtio ERP workflow alignment', 'SLA dashboards and call quality scorecards'],
     accent: 'bg-[#123524] text-white',
   },
   {
@@ -115,8 +115,8 @@ const INDUSTRIES = [
 
 const FAQS = [
   {
-    question: 'Can the call center connect with Cosmos ERP?',
-    answer: 'Yes. Roland Consult can align support operations with Cosmos ERP workflows so agents see relevant customer, order, invoice, and fulfillment context while teams across the business work from the same operational picture.',
+    question: 'Can the call center connect with Mixtio ERP?',
+    answer: 'Yes. Roland Consult can align support operations with Mixtio ERP workflows so agents see relevant customer, order, invoice, and fulfillment context while teams across the business work from the same operational picture.',
   },
   {
     question: 'Do you only provide inbound support?',
@@ -133,7 +133,7 @@ export default function CallCenterPage() {
     <div className="bg-[#f4efe6] text-slate-900">
       <Seo
         fullTitle="Call Center Services | Roland Consult Nigeria"
-        description="Roland Consult Nigeria offers call center services for Nigerian businesses with inbound support, outbound engagement, service design, QA reporting, and Cosmos ERP-connected workflows."
+        description="Roland Consult Nigeria offers call center services for Nigerian businesses with inbound support, outbound engagement, service design, QA reporting, and Mixtio ERP-connected workflows."
         canonicalPath="/services/call-center"
         type="website"
         jsonLd={{
@@ -327,7 +327,7 @@ export default function CallCenterPage() {
             <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Choose the operating model that matches your current stage.</h2>
           </div>
           <p className="max-w-xl text-sm leading-6 text-slate-600">
-            Each package can be adapted around your queue mix, reporting needs, and whether you want support handled as a standalone desk or aligned with Cosmos ERP workflows.
+            Each package can be adapted around your queue mix, reporting needs, and whether you want support handled as a standalone desk or aligned with Mixtio ERP workflows.
           </p>
         </div>
 

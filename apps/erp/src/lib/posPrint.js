@@ -63,7 +63,7 @@ function escposEncodeReceipt({ sale, tenant, user }) {
   const enc = new TextEncoder();
 
   const lines = [];
-  const tn = tenant?.tradingName || tenant?.businessName || 'Cosmos POS';
+  const tn = tenant?.tradingName || tenant?.businessName || 'Mixtio POS';
 
   lines.push('\x1B\x40'); // init
   lines.push('\x1B\x61\x01'); // center

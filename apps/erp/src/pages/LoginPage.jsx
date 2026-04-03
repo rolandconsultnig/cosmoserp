@@ -165,7 +165,7 @@ export default function LoginPage() {
               Trusted ERP for modern Nigerian businesses
             </div>
             <h1 className="mt-6 text-4xl font-semibold leading-tight">
-              Operate smarter with <span className="text-sky-300">CosmosERP</span>
+              Operate smarter with <span className="text-sky-300">Mixtio</span>
             </h1>
             <p className="mt-4 text-sm leading-6 text-blue-100/95">
               Manage finance, inventory, payroll, CRM, and operations from one secure workspace built for scale.
@@ -188,9 +188,9 @@ export default function LoginPage() {
         <section className="mx-auto w-full max-w-md">
           <div className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl sm:p-8">
             <div className="mb-7 flex items-center gap-3">
-              <img src={LOGO_URL} alt="CosmosERP logo" className="h-10 w-auto object-contain" />
+              <img src={LOGO_URL} alt="Mixtio logo" className="h-10 w-auto object-contain" />
               <div>
-                <div className="text-lg font-bold leading-tight text-slate-900">CosmosERP</div>
+                <div className="text-lg font-bold leading-tight text-slate-900">Mixtio</div>
                 <div className="text-xs text-slate-500">Business Operating Platform</div>
               </div>
             </div>

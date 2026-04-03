@@ -20,7 +20,7 @@ async function sendSms(toPhone, message) {
       const payload = {
         api_key: process.env.TERMII_API_KEY,
         to: phone.startsWith('+') ? phone : `234${phone.replace(/^0/, '')}`,
-        from: process.env.TERMII_SENDER_ID || 'CosmosERP',
+        from: process.env.TERMII_SENDER_ID || 'Mixtio',
         sms: text,
         type: 'plain',
         channel: 'generic',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { LOGO_URL } from '../lib/branding';
 import {
   Truck, Eye, EyeOff, Loader2, Shield, Building2, User, InfoIcon,
   MapPin, Clock3, CheckCircle2
@@ -54,9 +55,9 @@ export default function LogisticsLoginPage() {
       <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <img src="/CosmosERP.png" alt="Cosmos ERP" className="h-9 w-9 rounded-md object-cover border border-slate-200" />
+            <img src={LOGO_URL} alt="Mixtio ERP" className="h-9 w-9 rounded-md object-contain border border-slate-200" />
             <div>
-              <p className="text-sm font-bold text-slate-900 leading-none">Cosmos ERP</p>
+              <p className="text-sm font-bold text-slate-900 leading-none">Mixtio ERP</p>
               <p className="text-xs text-slate-500 mt-1 leading-none">Logistics Portal</p>
             </div>
           </Link>
@@ -107,7 +108,7 @@ export default function LogisticsLoginPage() {
           <section className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="px-6 sm:px-8 pt-7 pb-6 border-b border-slate-200 bg-slate-50/70">
               <div className="flex items-center gap-3">
-                <img src="/CosmosERP.png" alt="Cosmos ERP" className="h-10 w-10 rounded-lg object-cover border border-slate-200" />
+                <img src={LOGO_URL} alt="Mixtio ERP" className="h-10 w-10 rounded-lg object-contain border border-slate-200" />
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">Portal Login</h2>
                   <p className="text-sm text-slate-500 mt-1">Sign in with your registered credentials</p>
@@ -257,7 +258,7 @@ export default function LogisticsLoginPage() {
 
             <div className="px-6 sm:px-8 py-4 bg-slate-50 border-t border-slate-200">
               <p className="text-xs text-slate-500 text-center">
-                © {new Date().getFullYear()} Roland Consult · Cosmos ERP Logistics
+                © {new Date().getFullYear()} Roland Consult · Mixtio ERP Logistics
               </p>
             </div>
           </section>

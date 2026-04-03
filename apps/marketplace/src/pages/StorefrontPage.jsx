@@ -98,7 +98,7 @@ export default function StorefrontPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       <Seo
         title={`${storeName} — Official store`}
-        description={`Shop products from ${storeName} on Cosmos Market. KYC-verified seller, secure payments, nationwide delivery.`}
+        description={`Shop products from ${storeName} on Mixio Marketplace. KYC-verified seller, secure payments, nationwide delivery.`}
         canonicalPath={`/store/${tenantId}`}
         type="website"
         jsonLd={{

@@ -25,7 +25,7 @@ export default function CustomerTransportationPage() {
     const base = 5000;
     const mult = mode === 'air' ? 10 : mode === 'rail' ? 4 : 2;
     const options = [
-      { id: 'prov1', provider: mode === 'air' ? 'Cosmos Air' : mode === 'rail' ? 'Cosmos Rail' : 'Cosmos Bus', price: base * mult, eta: 'Today' },
+      { id: 'prov1', provider: mode === 'air' ? 'Mixtio Air' : mode === 'rail' ? 'Mixtio Rail' : 'Mixtio Bus', price: base * mult, eta: 'Today' },
       { id: 'prov2', provider: 'Partner Express', price: base * mult * 1.1, eta: 'Tomorrow' },
       { id: 'prov3', provider: 'Saver Line', price: base * mult * 0.9, eta: 'Flexible' },
     ];

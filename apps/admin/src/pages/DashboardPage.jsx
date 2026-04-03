@@ -117,7 +117,7 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="page-title">Platform Dashboard</h1>
-          <p className="page-subtitle">Cosmos ERP · Roland Consult Super Admin</p>
+          <p className="page-subtitle">Mixtio ERP · Roland Consult Super Admin</p>
         </div>
         <div
           className="hidden sm:flex items-center gap-2 text-[12px] font-semibold px-3 py-1.5 rounded-full"

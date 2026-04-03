@@ -267,7 +267,7 @@ export default function MarketplaceModerationPage() {
                 Marketplace Moderation
               </h1>
               <p className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.50)' }}>
-                Cosmos ERP Marketplace · Review &amp; approve product listings
+                Mixtio ERP Marketplace · Review &amp; approve product listings
               </p>
             </div>
           </div>

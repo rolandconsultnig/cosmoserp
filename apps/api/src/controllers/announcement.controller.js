@@ -35,7 +35,7 @@ async function list(req, res) {
         if (a.audienceType === 'ALL') return true;
         if (a.audienceType === 'ROLE') return a.audienceRole === req.user.role;
         if (a.audienceType === 'DEPARTMENT') {
-          // CosmosERP currently stores employee.department as string, so we cannot reliably map user->departmentId.
+          // Mixtio currently stores employee.department as string, so we cannot reliably map user->departmentId.
           // For now: only show department announcements when departmentId is not set (fallback), or when userIds includes user.
           // Proper department targeting will be wired once Employee->Department relation is introduced.
           if (!a.departmentId) return true;

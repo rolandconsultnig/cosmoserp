@@ -1,6 +1,6 @@
 {
   "appId": "com.cosmoserp.pos",
-  "appName": "Cosmos v1.0.4.3",
+  "appName": "Mixtio ERP",
   "webDir": "dist",
   "android": {
     "allowMixedContent": true

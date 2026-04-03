@@ -1251,7 +1251,7 @@ async function getPlatformSettings(req, res) {
   try {
     let platform = await prisma.platform.findFirst();
     if (!platform) {
-      platform = await prisma.platform.create({ data: { name: 'Cosmos ERP' } });
+      platform = await prisma.platform.create({ data: { name: 'Mixtio ERP' } });
     }
     const [tenantCount, userCount, productCount] = await Promise.all([
       prisma.tenant.count(),
@@ -1269,7 +1269,7 @@ async function updatePlatformSettings(req, res) {
     const { name, commissionRate, vatRate, currency } = req.body;
     let platform = await prisma.platform.findFirst();
     if (!platform) {
-      platform = await prisma.platform.create({ data: { name: name || 'Cosmos ERP' } });
+      platform = await prisma.platform.create({ data: { name: name || 'Mixtio ERP' } });
     }
     const updated = await prisma.platform.update({
       where: { id: platform.id },
@@ -1295,7 +1295,7 @@ async function updateFeatureFlags(req, res) {
     }
     let platform = await prisma.platform.findFirst();
     if (!platform) {
-      platform = await prisma.platform.create({ data: { name: 'Cosmos ERP' } });
+      platform = await prisma.platform.create({ data: { name: 'Mixtio ERP' } });
     }
     const updated = await prisma.platform.update({
       where: { id: platform.id },
@@ -1313,7 +1313,7 @@ async function updateMaintenanceMode(req, res) {
     const { maintenanceMode, maintenanceMessage } = req.body;
     let platform = await prisma.platform.findFirst();
     if (!platform) {
-      platform = await prisma.platform.create({ data: { name: 'Cosmos ERP' } });
+      platform = await prisma.platform.create({ data: { name: 'Mixtio ERP' } });
     }
     const updated = await prisma.platform.update({
       where: { id: platform.id },

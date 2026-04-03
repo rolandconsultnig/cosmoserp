@@ -285,7 +285,7 @@ export default function ProductsPage() {
                           marketplaceMutation.mutate({ id: p.id, isMarketplace: !p.isMarketplace });
                         }}
                         disabled={marketplaceMutation.isPending}
-                        title={p.isMarketplace ? 'Remove from Cosmos Market' : 'Publish to Cosmos Market'}
+                        title={p.isMarketplace ? 'Remove from Mixio Marketplace' : 'Publish to Mixio Marketplace'}
                         className="transition disabled:opacity-50"
                       >
                         {p.isMarketplace

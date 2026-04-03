@@ -87,11 +87,11 @@ export default function AdminLayout() {
             collapsed ? 'justify-center' : 'gap-3',
           )}
         >
-          <img src={LOGO_URL} alt="Cosmos Admin" className="h-[21px] md:h-[24px] lg:h-[26px] w-auto object-contain flex-shrink-0" />
+          <img src={LOGO_URL} alt="Mixtio Admin" className="h-[21px] md:h-[24px] lg:h-[26px] w-auto object-contain flex-shrink-0" />
           {!collapsed && (
             <div className="min-w-0">
               <div className="text-[14px] font-bold text-white leading-tight tracking-tight">
-                Cosmos Admin
+                Mixtio Admin
               </div>
               <div className="text-[11px] font-medium text-white/35 tracking-wide uppercase">
                 Roland Consult

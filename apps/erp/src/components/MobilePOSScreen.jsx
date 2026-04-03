@@ -137,7 +137,7 @@ export default function MobilePOSScreen() {
             </button>
             <div>
               <h1 className="font-bold text-lg text-gray-900">Point of Sale</h1>
-              <p className="text-xs text-gray-500">Cosmos ERP Mobile</p>
+              <p className="text-xs text-gray-500">Mixtio ERP Mobile</p>
             </div>
           </div>
           

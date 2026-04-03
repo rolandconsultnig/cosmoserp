@@ -123,7 +123,7 @@ export default function SystemSettingsPage() {
       <div className={cn('rounded-2xl p-6 text-white', maintenanceMode ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-indigo-600 to-purple-600')}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[18px] font-black">{s.name || 'Cosmos ERP'}</h2>
+            <h2 className="text-[18px] font-black">{s.name || 'Mixtio ERP'}</h2>
             <p className="text-white/60 text-[13px] mt-0.5">Super Admin Platform by Roland Consult</p>
           </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 backdrop-blur-sm">

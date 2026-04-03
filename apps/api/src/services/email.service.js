@@ -89,7 +89,7 @@ function receiptHtml(sale, tenantName) {
     <tbody>${items}</tbody>
   </table>
   <p><strong>Total:</strong> ${formatCurrency(sale.total)}</p>
-  <p style="margin-top:20px;color:#64748b;">Thank you for your patronage. Powered by Cosmos ERP.</p>
+  <p style="margin-top:20px;color:#64748b;">Thank you for your patronage. Powered by Mixtio ERP.</p>
 </body></html>`;
 }
 
@@ -111,7 +111,7 @@ function quotationHtml(quote, tenantName) {
     <tbody>${lines}</tbody>
   </table>
   <p><strong>Total:</strong> ${formatCurrency(quote.totalAmount)}</p>
-  <p style="margin-top:20px;color:#64748b;">Valid until ${new Date(quote.expiryDate).toLocaleDateString('en-NG')}. Powered by Cosmos ERP.</p>
+  <p style="margin-top:20px;color:#64748b;">Valid until ${new Date(quote.expiryDate).toLocaleDateString('en-NG')}. Powered by Mixtio ERP.</p>
 </body></html>`;
 }
 
@@ -144,7 +144,7 @@ function getVerificationBaseUrl() {
 async function sendVerificationEmail(toEmail, fullName, token) {
   const baseUrl = getVerificationBaseUrl();
   const verifyUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
-  const subject = 'Confirm your email – Cosmos ERP';
+  const subject = 'Confirm your email – Mixtio ERP';
   const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
   <h2>Confirm your email</h2>
   <p>Hi ${fullName || 'there'},</p>
@@ -153,7 +153,7 @@ async function sendVerificationEmail(toEmail, fullName, token) {
   <p>Or copy this link: ${verifyUrl}</p>
   <p>This link expires in 24 hours.</p>
   <p>If you didn't create an account, you can ignore this email.</p>
-  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  <p style="margin-top:24px;color:#64748b;">— Mixtio ERP (${PLATFORM_EMAIL})</p>
   </body></html>`;
   const text = `Confirm your email: ${verifyUrl}\n\nIf you didn't create an account, ignore this email.`;
   return sendMail({ to: toEmail, subject, text, html });
@@ -227,10 +227,10 @@ async function sendDeliveryStatusUpdateEmail(delivery) {
   <p>${copy.body}</p>
   <p><strong>Tracking:</strong> ${delivery.trackingNumber}</p>
   ${linkBlock}
-  <p style="margin-top:24px;color:#64748b;">— Cosmos Logistics (${PLATFORM_EMAIL})</p>
+  <p style="margin-top:24px;color:#64748b;">— Mixtio Logistics (${PLATFORM_EMAIL})</p>
   </body></html>`;
 
-  const text = `${copy.headline}\n\n${copy.body}\n\nTracking: ${delivery.trackingNumber}${trackUrl ? `\n\nTrack: ${trackUrl}` : ''}\n\n— Cosmos Logistics`;
+  const text = `${copy.headline}\n\n${copy.body}\n\nTracking: ${delivery.trackingNumber}${trackUrl ? `\n\nTrack: ${trackUrl}` : ''}\n\n— Mixtio Logistics`;
 
   return sendMail({ to, subject: copy.subject, text, html });
 }
@@ -256,10 +256,10 @@ async function sendPayrollApprovalNotificationEmail(toEmail, tenantName, run, ap
     ? `<p><strong>Approval note:</strong> ${escapeHtmlLite(approvalNote)}</p>`
     : '';
 
-  const subject = `Payroll approved — ${period} (${tenantName || 'Cosmos ERP'})`;
+  const subject = `Payroll approved — ${period} (${tenantName || 'Mixtio ERP'})`;
   const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
   <h2>Payroll run approved</h2>
-  <p>A payroll run for <strong>${period}</strong> has been approved in Cosmos ERP.</p>
+  <p>A payroll run for <strong>${period}</strong> has been approved in Mixtio ERP.</p>
   <p><strong>Total net pay:</strong> ${net}</p>
   ${noteBlock}
   <p style="margin-top:20px;color:#64748b;">You can download NIBSS / payslips from the Payroll screen. — ${PLATFORM_EMAIL}</p>
@@ -278,9 +278,9 @@ async function sendOtpEmail(toEmail, code, { title, tagline, ttlMinutes = 15 } =
   <p>${head}</p>
   <p style="font-size:28px;font-weight:bold;letter-spacing:0.2em;margin:20px 0;">${code}</p>
   <p>This code expires in <strong>${ttlMinutes}</strong> minutes. If you didn’t request it, you can ignore this email.</p>
-  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  <p style="margin-top:24px;color:#64748b;">— Mixtio ERP (${PLATFORM_EMAIL})</p>
   </body></html>`;
-  const text = `${subject}\n\n${head}\n\n${code}\n\nExpires in ${ttlMinutes} minutes.\n\n— Cosmos ERP`;
+  const text = `${subject}\n\n${head}\n\n${code}\n\nExpires in ${ttlMinutes} minutes.\n\n— Mixtio ERP`;
   return sendMail({ to: toEmail, subject, text, html });
 }
 
@@ -313,20 +313,20 @@ async function sendTenantWelcomeEmail(toEmail, { businessName, trialEndsAt } = {
       : trialEndsAt
         ? new Date(trialEndsAt).toLocaleDateString('en-NG', { dateStyle: 'long' })
         : '';
-  const subject = `Welcome to Cosmos ERP — ${businessName || 'your business'}`;
+  const subject = `Welcome to Mixtio ERP — ${businessName || 'your business'}`;
   const trialLine = trialEnd
     ? `<p>Your <strong>5-day free trial</strong> is active. It ends on <strong>${escapeHtmlLite(trialEnd)}</strong>. Complete KYC in the app to unlock all features.</p>`
     : '<p>Your <strong>5-day free trial</strong> is active. Complete KYC in the app to unlock all features.</p>';
   const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
   <h2>Welcome aboard</h2>
   <p>Hi ${safeName},</p>
-  <p>Thank you for registering <strong>${safeName}</strong> on Cosmos ERP. We’re glad you’re here.</p>
+  <p>Thank you for registering <strong>${safeName}</strong> on Mixtio ERP. We’re glad you’re here.</p>
   ${trialLine}
-  <p><a href="${loginUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Sign in to Cosmos ERP</a></p>
+  <p><a href="${loginUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Sign in to Mixtio ERP</a></p>
   <p style="font-size:12px;color:#64748b;">If the button doesn’t work, copy: ${loginUrl}</p>
-  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  <p style="margin-top:24px;color:#64748b;">— Mixtio ERP (${PLATFORM_EMAIL})</p>
   </body></html>`;
-  const text = `Welcome to Cosmos ERP, ${businessName || 'your business'}!\n\nYour trial is active${trialEnd ? ` until ${trialEnd}` : ''}. Sign in: ${loginUrl}\n\n— Cosmos ERP`;
+  const text = `Welcome to Mixtio ERP, ${businessName || 'your business'}!\n\nYour trial is active${trialEnd ? ` until ${trialEnd}` : ''}. Sign in: ${loginUrl}\n\n— Mixtio ERP`;
   return sendMail({ to: toEmail, subject, text, html });
 }
 
@@ -345,21 +345,21 @@ async function sendMarketplaceWelcomeEmail(toEmail, { fullName, needsEmailVerifi
     : `<p>You can sign in anytime with the email and password you chose.</p>
        <p><a href="${loginUrl}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Sign in to Marketplace</a></p>
        <p style="font-size:12px;color:#64748b;">Or open: ${loginUrl}</p>`;
-  const subject = 'Welcome to Cosmos Marketplace';
+  const subject = 'Welcome to Mixio Marketplace';
   const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
   <h2>Welcome, ${safeName}!</h2>
-  <p>Thanks for creating your Cosmos Marketplace account.</p>
+  <p>Thanks for creating your Mixio Marketplace account.</p>
   ${verifyBlock}
-  <p style="margin-top:24px;color:#64748b;">— Cosmos Marketplace (${PLATFORM_EMAIL})</p>
+  <p style="margin-top:24px;color:#64748b;">— Mixio Marketplace (${PLATFORM_EMAIL})</p>
   </body></html>`;
   const textPlain = needsEmailVerification
-    ? `Welcome, ${fullName || 'there'}!\n\nVerify your email with the code we sent, then sign in: ${verifyUrl}\n\n— Cosmos Marketplace`
-    : `Welcome, ${fullName || 'there'}!\n\nSign in: ${loginUrl}\n\n— Cosmos Marketplace`;
+    ? `Welcome, ${fullName || 'there'}!\n\nVerify your email with the code we sent, then sign in: ${verifyUrl}\n\n— Mixio Marketplace`
+    : `Welcome, ${fullName || 'there'}!\n\nSign in: ${loginUrl}\n\n— Mixio Marketplace`;
   return sendMail({ to: toEmail, subject, text: textPlain, html });
 }
 
 async function sendPasswordResetEmail(toEmail, name, resetLink, portalLabel) {
-  const subject = `Reset your password – Cosmos ERP${portalLabel ? ` (${portalLabel})` : ''}`;
+  const subject = `Reset your password – Mixtio ERP${portalLabel ? ` (${portalLabel})` : ''}`;
   const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#333;">
   <h2>Reset your password</h2>
   <p>Hi ${name || 'there'},</p>
@@ -367,7 +367,7 @@ async function sendPasswordResetEmail(toEmail, name, resetLink, portalLabel) {
   <p><a href="${resetLink}" style="background:#2563eb;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Reset password</a></p>
   <p>Or copy this link: ${resetLink}</p>
   <p>This link expires in 1 hour. If you didn't request a reset, you can ignore this email.</p>
-  <p style="margin-top:24px;color:#64748b;">— Cosmos ERP (${PLATFORM_EMAIL})</p>
+  <p style="margin-top:24px;color:#64748b;">— Mixtio ERP (${PLATFORM_EMAIL})</p>
   </body></html>`;
   const text = `Reset your password: ${resetLink}\n\nThis link expires in 1 hour. If you didn't request a reset, ignore this email.`;
   return sendMail({ to: toEmail, subject, text, html });

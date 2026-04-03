@@ -99,9 +99,9 @@ export default function RegisterPage() {
       <div className="relative w-full max-w-lg">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="flex items-center gap-3 mb-6">
-            <img src={LOGO_URL} alt="Cosmos ERP" className="h-10 w-auto object-contain" />
+            <img src={LOGO_URL} alt="Mixtio ERP" className="h-10 w-auto object-contain" />
             <div>
-              <div className="font-bold text-slate-900 text-lg">Cosmos ERP</div>
+              <div className="font-bold text-slate-900 text-lg">Mixtio ERP</div>
               <div className="text-xs text-slate-500">Register Your Business</div>
             </div>
           </div>

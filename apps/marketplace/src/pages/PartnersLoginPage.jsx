@@ -38,7 +38,7 @@ export default function PartnersLoginPage() {
           <div className="bg-gray-800 px-6 py-5">
             <h1 className="text-lg font-bold text-white">Partners Portal</h1>
             <p className="text-gray-300 text-sm mt-1">
-              Logistics partners, POS staff, and other parts of the Cosmos process. Choose your portal below.
+              Logistics partners, POS staff, and other parts of the Mixtio process. Choose your portal below.
             </p>
           </div>
 

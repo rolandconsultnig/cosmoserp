@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "name": "Cosmos ERP Design System",
-  "description": "Design tokens for Cosmos ERP mobile and web applications",
+  "name": "Mixtio ERP Design System",
+  "description": "Design tokens for Mixtio ERP mobile and web applications",
   "tokens": {
     "colors": {
       "primary": {

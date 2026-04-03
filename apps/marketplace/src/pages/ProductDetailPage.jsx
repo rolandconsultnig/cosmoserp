@@ -96,7 +96,7 @@ export default function ProductDetailPage() {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 160);
-  const metaDesc = plainDesc || `Buy ${product.name} on Cosmos Market. ${inStock ? 'In stock.' : 'Check availability.'} Secure escrow and delivery.`;
+  const metaDesc = plainDesc || `Buy ${product.name} on Mixio Marketplace. ${inStock ? 'In stock.' : 'Check availability.'} Secure escrow and delivery.`;
   const productUrl = `${getSiteUrl() || ''}/products/${id}`;
   const productJsonLd = {
     '@context': 'https://schema.org',

@@ -98,12 +98,12 @@ export default function ProfessionalLoginPage() {
                 <div className="relative">
                   <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-lg opacity-50"></div>
                   <div className="relative bg-white p-3 rounded-2xl shadow-2xl">
-                    <img src={LOGO_URL} alt="CosmosERP" className="h-12 w-auto" />
+                    <img src={LOGO_URL} alt="Mixtio" className="h-12 w-auto" />
                   </div>
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-                    CosmosERP
+                    Mixtio
                   </h1>
                   <p className="text-blue-200 text-lg">Enterprise Resource Planning</p>
                 </div>
@@ -116,7 +116,7 @@ export default function ProfessionalLoginPage() {
 
             {/* Key Features */}
             <div className="space-y-6">
-              <h3 className="text-2xl font-semibold text-white">Why Choose CosmosERP?</h3>
+              <h3 className="text-2xl font-semibold text-white">Why Choose Mixtio?</h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-start gap-3 group">
@@ -187,7 +187,7 @@ export default function ProfessionalLoginPage() {
                 <Building2 className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
-              <p className="text-blue-200">Sign in to your CosmosERP account</p>
+              <p className="text-blue-200">Sign in to your Mixtio account</p>
             </div>
 
             {/* Error Display */}
@@ -324,7 +324,7 @@ export default function ProfessionalLoginPage() {
             {/* Register Link */}
             <div className="mt-8 text-center">
               <p className="text-blue-200 text-sm">
-                New to CosmosERP?{' '}
+                New to Mixtio?{' '}
                 <Link 
                   to="/register" 
                   className="text-white font-semibold hover:text-blue-300 transition-colors inline-flex items-center gap-1 group"
@@ -349,7 +349,7 @@ export default function ProfessionalLoginPage() {
 
       {/* Bottom Branding */}
       <div className="absolute bottom-4 left-4 right-4 text-center text-blue-300/50 text-sm">
-        <p>© 2024 CosmosERP. Empowering Nigerian Businesses.</p>
+        <p>© 2024 Mixtio. Empowering Nigerian Businesses.</p>
       </div>
     </div>
   );

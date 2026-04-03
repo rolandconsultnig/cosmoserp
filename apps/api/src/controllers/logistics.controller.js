@@ -873,7 +873,7 @@ exports.updateDeliveryStatus = async (req, res) => {
         smsService
           .sendSms(
             updated.customerPhone,
-            `Cosmos Logistics: ${updated.trackingNumber} ${smsBit}.`,
+            `Mixtio Logistics: ${updated.trackingNumber} ${smsBit}.`,
           )
           .catch((err) => logger.warn('Delivery SMS failed:', err.message));
       }
@@ -1055,7 +1055,7 @@ exports.requestDelivery = async (req, res) => {
         where: { id: resolvedOrderId },
         data: {
           trackingNumber,
-          logisticsProvider: companyId ? (await prisma.logisticsCompany.findUnique({ where: { id: companyId }, select: { name: true } }))?.name : 'Cosmos Logistics',
+          logisticsProvider: companyId ? (await prisma.logisticsCompany.findUnique({ where: { id: companyId }, select: { name: true } }))?.name : 'Mixtio Logistics',
           logisticsRef: delivery.id,
         },
       }).catch(() => {});

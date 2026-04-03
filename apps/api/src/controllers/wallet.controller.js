@@ -216,18 +216,18 @@ async function transferToCosmos(req, res) {
   try {
     const customer = req.customer;
     const { amount, recipientEmail, source } = req.body || {};
-    const ref = recipientEmail ? `Transfer to Cosmos: ${recipientEmail}` : 'Transfer to Cosmos account';
+    const ref = recipientEmail ? `Transfer to Mixtio: ${recipientEmail}` : 'Transfer to Mixtio account';
     const wallet = source === 'card'
       ? await _recordExternalPayment(customer.id, amount, 'TRANSFER_COSMOS_CARD', ref)
       : await _applyTransaction(customer.id, -Number(amount), 'TRANSFER_COSMOS', ref);
     res.json({
-      message: 'Transfer to Cosmos account recorded (demo).',
+      message: 'Transfer to Mixtio account recorded (demo).',
       data: _serializeWallet(wallet),
     });
   } catch (error) {
     logger.error('Wallet transferToCosmos error:', error);
     const status = error.status || 500;
-    res.status(status).json({ error: error.message || 'Failed to transfer to Cosmos account' });
+    res.status(status).json({ error: error.message || 'Failed to transfer to Mixtio account' });
   }
 }
 

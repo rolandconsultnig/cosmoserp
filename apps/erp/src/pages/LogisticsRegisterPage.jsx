@@ -118,7 +118,7 @@ export default function LogisticsRegisterPage() {
               </div>
               <div>
                 <div className="font-black text-xl leading-tight">Logistics Onboarding</div>
-                <div className="text-blue-200 text-xs">Cosmos ERP — Delivery Partner Registration</div>
+                <div className="text-blue-200 text-xs">Mixtio ERP — Delivery Partner Registration</div>
               </div>
             </div>
             <p className="text-blue-100 text-sm">
@@ -315,7 +315,7 @@ export default function LogisticsRegisterPage() {
         </div>
 
         <p className="text-center text-blue-200 text-xs mt-4 opacity-70">
-          © {new Date().getFullYear()} Roland Consult · Cosmos ERP Platform
+          © {new Date().getFullYear()} Roland Consult · Mixtio ERP Platform
         </p>
       </div>
     </div>

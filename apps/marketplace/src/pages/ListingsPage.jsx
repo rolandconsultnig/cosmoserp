@@ -145,7 +145,7 @@ export default function ListingsPage() {
   const listTitle = search
     ? `Search: ${search}`
     : category || 'All products';
-  const listDesc = `Browse ${listTitle.toLowerCase()} on Cosmos Market. Verified Nigerian sellers, secure checkout, and delivery options.`;
+  const listDesc = `Browse ${listTitle.toLowerCase()} on Mixio Marketplace. Verified Nigerian sellers, secure checkout, and delivery options.`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

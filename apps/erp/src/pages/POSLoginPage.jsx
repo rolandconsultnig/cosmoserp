@@ -49,7 +49,7 @@ export default function POSLoginPage() {
               </div>
               <div>
                 <div className="font-black text-xl leading-tight">Point of Sale</div>
-                <div className="text-emerald-100 text-xs">Cosmos ERP — Cashier Access</div>
+                <div className="text-emerald-100 text-xs">Mixtio ERP — Cashier Access</div>
               </div>
             </div>
             <p className="text-emerald-100 text-sm">
@@ -127,7 +127,7 @@ export default function POSLoginPage() {
         </div>
 
         <p className="text-center text-emerald-200 text-xs mt-4 opacity-70">
-          © {new Date().getFullYear()} Roland Consult · Cosmos ERP Platform
+          © {new Date().getFullYear()} Roland Consult · Mixtio ERP Platform
         </p>
       </div>
     </div>

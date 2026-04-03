@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
               <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <div className="font-bold text-slate-900 text-[17px]">Cosmos Admin</div>
+              <div className="font-bold text-slate-900 text-[17px]">Mixtio Admin</div>
               <div className="text-[12px] text-slate-400">Reset your password</div>
             </div>
           </div>

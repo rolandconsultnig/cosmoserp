@@ -75,7 +75,7 @@ async function sendLowStockAlert(product, warehouse, currentStock, tenantPhone) 
     `Reorder Point: ${product.reorderPoint} units`,
     '',
     'A draft purchase order has been created automatically.',
-    'Please review and confirm in your Cosmos ERP dashboard.',
+    'Please review and confirm in your Mixtio ERP dashboard.',
   ].join('\n');
 
   return sendMessage(tenantPhone, message);

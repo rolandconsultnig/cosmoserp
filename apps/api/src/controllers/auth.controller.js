@@ -254,7 +254,7 @@ function getOrigin() {
 }
 
 function getRpName() {
-  return process.env.WEBAUTHN_RP_NAME || 'CosmosERP';
+  return process.env.WEBAUTHN_RP_NAME || 'Mixtio';
 }
 
 async function upsertWebAuthnChallenge({ userId, type, challenge, ttlMs }) {
@@ -503,7 +503,7 @@ async function forgotPassword(req, res) {
         const otpResult = await createOtp(normalized, 'ERP_PASSWORD_RESET');
         const ttlMinutes = Math.round((PURPOSE_TTL_MS.ERP_PASSWORD_RESET || 900000) / 60000);
         await sendOtpEmail(user.email, otpResult.code, {
-          title: 'Your Cosmos ERP password reset code',
+          title: 'Your Mixtio ERP password reset code',
           tagline: 'password reset',
           ttlMinutes,
         });
@@ -579,7 +579,7 @@ async function adminForgotPassword(req, res) {
         const otpResult = await createOtp(normalized, 'ADMIN_PASSWORD_RESET');
         const ttlMinutes = Math.round((PURPOSE_TTL_MS.ADMIN_PASSWORD_RESET || 900000) / 60000);
         await sendOtpEmail(admin.email, otpResult.code, {
-          title: 'Your Cosmos Admin password reset code',
+          title: 'Your Mixtio Admin password reset code',
           tagline: 'admin password reset',
           ttlMinutes,
         });

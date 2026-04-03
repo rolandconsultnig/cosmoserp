@@ -70,7 +70,7 @@ async function deliverMarketplaceRegistrationOtp(email) {
   const ttlMinutes = Math.round((PURPOSE_TTL_MS.MARKETPLACE_REGISTRATION || 86400000) / 60000);
   try {
     await sendOtpEmail(otpResult.normalizedEmail, otpResult.code, {
-      title: 'Your Cosmos Marketplace registration code',
+      title: 'Your Mixio Marketplace registration code',
       tagline: 'customer registration',
       ttlMinutes,
     });
@@ -539,7 +539,7 @@ async function resendVerificationEmail(req, res) {
       const otpResult = await createOtp(email, 'MARKETPLACE_REGISTRATION');
       const ttlMinutes = Math.round((PURPOSE_TTL_MS.MARKETPLACE_REGISTRATION || 86400000) / 60000);
       await sendOtpEmail(customer.email, otpResult.code, {
-        title: 'Your Cosmos Marketplace verification code',
+        title: 'Your Mixio Marketplace verification code',
         tagline: 'account verification',
         ttlMinutes,
       });

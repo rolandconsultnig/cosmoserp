@@ -2,13 +2,13 @@ import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
 import { getSiteUrl, absoluteUrl } from '../lib/siteConfig';
 
-const DEFAULT_TITLE = 'Cosmos Market — Buy from Nigerian Businesses';
+const DEFAULT_TITLE = 'Mixio Marketplace — Buy from Nigerian Businesses';
 const DEFAULT_DESC =
-  'Discover and buy from verified Nigerian businesses on Cosmos Market. Secure escrow payments, nationwide delivery, and NRS-compliant tax receipts.';
+  'Discover and buy from verified Nigerian businesses on Mixio Marketplace. Secure escrow payments, nationwide delivery, and NRS-compliant tax receipts.';
 
 /**
  * @param {object} props
- * @param {string} [props.title] - Page title (suffix " | Cosmos Market" added unless fullTitle)
+ * @param {string} [props.title] - Page title (suffix " | Mixio Marketplace" added unless fullTitle)
  * @param {string} [props.fullTitle] - Exact document title (no suffix)
  * @param {string} [props.description]
  * @param {string} [props.canonicalPath] - Path only, e.g. /products/abc — defaults to current location
@@ -32,8 +32,8 @@ export default function Seo({
   const path = canonicalPath != null ? canonicalPath : `${pathname}${search}`;
   const canonical = site ? `${site}${path.startsWith('/') ? path : `/${path}`}` : '';
 
-  const documentTitle = fullTitle || (title ? `${title} | Cosmos Market` : DEFAULT_TITLE);
-  const ogImage = imageUrl ? absoluteUrl(imageUrl) : site ? `${site}/cosmos-market-icon.svg` : '';
+  const documentTitle = fullTitle || (title ? `${title} | Mixio Marketplace` : DEFAULT_TITLE);
+  const ogImage = imageUrl ? absoluteUrl(imageUrl) : site ? `${site}/mixtio-logo.png` : '';
 
   const ldNodes = jsonLd
     ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]).map((obj, i) => (
@@ -58,7 +58,7 @@ export default function Seo({
       {canonical ? <link rel="canonical" href={canonical} /> : null}
 
       <meta property="og:type" content={type} />
-      <meta property="og:site_name" content="Cosmos Market" />
+      <meta property="og:site_name" content="Mixio Marketplace" />
       <meta property="og:title" content={documentTitle} />
       <meta property="og:description" content={description.slice(0, 300)} />
       {canonical ? <meta property="og:url" content={canonical} /> : null}

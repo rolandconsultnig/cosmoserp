@@ -102,7 +102,7 @@ export default function LoginPage() {
               </div>
               <div>
                 <div className="font-bold text-slate-900 text-[17px] leading-tight tracking-tight">
-                  Cosmos Admin
+                  Mixtio Admin
                 </div>
                 <div className="text-[12px] text-slate-400 font-medium">Roland Consult Platform</div>
               </div>
@@ -209,7 +209,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-white/25 text-[12px] mt-5">
-          © {new Date().getFullYear()} Roland Consult · Cosmos ERP Platform
+          © {new Date().getFullYear()} Roland Consult · Mixtio ERP Platform
         </p>
       </div>
     </div>

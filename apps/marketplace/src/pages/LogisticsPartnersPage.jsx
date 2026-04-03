@@ -28,7 +28,7 @@ export default function LogisticsPartnersPage() {
     <div className="max-w-4xl mx-auto py-12">
       <Seo
         title="Logistics partners"
-        description="Delivery partners integrated with Cosmos Market: GIG, Kobo360, Terminal Africa, and more for nationwide shipping in Nigeria."
+        description="Delivery partners integrated with Mixio Marketplace: GIG, Kobo360, Terminal Africa, and more for nationwide shipping in Nigeria."
         canonicalPath="/logistics"
         type="website"
       />

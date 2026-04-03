@@ -1,6 +1,6 @@
-# Cosmos ERP
+# Mixtio ERP & Mixio Marketplace
 
-A full-stack, multi-tenant ERP platform built for Nigerian SMEs by Roland Consult.
+A full-stack, multi-tenant ERP platform (**Mixtio ERP**) and public marketplace (**Mixio Marketplace**) for Nigerian SMEs by Roland Consult.
 
 ## Architecture
 

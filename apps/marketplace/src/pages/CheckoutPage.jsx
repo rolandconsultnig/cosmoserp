@@ -66,7 +66,7 @@ export default function CheckoutPage() {
   if (items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-24 text-center">
-        <Seo title="Checkout" description="Checkout on Cosmos Market." canonicalPath="/checkout" noindex />
+        <Seo title="Checkout" description="Checkout on Mixio Marketplace." canonicalPath="/checkout" noindex />
         <ShoppingBag className="w-14 h-14 text-gray-200 mx-auto mb-5" />
         <h2 className="text-xl font-bold text-gray-900 mb-2">Nothing to checkout</h2>
         <Link to="/products" className="text-brand-600 font-medium hover:underline text-sm">Browse products →</Link>
@@ -88,7 +88,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
-      <Seo title="Checkout" description="Complete your Cosmos Market order with delivery details and secure payment." canonicalPath="/checkout" noindex />
+      <Seo title="Checkout" description="Complete your Mixio Marketplace order with delivery details and secure payment." canonicalPath="/checkout" noindex />
       {/* Header */}
       <div className="flex items-center gap-3 mb-7">
         <Link to="/cart" className="text-brand-600 hover:text-brand-800 text-sm font-medium">← Cart</Link>
@@ -156,7 +156,7 @@ export default function CheckoutPage() {
                   <CreditCard className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-bold text-gray-900 text-sm">Cosmos Secure Payment</div>
+                  <div className="font-bold text-gray-900 text-sm">Mixio Secure Payment</div>
                   <div className="text-xs text-gray-500 mt-0.5">Card, bank transfer, USSD. Funds held in escrow until delivery confirmed.</div>
                 </div>
                 <div className="w-5 h-5 bg-brand-600 rounded-full flex items-center justify-center flex-shrink-0">

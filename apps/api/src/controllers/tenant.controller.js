@@ -56,7 +56,7 @@ async function deliverTenantRegistrationOtp(email) {
   const ttlMinutes = Math.round((PURPOSE_TTL_MS.TENANT_REGISTRATION || 900000) / 60000);
   try {
     await sendOtpEmail(otpResult.normalizedEmail, otpResult.code, {
-      title: 'Your Cosmos ERP registration code',
+      title: 'Your Mixtio ERP registration code',
       tagline: 'business registration',
       ttlMinutes,
     });

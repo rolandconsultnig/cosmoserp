@@ -38,9 +38,9 @@ export default function Footer() {
             {/* Brand */}
             <div className="col-span-2 sm:col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-            <img src={LOGO_URL} alt="Cosmos Market" className="h-[22px] md:h-[25px] lg:h-[27px] w-auto object-contain" />
+            <img src={LOGO_URL} alt="Mixio Marketplace" className="h-[22px] md:h-[25px] lg:h-[27px] w-auto object-contain" />
                 <div className="leading-none">
-                  <div className="font-extrabold text-white text-base">Cosmos</div>
+                  <div className="font-extrabold text-white text-base">Mixio</div>
                   <div className="text-amber-400 text-[10px] font-semibold uppercase tracking-widest">Market</div>
                 </div>
               </div>
@@ -67,7 +67,7 @@ export default function Footer() {
 
             {/* Sell */}
             <div>
-              <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wider">Sell on Cosmos</h3>
+              <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wider">Sell on Mixio</h3>
               <ul className="space-y-2.5 text-sm">
                 {SELL_LINKS.map(({ label, href }) => (
                   <li key={label}>
@@ -120,7 +120,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div style={{ background: '#0D0A2E' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
-            <span>© 2025 Cosmos Market by Roland Consult. All rights reserved.</span>
+            <span>© 2025 Mixio Marketplace by Roland Consult. All rights reserved.</span>
             <div className="flex gap-5">
               <a href="#" className="hover:text-gray-300 transition-colors">Privacy Policy</a>
               <a href="#" className="hover:text-gray-300 transition-colors">Terms of Service</a>

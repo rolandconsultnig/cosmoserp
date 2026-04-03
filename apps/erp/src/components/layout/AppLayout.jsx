@@ -158,10 +158,10 @@ export default function AppLayout() {
     )}>
       {/* Logo */}
       <div className={cn('flex items-center h-16 border-b border-slate-200 px-4', collapsed && !mobile ? 'justify-center' : 'gap-3')}>
-        <img src={LOGO_URL} alt="Cosmos ERP" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
+        <img src={LOGO_URL} alt="Mixtio ERP" className="h-[19px] md:h-[22px] lg:h-[24px] w-auto object-contain flex-shrink-0" />
         {(!collapsed || mobile) && (
           <div>
-            <div className="font-bold text-slate-900 text-sm leading-tight">Cosmos ERP</div>
+            <div className="font-bold text-slate-900 text-sm leading-tight">Mixtio ERP</div>
             <div className="text-xs text-slate-500 truncate max-w-[140px]">{tenant?.tradingName || tenant?.businessName}</div>
           </div>
         )}

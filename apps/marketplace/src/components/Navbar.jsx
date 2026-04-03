@@ -35,9 +35,9 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-              <img src={LOGO_URL} alt="Cosmos Market" className="h-[24px] md:h-[28px] lg:h-[30px] w-auto object-contain" />
+              <img src={LOGO_URL} alt="Mixio Marketplace logo" className="h-[24px] md:h-[28px] lg:h-[30px] w-auto object-contain" />
               <div className="hidden sm:block leading-none">
-                <div className="text-white font-extrabold text-base tracking-tight">Cosmos</div>
+                <div className="text-white font-extrabold text-base tracking-tight">Mixio</div>
                 <div className="text-amber-300 text-[10px] font-semibold uppercase tracking-widest">Market</div>
               </div>
             </Link>
@@ -59,7 +59,7 @@ export default function Navbar() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search Cosmos Market…"
+                  placeholder="Search Mixio Marketplace…"
                   className="flex-1 px-4 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset"
                 />
                 <button type="submit"
@@ -153,7 +153,7 @@ export default function Navbar() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search Cosmos Market…"
+                placeholder="Search Mixio Marketplace…"
                 className="flex-1 px-4 py-2.5 text-sm text-gray-900 bg-white focus:outline-none"
               />
               <button type="submit" className="bg-amber-400 px-4 flex items-center justify-center">
