@@ -279,7 +279,7 @@ async function initiatePayment(req, res) {
           authorization_url: `${process.env.MARKET_URL || 'http://localhost:5174'}/checkout/verify?reference=mock-${order.orderNumber}&order=${order.id}`,
           access_code: 'mock_access_code',
         },
-        message: 'Mock payment (Cosmos Escrow not configured)',
+        message: 'Mock payment (Mixtio Escrow not configured)',
       });
     }
 

@@ -222,7 +222,7 @@ export default function ProductDetailPage() {
             </div>
             <div className="flex items-center gap-2 text-sm text-brand-800">
               <Shield className="w-4 h-4 text-brand-600 flex-shrink-0" />
-              <span>Payments secured by Cosmos Escrow</span>
+              <span>Payments secured by Mixtio Escrow</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-brand-800">
               <Shield className="w-4 h-4 text-brand-600 flex-shrink-0" />

@@ -45,7 +45,7 @@ const CATEGORIES = [
 
 const TRUST_ITEMS = [
   { icon: Shield, title: 'KYC-Verified Sellers', sub: 'All sellers are TIN-registered' },
-  { icon: CreditCard, title: 'Cosmos Escrow', sub: 'Funds held until delivery confirmed' },
+  { icon: CreditCard, title: 'Mixtio Escrow', sub: 'Funds held until delivery confirmed' },
   { icon: Truck, title: 'Nationwide Delivery', sub: 'GIG, Sendbox & Kwik logistics' },
   { icon: Award, title: 'NRS Tax Receipts', sub: 'IRN-stamped on every order' },
 ];

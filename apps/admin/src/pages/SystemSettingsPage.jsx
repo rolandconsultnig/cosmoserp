@@ -382,7 +382,7 @@ export default function SystemSettingsPage() {
             <div className="space-y-2">
               {[
                 { label: 'NRS E-Invoicing', value: 'Connected', active: true },
-                { label: 'Cosmos Escrow', value: 'Active', active: true },
+                { label: 'Mixtio Escrow', value: 'Active', active: true },
                 { label: 'NIBSS Payments', value: 'Configured', active: true },
                 { label: 'WhatsApp Business', value: 'Available', active: true },
               ].map(({ label, value, active }) => (

@@ -103,7 +103,7 @@ export default function Footer() {
               <div className="space-y-3">
                 {[
                   { icon: Shield,    text: 'NRS Tax-Compliant Receipts' },
-                  { icon: CreditCard, text: 'Cosmos Escrow Payments' },
+                  { icon: CreditCard, text: 'Mixtio Escrow Payments' },
                   { icon: Truck,     text: 'GIG & Sendbox Logistics' },
                   { icon: Shield,    text: 'KYC-Verified Sellers' },
                 ].map(({ icon: Icon, text }) => (

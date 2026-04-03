@@ -41,8 +41,8 @@ cosmos-erp/
 
 ### 5. E-Commerce Marketplace
 - Global product search
-- Seller toggle (publish to Cosmos Market)
-- Escrow payments via Cosmos Escrow
+- Seller toggle (publish to Mixio Marketplace)
+- Escrow payments via Mixtio Escrow
 - Logistics API (GIG Logistics, Kobo360)
 
 ### 6. Super Admin Platform (Roland Consult)
@@ -60,7 +60,7 @@ cosmos-erp/
 | Cache | Redis |
 | Frontend | React, Vite, TailwindCSS, shadcn/ui |
 | Auth | JWT + Refresh tokens, RBAC |
-| Payments | Cosmos Escrow |
+| Payments | Mixtio Escrow |
 | Search | Elasticsearch / Algolia |
 | Messaging | WhatsApp Business API |
 | Tax | NRS/FIRS API |

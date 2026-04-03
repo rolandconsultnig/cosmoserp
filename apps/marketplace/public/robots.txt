@@ -1,4 +1,4 @@
-# Cosmos Market - default production domain in sitemap; change if you use another host.
+# Mixio Marketplace - default production domain in sitemap; change if you use another host.
 User-agent: *
 Allow: /
 

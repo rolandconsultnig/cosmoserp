@@ -220,7 +220,7 @@ export default function CheckoutPage() {
               </button>
 
               <div className="text-center text-[11px] text-gray-400 mt-3 flex items-center justify-center gap-1">
-                <Shield className="w-3 h-3" /> Secured by Cosmos Escrow · NRS receipt will be issued
+                <Shield className="w-3 h-3" /> Secured by Mixtio Escrow · NRS receipt will be issued
               </div>
             </div>
           </div>
